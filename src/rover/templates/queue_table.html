@@ -1,0 +1,37 @@
+{% for job in jobs %}
+<tr>
+    <td>{{ job.target_url }}</td>
+    <td>
+        {{ job.git_ref or 'default' }}
+        {% if job.resolved_commit %}
+        <br><small title="{{ job.resolved_commit }}">{{ job.resolved_commit[:7] }}</small>
+        {% endif %}
+        {% if job.resolved_tags %}
+        <br><small>{{ job.resolved_tags }}</small>
+        {% endif %}
+    </td>
+    <td>
+        {% if job.status == 'completed' %}
+        <ins>{{ job.status }}</ins>
+        {% elif job.status == 'failed' %}
+        <del>{{ job.status }}</del>
+        {% else %}
+        <mark>{{ job.status }}</mark>
+        {% endif %}
+    </td>
+    <td><small>{{ job.created_at }}</small></td>
+    <td>
+        {% if job.status == 'completed' %}
+        <a href="/reports/{{ job.id }}" role="button" class="outline">View Report</a>
+        {% elif job.status == 'failed' %}
+        <small>{{ job.error_message }}</small>
+        {% else %}
+        <span aria-busy="true">Scanning...</span>
+        {% endif %}
+    </td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="5">No scans initiated yet.</td>
+</tr>
+{% endfor %}

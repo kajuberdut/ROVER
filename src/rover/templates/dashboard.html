@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+    <h2>Initiate Scan</h2>
+    <form action="/scan" method="POST">
+        <label for="target_url">Target Git Repository URL</label>
+        <input type="url" id="target_url" name="target_url" placeholder="https://github.com/pallets/flask" required>
+
+        <label for="git_ref">Git Ref (Tag, Branch, or Commit Hash)</label>
+        <input type="text" id="git_ref" name="git_ref" placeholder="main, v1.0, or commit hash">
+
+        <button type="submit">Start Vulnerability Scan</button>
+    </form>
+</section>
+
+<section>
+    <h2>Scan History</h2>
+    <figure>
+        <table>
+            <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>Ref</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="queue-body">
+                {% include 'queue_table.html' %}
+            </tbody>
+        </table>
+    </figure>
+</section>
+
+<script>
+    // Auto-poll the queue table every 3 seconds
+    setInterval(() => {
+        fetch('/api/queue_table')
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('queue-body').innerHTML = html;
+            })
+            .catch(error => console.error('Error fetching queue status:', error));
+    }, 3000);
+</script>
+</table>
+</figure>
+</section>
+{% endblock %}

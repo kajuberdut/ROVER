@@ -1,0 +1,10 @@
+services:
+  rover:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Docker-out-of-Docker (DooD) setup
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Optional: bind mount src for rapid development without rebuilds
+      - ./src:/app/src

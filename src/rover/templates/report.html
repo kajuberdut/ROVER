@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+    <a href="/" id="top-anchor" role="button" class="secondary outline">← Dashboard</a>
+    <h2 style="margin-top: 1rem;">Report Details: {{ report_id }}</h2>
+
+    <article>
+        <header>
+            <hgroup>
+                <h3 style="margin-bottom: 0;">{{ job.target_url }}</h3>
+                <p>
+                    <strong>Ref:</strong> {{ job.git_ref or 'default' }}
+                    {% if job.resolved_commit %}
+                    <small title="{{ job.resolved_commit }}">({{ job.resolved_commit[:7] }})</small>
+                    {% endif %}
+                    {% if job.resolved_tags %}
+                    <small>[{{ job.resolved_tags }}]</small>
+                    {% endif %}
+                    <br>
+                    Status: <mark>{{ job.status }}</mark> - Scanned on {{ job.updated_at }}
+                </p>
+            </hgroup>
+        </header>
+
+        {% if job.status == 'completed' and job.results_json %}
+        {% set results = (job.results_json | loadjson) %}
+
+        {% if results.Results %}
+        {% set ns = namespace(found_any=false) %}
+        {% for result in results.Results %}
+        {% if result.Vulnerabilities %}
+        {% set ns.found_any = true %}
+        <h4>Target: {{ result.Target }} ({{ result.Class }})</h4>
+        <figure>
+            <table role="grid">
+                <thead>
+                    <tr>
+                        <th scope="col">Vulnerability ID</th>
+                        <th scope="col">PkgName</th>
+                        <th scope="col">Severity</th>
+                        <th scope="col">Installed Version</th>
+                        <th scope="col">Fixed Version</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vuln in result.Vulnerabilities %}
+                    <tr>
+                        <td><a href="{{ vuln.PrimaryURL }}" target="_blank">{{ vuln.VulnerabilityID }}</a></td>
+                        <td>{{ vuln.PkgName }}</td>
+                        <td>
+                            {% if vuln.Severity == 'CRITICAL' %}
+                            <ins style="color: var(--pico-del-color);">{{ vuln.Severity }}</ins>
+                            {% elif vuln.Severity == 'HIGH' %}
+                            <ins style="color: #ff9800;">{{ vuln.Severity }}</ins>
+                            {% else %}
+                            <span>{{ vuln.Severity }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ vuln.InstalledVersion }}</td>
+                        <td>{{ vuln.FixedVersion | default('N/A') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </figure>
+        {% endif %}
+        {% endfor %}
+
+        {% if not ns.found_any %}
+        <p>No vulnerabilities found in any target for this scan.</p>
+        {% endif %}
+
+        {% else %}
+        <p>Scan completed but no readable results were returned by Trivy.</p>
+        {% endif %}
+        {% elif job.status == 'failed' %}
+        <p><strong>Error:</strong> {{ job.error_message }}</p>
+        {% else %}
+        <p>Scan is currently {{ job.status }}...</p>
+        {% endif %}
+    </article>
+</section>
+
+<!-- Floating Navigation Combo -->
+<div id="floating-nav" class="floating-nav hidden" aria-hidden="true">
+    <a href="/" role="button" class="secondary outline">← Dashboard</a>
+    <button class="secondary" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑ Top</button>
+</div>
+
+<style>
+    .floating-nav {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        display: flex;
+        gap: 0.5rem;
+        z-index: 100;
+        transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+        background: var(--pico-background-color);
+        padding: 0.5rem;
+        border-radius: var(--pico-border-radius);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+
+    .floating-nav.hidden {
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(20px);
+        pointer-events: none;
+    }
+
+    .floating-nav button,
+    .floating-nav a {
+        margin-bottom: 0;
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const topAnchor = document.getElementById("top-anchor");
+        const floatingNav = document.getElementById("floating-nav");
+
+        if (topAnchor && floatingNav) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        // The top anchor IS in view, hide the floating nav
+                        floatingNav.classList.add("hidden");
+                        floatingNav.setAttribute("aria-hidden", "true");
+                    } else {
+                        // The top anchor is OUT of view, show the floating nav
+                        floatingNav.classList.remove("hidden");
+                        floatingNav.setAttribute("aria-hidden", "false");
+                    }
+                });
+            }, {
+                // Trigger as soon as target element leaves viewport boundary
+                root: null,
+                threshold: 0,
+            });
+
+            observer.observe(topAnchor);
+        }
+    });
+</script>
+{% endblock %}

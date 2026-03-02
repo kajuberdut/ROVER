@@ -1,0 +1,72 @@
+[project]
+name = "rover"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "falcon",
+    "httpx>=0.28.1",
+    "jinja2",
+    "testcontainers>=4.14.1",
+    "uvicorn[standard]",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.19.1",
+    "poethepoet>=0.42.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.15.4",
+    "vulture>=2.14",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["I", "F", "S"]
+fixable = ["ALL"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["rover"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["S101", "S608", "S110", "S108", "S105"]
+
+[tool.poe]
+executor = { type = "uv" }
+
+[tool.poe.tasks]
+rover = { cmd = "uv run uvicorn rover.app:app --port 8000", help = "Start ROVER server" }
+test = { cmd = "pytest tests/", help = "Run all tests" }
+coverage = { cmd = "pytest --cov=src --cov-report=term-missing tests/", help = "Run tests with coverage" }
+lint = { cmd = "ruff check --fix .", help = "Lint code using ruff" }
+format = { cmd = "ruff format .", help = "Format code using ruff" }
+vulture = { cmd = "vulture src/", help = "Find dead code" }
+mypy = { cmd = "mypy src/", help = "Run mypy" }
+verify = { sequence = ["lint", "format", "test", "mypy"], help = "Run lint, format, test, and mypy in sequence" }
+compose-up = { cmd = "docker compose up -d --build", help = "Start the server in Docker" }
+compose-down = { cmd = "docker compose down", help = "Stop the server in Docker" }
+
+[[tool.mypy.overrides]]
+module = "testcontainers.*"
+ignore_missing_imports = true
+
+[tool.vulture]
+exclude = ["tests/", ".venv/"]
+paths = ["."]
+min_confidence = 80
+sort_by_size = true
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+exclude = ["tests"]
