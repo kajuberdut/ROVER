@@ -43,6 +43,13 @@ def init_db() -> None:
                     resolved_tags TEXT DEFAULT NULL
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS repositories (
+                    id TEXT PRIMARY KEY,
+                    url TEXT UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
 
 init_db()
@@ -122,4 +129,36 @@ def claim_next_job() -> dict[str, Any] | None:
                     (job_id,),
                 )
                 return dict(row)
+    return None
+
+
+def add_repository(url: str) -> str:
+    repo_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "INSERT INTO repositories (id, url) VALUES (?, ?) ON CONFLICT(url) DO UPDATE SET url=excluded.url",
+                (repo_id, url),
+            )
+            # Retrieve the correct ID since ON CONFLICT might have just updated the existing one
+            cursor = conn.execute("SELECT id FROM repositories WHERE url = ?", (url,))
+            row = cursor.fetchone()
+            return str(row["id"]) if row else repo_id
+
+
+def get_all_repositories() -> list[dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM repositories ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_repository(repo_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM repositories WHERE id = ?", (repo_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
     return None

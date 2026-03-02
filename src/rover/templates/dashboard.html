@@ -2,13 +2,49 @@
 
 {% block content %}
 <section>
-    <h2>Initiate Scan</h2>
-    <form action="/scan" method="POST">
-        <label for="target_url">Target Git Repository URL</label>
-        <input type="url" id="target_url" name="target_url" placeholder="https://github.com/pallets/flask" required>
+    <h2>Add Repository</h2>
+    <form action="/repo" method="POST" style="margin-bottom: 2rem;">
+        <fieldset role="group">
+            <input type="url" name="target_url" placeholder="https://github.com/organization/repo" required
+                style="margin-bottom: 0;">
+            <input type="submit" value="Add Repo" style="width: auto; margin-bottom: 0;">
+        </fieldset>
+    </form>
+</section>
 
-        <label for="git_ref">Git Ref (Tag, Branch, or Commit Hash)</label>
-        <input type="text" id="git_ref" name="git_ref" placeholder="main, v1.0, or commit hash">
+<section>
+    <h2>Initiate Scan</h2>
+    <form action="/scan" method="POST" id="scan-form">
+        <label for="repo_id">Target Repository</label>
+        <select id="repo_id" name="repo_id" required>
+            <option value="" disabled selected>Select a mapped repository...</option>
+            {% for repo in repositories %}
+            <option value="{{ repo.id }}">{{ repo.url }}</option>
+            {% endfor %}
+        </select>
+
+        <label>Git Ref</label>
+        <div role="group" id="ref-type-group" style="margin-bottom: 1rem;">
+            <button type="button" class="ref-btn" data-type="branch">Branch</button>
+            <button type="button" class="ref-btn outline" data-type="tag">Tag</button>
+            <button type="button" class="ref-btn outline" data-type="commit">Commit</button>
+        </div>
+        <input type="hidden" id="ref_type" name="ref_type" value="branch">
+
+        <div style="margin-bottom: 1rem;">
+            <select id="git_ref_branch" class="ref-input">
+                <option value="" disabled selected>Select a repository first...</option>
+            </select>
+
+            <select id="git_ref_tag" class="ref-input" style="display: none;">
+                <option value="" disabled selected>Select a repository first...</option>
+            </select>
+
+            <input type="text" id="git_ref_commit" class="ref-input" placeholder="Enter commit hash..."
+                style="display: none;">
+        </div>
+
+        <input type="hidden" name="git_ref" id="git_ref_final">
 
         <button type="submit">Start Vulnerability Scan</button>
     </form>
@@ -44,6 +80,96 @@
             })
             .catch(error => console.error('Error fetching queue status:', error));
     }, 3000);
+
+    // Advanced Ref Selection Logic
+    const repoSelect = document.getElementById('repo_id');
+    const branchSelect = document.getElementById('git_ref_branch');
+    const tagSelect = document.getElementById('git_ref_tag');
+    const commitInput = document.getElementById('git_ref_commit');
+    const scanForm = document.getElementById('scan-form');
+    const finalRefInput = document.getElementById('git_ref_final');
+    const refBtns = document.querySelectorAll('.ref-btn');
+    const refTypeHidden = document.getElementById('ref_type');
+
+    function updateVisibility() {
+        const selectedType = refTypeHidden.value;
+        branchSelect.style.display = selectedType === 'branch' ? 'block' : 'none';
+        tagSelect.style.display = selectedType === 'tag' ? 'block' : 'none';
+        commitInput.style.display = selectedType === 'commit' ? 'block' : 'none';
+    }
+
+    refBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Revert all to outline
+            refBtns.forEach(b => b.classList.add('outline'));
+            // Fill the clicked one
+            btn.classList.remove('outline');
+
+            refTypeHidden.value = btn.dataset.type;
+            updateVisibility();
+        });
+    });
+
+    repoSelect.addEventListener('change', (e) => {
+        const repoId = e.target.value;
+        if (!repoId) return;
+
+        branchSelect.innerHTML = '<option value="" disabled selected>Fetching branches...</option>';
+        tagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
+
+        fetch(`/api/repos/${repoId}/refs`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    branchSelect.innerHTML = '<option value="" disabled selected>Failed to load branches</option>';
+                    tagSelect.innerHTML = '<option value="" disabled selected>Failed to load tags</option>';
+                    return;
+                }
+
+                branchSelect.innerHTML = '<option value="" disabled selected>Select a branch...</option>';
+                data.branches.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    branchSelect.appendChild(opt);
+                });
+
+                tagSelect.innerHTML = '<option value="" disabled selected>Select a tag...</option>';
+                data.tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    tagSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                console.error("Error fetching refs:", err);
+                branchSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
+                tagSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
+            });
+    });
+
+    scanForm.addEventListener('submit', (e) => {
+        const selectedType = refTypeHidden.value;
+        let selectedRef = '';
+
+        if (selectedType === 'branch') {
+            selectedRef = branchSelect.value;
+        } else if (selectedType === 'tag') {
+            selectedRef = tagSelect.value;
+        } else {
+            selectedRef = commitInput.value;
+        }
+
+        if (!selectedRef) {
+            e.preventDefault();
+            alert('Please select or enter a Git Ref before scanning.');
+            return;
+        }
+
+        finalRefInput.value = selectedRef;
+    });
 </script>
 </table>
 </figure>

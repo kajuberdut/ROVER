@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import subprocess
 
 import falcon
 import falcon.asgi
@@ -22,9 +23,74 @@ class DashboardResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         jobs = scan_queue.get_all_jobs()
+        repositories = scan_queue.get_all_repositories()
         template = template_env.get_template("dashboard.html")
-        resp.text = template.render(title="R.O.V.E.R Dashboard", jobs=jobs)
+        resp.text = template.render(
+            title="R.O.V.E.R Dashboard", jobs=jobs, repositories=repositories
+        )
         resp.content_type = falcon.MEDIA_HTML
+
+
+class RepositoryResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        form = await req.get_media()
+        target_url = form.get("target_url")
+        if target_url:
+            scan_queue.add_repository(target_url)
+        raise falcon.HTTPFound("/")
+
+
+class RepoRefsResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, repo_id: str
+    ) -> None:
+        repo = scan_queue.get_repository(repo_id)
+        if not repo:
+            resp.status = falcon.HTTP_404
+            resp.text = json.dumps({"error": "Repository not found"})
+            return
+
+        url = repo["url"]
+        try:
+            # Run git ls-remote to securely fetch branches and tags
+            result = subprocess.run(  # noqa: S603
+                ["git", "ls-remote", "--heads", "--tags", url],  # noqa: S607
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=10,
+            )
+
+            branches = []
+            tags = []
+            for line in result.stdout.splitlines():
+                if not line:
+                    continue
+                parts = line.split("\t")
+                if len(parts) != 2:
+                    continue
+                ref = parts[1]
+
+                if ref.startswith("refs/heads/"):
+                    branches.append(ref[len("refs/heads/") :])
+                elif ref.startswith("refs/tags/"):
+                    # Remove the ^{} suffix from dereferenced tags
+                    clean_tag = ref[len("refs/tags/") :]
+                    if clean_tag.endswith("^{}"):
+                        clean_tag = clean_tag[:-3]
+                    if clean_tag not in tags:
+                        tags.append(clean_tag)
+
+            resp.text = json.dumps({"branches": sorted(branches), "tags": sorted(tags)})
+            resp.content_type = falcon.MEDIA_JSON
+        except subprocess.TimeoutExpired:
+            resp.status = falcon.HTTP_504
+            resp.text = json.dumps({"error": "Timeout fetching refs"})
+        except subprocess.CalledProcessError as e:
+            resp.status = falcon.HTTP_500
+            resp.text = json.dumps({"error": f"Failed to fetch refs: {e.stderr}"})
 
 
 class ScanResource:
@@ -33,19 +99,22 @@ class ScanResource:
     ) -> None:
         # Parse form data
         form = await req.get_media()
-        target_url = form.get("target_url")
+        repo_id = form.get("repo_id")
         git_ref = form.get("git_ref")
 
-        if not target_url:
+        if not repo_id:
             resp.status = falcon.HTTP_400
-            resp.text = "Missing target_url"
+            resp.text = "Missing repo_id"
+            return
+
+        repo = scan_queue.get_repository(repo_id)
+        if not repo:
+            resp.status = falcon.HTTP_404
+            resp.text = "Repository not found"
             return
 
         # Create a new scan job
-        scan_queue.create_job(target_url, git_ref)
-
-        # In a real app we would raise an event or signal, but for now
-        # the background worker will pick it up on its next polling cycle.
+        scan_queue.create_job(repo["url"], git_ref)
 
         # Redirect back to the dashboard to see the queued job
         raise falcon.HTTPFound("/")
@@ -93,5 +162,7 @@ app.add_static_route("/static", static_path)
 # Add routes
 app.add_route("/", DashboardResource())
 app.add_route("/scan", ScanResource())
+app.add_route("/repo", RepositoryResource())
 app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
+app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
