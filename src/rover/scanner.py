@@ -84,6 +84,11 @@ def run_trivy_scan(
 
         # Configure Trivy database cache using an ephemeral named volume
         container.with_env("TRIVY_CACHE_DIR", "/trivy-cache")
+        # Override default DB mirrors — GCR mirror (mirror.gcr.io) returns 404
+        container.with_env("TRIVY_DB_REPOSITORY", "ghcr.io/aquasecurity/trivy-db:2")
+        container.with_env(
+            "TRIVY_JAVA_DB_REPOSITORY", "ghcr.io/aquasecurity/trivy-java-db:1"
+        )
         container.with_volume_mapping(
             "trivy-vulnerability-db-cache", "/trivy-cache", "rw"
         )
