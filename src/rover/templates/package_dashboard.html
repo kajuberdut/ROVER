@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+    <hgroup>
+        <h2>Release Package: {{ package.name }} (v{{ package.version }})</h2>
+        <h3>Manage and view vulnerability rollups across multiple assets.</h3>
+    </hgroup>
+    <a href="/" role="button" class="secondary outline" style="margin-bottom: 2rem;">&larr; Back to Dashboard</a>
+</section>
+
+<section>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h3>Package Assets</h3>
+        <div style="display: flex; gap: 0.5rem;">
+            <form action="/packages/{{ package.id }}/scan" method="POST" style="margin-bottom: 0;">
+                <button type="submit" class="outline">Scan All Assets</button>
+            </form>
+            <button type="button" class="outline" onclick="document.getElementById('add-asset-modal').showModal();">Add
+                Asset to Package</button>
+        </div>
+    </div>
+
+    <p style="margin-bottom: 1rem; color: grey;">
+        <small><em>Tip: To edit the Git Ref of an existing repository asset, simply re-add it using the "Add Asset"
+                button with the new branch, tag, or commit.</em></small>
+    </p>
+
+    <figure>
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Asset Name</th>
+                    <th>Target Ref</th>
+                    <th>Latest Scan Status</th>
+                    <th>Latest Scan Time</th>
+                    <th>Vulnerabilities</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asset in assets %}
+                <tr>
+                    <td>
+                        {% if asset.asset_type == 'repo' %}
+                        <span
+                            style="display: inline-flex; align-items: center; gap: 0.25rem; color: var(--pico-primary);">📦
+                            Repository</span>
+                        {% else %}
+                        <span
+                            style="display: inline-flex; align-items: center; gap: 0.25rem; color: var(--pico-ins-color);">🐳
+                            Image</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ asset.asset_name }}</td>
+                    <td>
+                        {% if asset.asset_type == 'image' %}
+                        <span style="color: grey;">N/A</span>
+                        {% else %}
+                        {{ asset.git_ref or 'default' }}
+                        {% if asset.resolved_commit %}
+                        <br><small title="{{ asset.resolved_commit }}">{{ asset.resolved_commit[:7] }}</small>
+                        {% endif %}
+                        {% if asset.resolved_tags %}
+                        <br><small>{{ asset.resolved_tags }}</small>
+                        {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if asset.latest_scan_status == 'queued' %}
+                        <span style="display: inline-flex; align-items: center; gap: 0.25rem;">⏳ Queued</span>
+                        {% elif asset.latest_scan_status == 'running' %}
+                        <span aria-busy="true"
+                            style="display: inline-flex; align-items: center; gap: 0.25rem;">Running...</span>
+                        {% elif asset.latest_scan_status == 'completed' %}
+                        <span style="display: inline-flex; align-items: center; gap: 0.25rem;">✅ Completed</span>
+                        {% elif asset.latest_scan_status == 'failed' %}
+                        <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: #d32f2f;">❌
+                            Failed</span>
+                        {% else %}
+                        <span style="color: grey;">Not Scanned</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ asset.latest_scan_time or 'N/A' }}</td>
+                    <td>
+                        {% if asset.results_json %}
+                        {% set results = asset.results_json|loadjson %}
+                        {% set ns = namespace(critical=0, high=0, medium=0, low=0) %}
+                        {% for r in results.get('Results', []) %}
+                        {% for v in r.get('Vulnerabilities', []) %}
+                        {% if v.Severity == 'CRITICAL' %}{% set ns.critical = ns.critical + 1 %}{% endif %}
+                        {% if v.Severity == 'HIGH' %}{% set ns.high = ns.high + 1 %}{% endif %}
+                        {% if v.Severity == 'MEDIUM' %}{% set ns.medium = ns.medium + 1 %}{% endif %}
+                        {% if v.Severity == 'LOW' %}{% set ns.low = ns.low + 1 %}{% endif %}
+                        {% endfor %}
+                        {% endfor %}
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            {% if ns.critical > 0 %}<span style="color: #d32f2f; font-weight: bold;">{{ ns.critical }}
+                                Critical</span>{% endif %}
+                            {% if ns.high > 0 %}<span style="color: #f57c00; font-weight: bold;">{{ ns.high }}
+                                High</span>{% endif %}
+                            {% if ns.medium > 0 %}<span style="color: #fbc02d; font-weight: bold;">{{ ns.medium }}
+                                Medium</span>{% endif %}
+                            {% if ns.low > 0 %}<span style="color: #388e3c; font-weight: bold;">{{ ns.low }}
+                                Low</span>{% endif %}
+                            {% if ns.critical == 0 and ns.high == 0 and ns.medium == 0 and ns.low == 0 %}
+                            <span style="color: #388e3c;">No Vulnerabilities</span>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <span style="color: grey;">No Data</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            {% if asset.latest_scan_id %}
+                            <a href="/reports/{{ asset.latest_scan_id }}" role="button" class="outline">View Report</a>
+                            {% else %}
+                            <span style="color: grey; margin-right: 0.5rem;">No Report</span>
+                            {% endif %}
+
+                            <form action="/packages/assets/{{ asset.package_asset_id }}" method="POST"
+                                style="margin-bottom: 0;">
+                                <input type="hidden" name="action" value="delete">
+                                <button type="submit" class="outline"
+                                    style="border-color: var(--pico-del-color); color: var(--pico-del-color);">Remove</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">No assets added to this package yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+</section>
+
+<dialog id="add-asset-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev"
+                onclick="document.getElementById('add-asset-modal').close();"></button>
+            <strong>Add Existing Asset to Package</strong>
+        </header>
+        <form action="/packages/{{ package.id }}/assets" method="POST" style="margin-bottom: 0;">
+            <fieldset>
+                <label>Asset Type
+                    <select name="asset_type" id="modal_asset_type" required>
+                        <option value="repo">Git Repository</option>
+                        <option value="image">Docker Image</option>
+                    </select>
+                </label>
+
+                <div id="modal_repo_selection">
+                    <label>Repository
+                        <select name="asset_id_repo" id="modal_asset_id_repo">
+                            <option value="" disabled selected>Select a repository...</option>
+                            {% for r in repositories %}
+                            <option value="{{ r.id }}">{{ r.url }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+
+                    <label id="modal_ref_label">Git Ref (Optional)</label>
+                    <div role="group" id="modal_ref_type_group" style="margin-bottom: 1rem;">
+                        <button type="button" class="modal-ref-btn" data-type="branch">Branch</button>
+                        <button type="button" class="modal-ref-btn outline" data-type="tag">Tag</button>
+                        <button type="button" class="modal-ref-btn outline" data-type="commit">Commit</button>
+                    </div>
+                    <input type="hidden" id="modal_ref_type" value="branch">
+
+                    <div style="margin-bottom: 1rem;" id="modal_ref_inputs">
+                        <select id="modal_git_ref_branch" class="ref-input">
+                            <option value="" disabled selected>Select a repository first...</option>
+                        </select>
+
+                        <select id="modal_git_ref_tag" class="ref-input" style="display: none;">
+                            <option value="" disabled selected>Select a repository first...</option>
+                        </select>
+
+                        <input type="text" id="modal_git_ref_commit" class="ref-input"
+                            placeholder="Enter commit hash..." style="display: none;">
+                    </div>
+                    <small id="modal_ref_help">Providing a git ref will lock the scans in this package to this specific
+                        branch, tag, or commit.</small>
+                </div>
+
+                <div id="modal_image_selection" style="display: none;">
+                    <label>Docker Image
+                        <select name="asset_id_image" id="modal_asset_id_image">
+                            <option value="" disabled selected>Select an image...</option>
+                            {% for i in images %}
+                            <option value="{{ i.id }}">{{ i.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+
+                <input type="hidden" name="asset_id" id="modal_asset_id_final" required>
+                <input type="hidden" name="git_ref" id="modal_git_ref_final">
+
+                <input type="submit" value="Add Asset" style="margin-top: 1rem;">
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+
+<script>
+    const typeSelect = document.getElementById('modal_asset_type');
+    const repoDiv = document.getElementById('modal_repo_selection');
+    const imageDiv = document.getElementById('modal_image_selection');
+    const repoSelect = document.getElementById('modal_asset_id_repo');
+    const imageSelect = document.getElementById('modal_asset_id_image');
+    const finalIdInput = document.getElementById('modal_asset_id_final');
+
+    // Ref specific inputs
+    const refBtns = document.querySelectorAll('.modal-ref-btn');
+    const refTypeHidden = document.getElementById('modal_ref_type');
+    const branchSelect = document.getElementById('modal_git_ref_branch');
+    const tagSelect = document.getElementById('modal_git_ref_tag');
+    const commitInput = document.getElementById('modal_git_ref_commit');
+    const finalRefInput = document.getElementById('modal_git_ref_final');
+
+    // --- Ref Selection Logic ---
+    function updateRefVisibility() {
+        const selectedType = refTypeHidden.value;
+        branchSelect.style.display = selectedType === 'branch' ? 'block' : 'none';
+        tagSelect.style.display = selectedType === 'tag' ? 'block' : 'none';
+        commitInput.style.display = selectedType === 'commit' ? 'block' : 'none';
+    }
+
+    refBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            refBtns.forEach(b => b.classList.add('outline'));
+            btn.classList.remove('outline');
+            refTypeHidden.value = btn.dataset.type;
+            updateRefVisibility();
+        });
+    });
+
+    repoSelect.addEventListener('change', (e) => {
+        finalIdInput.value = repoSelect.value;
+        finalIdInput.setCustomValidity("");
+
+        const repoId = e.target.value;
+        if (!repoId) return;
+
+        branchSelect.innerHTML = '<option value="" disabled selected>Fetching branches...</option>';
+        tagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
+
+        fetch(`/api/repos/${repoId}/refs`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    branchSelect.innerHTML = '<option value="">(Failed to load - leave blank)</option>';
+                    tagSelect.innerHTML = '<option value="">(Failed to load - leave blank)</option>';
+                    return;
+                }
+
+                branchSelect.innerHTML = '<option value="" selected>Default/latest branch (leave blank)</option>';
+                data.branches.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    branchSelect.appendChild(opt);
+                });
+
+                tagSelect.innerHTML = '<option value="" selected>None (leave blank)</option>';
+                data.tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    tagSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                branchSelect.innerHTML = '<option value="">(Error loading refs)</option>';
+                tagSelect.innerHTML = '<option value="">(Error loading refs)</option>';
+            });
+    });
+    // ----------------------------
+
+    function updateSelection() {
+        if (typeSelect.value === 'repo') {
+            repoDiv.style.display = 'block';
+            imageDiv.style.display = 'none';
+            finalIdInput.value = repoSelect.value;
+        } else {
+            repoDiv.style.display = 'none';
+            imageDiv.style.display = 'block';
+            finalIdInput.value = imageSelect.value;
+            // Clear out ref so it doesn't get sent by mistake for images
+            finalRefInput.value = "";
+        }
+        // Force required state
+        if (!finalIdInput.value) {
+            finalIdInput.setCustomValidity("Please select an asset.");
+        } else {
+            finalIdInput.setCustomValidity("");
+        }
+    }
+
+    typeSelect.addEventListener('change', updateSelection);
+    imageSelect.addEventListener('change', () => {
+        finalIdInput.value = imageSelect.value;
+        finalIdInput.setCustomValidity("");
+    });
+
+    // Hook form submission to populate git_ref
+    document.querySelector('form[action="/packages/{{ package.id }}/assets"]').addEventListener('submit', function (e) {
+        if (typeSelect.value === 'repo') {
+            const selectedType = refTypeHidden.value;
+            let selectedRef = '';
+            if (selectedType === 'branch') {
+                selectedRef = branchSelect.value;
+            } else if (selectedType === 'tag') {
+                selectedRef = tagSelect.value;
+            } else {
+                selectedRef = commitInput.value;
+            }
+            finalRefInput.value = selectedRef;
+        }
+    });
+
+    // Initial setup
+    updateSelection();
+</script>
+{% endblock %}

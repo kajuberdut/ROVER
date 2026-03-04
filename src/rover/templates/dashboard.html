@@ -76,6 +76,40 @@
     </figure>
 </section>
 
+<section>
+    <h2>Artifact Bundles (Packages)</h2>
+    <div style="margin-bottom: 1rem;">
+        <button type="button" class="outline" onclick="document.getElementById('add-package-modal').showModal();">Create
+            Package</button>
+    </div>
+    <figure>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Version</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pkg in packages %}
+                <tr>
+                    <td>{{ pkg.name }}</td>
+                    <td>{{ pkg.version }}</td>
+                    <td>{{ pkg.created_at }}</td>
+                    <td><a href="/packages/{{ pkg.id }}" role="button" class="outline">View Dashboard</a></td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">No packages found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+</section>
+
 <script>
     // Auto-poll the queue table every 3 seconds
     setInterval(() => {
@@ -216,40 +250,4 @@
     });
 
 </script>
-</table>
-</figure>
-</section>
-
-<dialog id="add-repo-modal">
-    <article>
-        <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('add-repo-modal').close();"></button>
-            <strong>Add Repository</strong>
-        </header>
-        <form action="/repo" method="POST" style="margin-bottom: 0;">
-            <fieldset role="group">
-                <input type="url" name="target_url" placeholder="https://github.com/organization/repo" required
-                    style="margin-bottom: 0;">
-                <input type="submit" value="Add Repo" style="width: auto; margin-bottom: 0;">
-            </fieldset>
-        </form>
-    </article>
-</dialog>
-
-<dialog id="add-image-modal">
-    <article>
-        <header>
-            <button aria-label="Close" rel="prev"
-                onclick="document.getElementById('add-image-modal').close();"></button>
-            <strong>Add Docker Image</strong>
-        </header>
-        <form action="/image" method="POST" style="margin-bottom: 0;">
-            <fieldset role="group">
-                <input type="text" name="target_name" placeholder="ubuntu:latest or ghcr.io/org/image:tag" required
-                    style="margin-bottom: 0;">
-                <input type="submit" value="Add Image" style="width: auto; margin-bottom: 0;">
-            </fieldset>
-        </form>
-    </article>
-</dialog>
 {% endblock %}

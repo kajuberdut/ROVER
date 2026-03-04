@@ -52,5 +52,6 @@ You can run the application using Docker Compose (recommended) or locally using 
   - Dynamic Git Reference querying (Branches, Tags) using `git ls-remote` coupled to a custom PicoCSS segmented button UI.
 - **Job Queue**: A lightweight `sqlite3` queue (`scan_queue.py`) manages asynchronous scanning jobs without needing heavy external message brokers. 
 - **Worker Thread**: `worker.py` runs an `asyncio` loop inside a background Python thread alongside Falcon, gracefully picking up jobs from SQLite.
+- **Artifact Bundles**: Users can logically group and track multiple Git Repositories and Docker Images together under Release Packages, rolling up all vulnerability metrics into a unified dashboard view.
 - **Scanner Execution**: The `scanner.py` utility utilizes `testcontainers` to launch ephemeral, isolated `aquasec/trivy:latest` Docker containers. This ensures no host-system dependencies are needed beyond Docker itself.
   - **Caching**: The application uses a Docker named volume (`trivy-vulnerability-db-cache`) injected securely during scan runtime, caching the heavy 40-200MB vulnerability DB.

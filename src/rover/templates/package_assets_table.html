@@ -1,0 +1,87 @@
+{% for asset in assets %}
+<tr>
+    <td>
+        {% if asset.asset_type == 'repo' %}
+        <span style="white-space: nowrap; color: var(--pico-primary);">📦 Repository</span>
+        {% else %}
+        <span style="white-space: nowrap; color: var(--pico-ins-color);">🐳 Image</span>
+        {% endif %}
+    </td>
+    <td>{{ asset.asset_name }}</td>
+    <td>
+        {% if asset.asset_type == 'image' %}
+        <span style="color: grey;">N/A</span>
+        {% else %}
+        {{ asset.git_ref or 'default' }}
+        {% if asset.resolved_commit %}
+        <br><small title="{{ asset.resolved_commit }}">{{ asset.resolved_commit[:7] }}</small>
+        {% endif %}
+        {% if asset.resolved_tags %}
+        <br><small>{{ asset.resolved_tags }}</small>
+        {% endif %}
+        {% endif %}
+    </td>
+    <td>
+        {% if asset.latest_scan_status == 'queued' %}
+        <span style="white-space: nowrap;">⏳ Queued</span>
+        {% elif asset.latest_scan_status == 'running' %}
+        <span aria-busy="true" style="white-space: nowrap;">Running...</span>
+        {% elif asset.latest_scan_status == 'completed' %}
+        <span style="white-space: nowrap;">✅ Completed</span>
+        {% elif asset.latest_scan_status == 'failed' %}
+        <span style="white-space: nowrap; color: #d32f2f;">❌ Failed</span>
+        {% else %}
+        <span style="white-space: nowrap; color: grey;">Not Scanned</span>
+        {% endif %}
+    </td>
+    <td>{{ asset.latest_scan_time or 'N/A' }}</td>
+    <td>
+        {% if asset.results_json %}
+        {% set results = asset.results_json|loadjson %}
+        {% set ns = namespace(critical=0, high=0, medium=0, low=0) %}
+        {% for r in results.get('Results', []) %}
+        {% for v in r.get('Vulnerabilities', []) %}
+        {% if v.Severity == 'CRITICAL' %}{% set ns.critical = ns.critical + 1 %}{% endif %}
+        {% if v.Severity == 'HIGH' %}{% set ns.high = ns.high + 1 %}{% endif %}
+        {% if v.Severity == 'MEDIUM' %}{% set ns.medium = ns.medium + 1 %}{% endif %}
+        {% if v.Severity == 'LOW' %}{% set ns.low = ns.low + 1 %}{% endif %}
+        {% endfor %}
+        {% endfor %}
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            {% if ns.critical > 0 %}<span style="color: #d32f2f; font-weight: bold;">{{ ns.critical }}
+                Critical</span>{% endif %}
+            {% if ns.high > 0 %}<span style="color: #f57c00; font-weight: bold;">{{ ns.high }}
+                High</span>{% endif %}
+            {% if ns.medium > 0 %}<span style="color: #fbc02d; font-weight: bold;">{{ ns.medium }}
+                Medium</span>{% endif %}
+            {% if ns.low > 0 %}<span style="color: #388e3c; font-weight: bold;">{{ ns.low }}
+                Low</span>{% endif %}
+            {% if ns.critical == 0 and ns.high == 0 and ns.medium == 0 and ns.low == 0 %}
+            <span style="color: #388e3c;">No Vulnerabilities</span>
+            {% endif %}
+        </div>
+        {% else %}
+        <span style="color: grey;">No Data</span>
+        {% endif %}
+    </td>
+    <td>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            {% if asset.latest_scan_id %}
+            <a href="/reports/{{ asset.latest_scan_id }}" role="button" class="outline">View Report</a>
+            {% else %}
+            <span style="color: grey; margin-right: 0.5rem;">No Report</span>
+            {% endif %}
+
+            <form action="/packages/assets/{{ asset.package_asset_id }}" method="POST" style="margin-bottom: 0;">
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" class="outline"
+                    style="border-color: var(--pico-del-color); color: var(--pico-del-color);">Remove</button>
+            </form>
+        </div>
+    </td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="7">No assets added to this package yet.</td>
+</tr>
+{% endfor %}

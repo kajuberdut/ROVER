@@ -25,12 +25,14 @@ class DashboardResource:
         jobs = scan_queue.get_all_jobs()
         repositories = scan_queue.get_all_repositories()
         images = scan_queue.get_all_images()
+        packages = scan_queue.get_all_packages()
         template = template_env.get_template("dashboard.html")
         resp.text = template.render(
             title="R.O.V.E.R Dashboard",
             jobs=jobs,
             repositories=repositories,
             images=images,
+            packages=packages,
         )
         resp.content_type = falcon.MEDIA_HTML
 
@@ -43,7 +45,8 @@ class RepositoryResource:
         target_url = form.get("target_url")
         if target_url:
             scan_queue.add_repository(target_url)
-        raise falcon.HTTPFound("/")
+        referer = req.get_header("Referer", default="/")
+        raise falcon.HTTPFound(referer)
 
 
 class ImageResource:
@@ -54,7 +57,8 @@ class ImageResource:
         target_name = form.get("target_name")
         if target_name:
             scan_queue.add_image(target_name)
-        raise falcon.HTTPFound("/")
+        referer = req.get_header("Referer", default="/")
+        raise falcon.HTTPFound(referer)
 
 
 class RepoRefsResource:
@@ -176,6 +180,111 @@ class QueueTableResource:
         resp.content_type = falcon.MEDIA_HTML
 
 
+class PackageResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        form = await req.get_media()
+        name = form.get("package_name")
+        version = form.get("package_version")
+        if name and version:
+            scan_queue.add_package(name, version)
+        referer = req.get_header("Referer", default="/")
+        raise falcon.HTTPFound(referer)
+
+
+class PackageAssetResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+    ) -> None:
+        form = await req.get_media()
+        asset_type = form.get("asset_type")
+        asset_id = form.get("asset_id")
+        git_ref = form.get("git_ref")
+
+        # Only use git_ref if asset is a repository
+        if asset_type == "image":
+            git_ref = None
+
+        if asset_type and asset_id:
+            scan_queue.add_package_asset(package_id, asset_type, asset_id, git_ref)
+        raise falcon.HTTPFound(f"/packages/{package_id}")
+
+
+class PackageAssetDetailResource:
+    async def on_post(
+        self,
+        req: falcon.asgi.Request,
+        resp: falcon.asgi.Response,
+        package_asset_id: str,
+    ) -> None:
+        form = await req.get_media()
+        action = form.get("action")
+        if action == "delete":
+            scan_queue.remove_package_asset(package_asset_id)
+        referer = req.get_header("Referer", default="/packages")
+        raise falcon.HTTPFound(referer)
+
+
+class PackageScanResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+    ) -> None:
+        """Trigger a scan for all assets within this package."""
+        assets = scan_queue.get_package_assets_with_latest_scans(package_id)
+        for asset in assets:
+            if asset["asset_type"] == "repo":
+                scan_queue.create_job(
+                    target_url=asset["asset_name"],
+                    target_type="repo",
+                    git_ref=asset["git_ref"],
+                )
+            elif asset["asset_type"] == "image":
+                scan_queue.create_job(
+                    target_url=asset["asset_name"],
+                    target_type="image",
+                    git_ref=None,
+                )
+
+        referer = req.get_header("Referer", default=f"/packages/{package_id}")
+        raise falcon.HTTPFound(referer)
+
+
+class PackageDashboardResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+    ) -> None:
+        package = scan_queue.get_package(package_id)
+        if not package:
+            resp.status = falcon.HTTP_404
+            resp.text = "Package not found"
+            return
+
+        assets = scan_queue.get_package_assets_with_latest_scans(package_id)
+        repositories = scan_queue.get_all_repositories()
+        images = scan_queue.get_all_images()
+
+        template = template_env.get_template("package_dashboard.html")
+        resp.text = template.render(
+            title=f"Package: {package['name']} {package['version']}",
+            package=package,
+            assets=assets,
+            repositories=repositories,
+            images=images,
+        )
+        resp.content_type = falcon.MEDIA_HTML
+
+
+class PackageAssetsTableResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+    ) -> None:
+        assets = scan_queue.get_package_assets_with_latest_scans(package_id)
+        template = template_env.get_template("package_assets_table.html")
+        resp.text = template.render(assets=assets)
+        resp.content_type = falcon.MEDIA_HTML
+
+
 import threading
 
 
@@ -203,3 +312,9 @@ app.add_route("/image", ImageResource())
 app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
 app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
+app.add_route("/packages", PackageResource())
+app.add_route("/packages/{package_id}/assets", PackageAssetResource())
+app.add_route("/packages/assets/{package_asset_id}", PackageAssetDetailResource())
+app.add_route("/packages/{package_id}/scan", PackageScanResource())
+app.add_route("/api/packages/{package_id}/assets_table", PackageAssetsTableResource())
+app.add_route("/packages/{package_id}", PackageDashboardResource())

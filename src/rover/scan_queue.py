@@ -58,6 +58,30 @@ def init_db() -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS packages (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    version TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(name, version)
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS package_assets (
+                    id TEXT PRIMARY KEY,
+                    package_id TEXT NOT NULL,
+                    asset_type TEXT NOT NULL,
+                    asset_id TEXT NOT NULL,
+                    git_ref TEXT DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (package_id) REFERENCES packages(id)
+                )
+            """)
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_pkg_asset_unique 
+                ON package_assets(package_id, asset_type, asset_id, IFNULL(git_ref, ''))
+            """)
 
 
 init_db()
@@ -203,3 +227,105 @@ def get_image(image_id: str) -> dict[str, Any] | None:
         if row:
             return dict(row)
     return None
+
+
+def add_package(name: str, version: str) -> str:
+    package_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "INSERT INTO packages (id, name, version) VALUES (?, ?, ?) ON CONFLICT(name, version) DO UPDATE SET name=excluded.name",
+                (package_id, name, version),
+            )
+            cursor = conn.execute(
+                "SELECT id FROM packages WHERE name = ? AND version = ?",
+                (name, version),
+            )
+            row = cursor.fetchone()
+            return str(row["id"]) if row else package_id
+
+
+def get_all_packages() -> list[dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM packages ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_package(package_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM packages WHERE id = ?", (package_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+    return None
+
+
+def add_package_asset(
+    package_id: str, asset_type: str, asset_id: str, git_ref: str | None = None
+) -> str:
+    pkg_asset_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        with conn:
+            # Check if this exact asset mapping (including git_ref) exists
+            check_query = "SELECT id FROM package_assets WHERE package_id = ? AND asset_type = ? AND asset_id = ? AND IFNULL(git_ref, '') = ?"
+            cursor = conn.execute(
+                check_query, (package_id, asset_type, asset_id, git_ref or "")
+            )
+            row = cursor.fetchone()
+            if row:
+                return str(row["id"])
+
+            # Insert new mapping if it does not precisely exist
+            conn.execute(
+                "INSERT INTO package_assets (id, package_id, asset_type, asset_id, git_ref) VALUES (?, ?, ?, ?, ?)",
+                (pkg_asset_id, package_id, asset_type, asset_id, git_ref),
+            )
+            return pkg_asset_id
+
+
+def remove_package_asset(package_asset_id: str) -> None:
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute("DELETE FROM package_assets WHERE id = ?", (package_asset_id,))
+
+
+def get_package_assets_with_latest_scans(package_id: str) -> list[dict[str, Any]]:
+    query = """
+    WITH LatestScans AS (
+        SELECT sj.*, ROW_NUMBER() OVER(PARTITION BY sj.target_url, sj.target_type, IFNULL(sj.git_ref, '') ORDER BY sj.created_at DESC) as rn
+        FROM scan_jobs sj
+    )
+    SELECT 
+        pa.id as package_asset_id,
+        pa.asset_type,
+        pa.asset_id,
+        pa.git_ref,
+        CASE 
+            WHEN pa.asset_type = 'repo' THEN r.url
+            WHEN pa.asset_type = 'image' THEN i.name
+        END as asset_name,
+        ls.id as latest_scan_id,
+        ls.status as latest_scan_status,
+        ls.created_at as latest_scan_time,
+        ls.results_json,
+        ls.resolved_commit,
+        ls.resolved_tags
+    FROM package_assets pa
+    LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
+    LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
+    LEFT JOIN LatestScans ls ON 
+        (ls.rn = 1) AND 
+        (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url ELSE i.name END) AND
+        (ls.target_type = pa.asset_type) AND
+        (IFNULL(ls.git_ref, '') = IFNULL(pa.git_ref, ''))
+    WHERE pa.package_id = ?
+    ORDER BY pa.created_at DESC
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, (package_id,))
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
