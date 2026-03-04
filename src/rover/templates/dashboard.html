@@ -2,17 +2,6 @@
 
 {% block content %}
 <section>
-    <h2>Add Repository</h2>
-    <form action="/repo" method="POST" style="margin-bottom: 2rem;">
-        <fieldset role="group">
-            <input type="url" name="target_url" placeholder="https://github.com/organization/repo" required
-                style="margin-bottom: 0;">
-            <input type="submit" value="Add Repo" style="width: auto; margin-bottom: 0;">
-        </fieldset>
-    </form>
-</section>
-
-<section>
     <h2>Initiate Scan</h2>
     <form action="/scan" method="POST" id="scan-form">
         <label for="repo_id">Target Repository</label>
@@ -174,4 +163,20 @@
 </table>
 </figure>
 </section>
+
+<dialog id="add-repo-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('add-repo-modal').close();"></button>
+            <strong>Add Repository</strong>
+        </header>
+        <form action="/repo" method="POST" style="margin-bottom: 0;">
+            <fieldset role="group">
+                <input type="url" name="target_url" placeholder="https://github.com/organization/repo" required
+                    style="margin-bottom: 0;">
+                <input type="submit" value="Add Repo" style="width: auto; margin-bottom: 0;">
+            </fieldset>
+        </form>
+    </article>
+</dialog>
 {% endblock %}
