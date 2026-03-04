@@ -2,40 +2,57 @@
 
 {% block content %}
 <section>
-    <h2>Initiate Scan</h2>
     <form action="/scan" method="POST" id="scan-form">
-        <label for="repo_id">Target Repository</label>
-        <select id="repo_id" name="repo_id" required>
-            <option value="" disabled selected>Select a mapped repository...</option>
-            {% for repo in repositories %}
-            <option value="{{ repo.id }}">{{ repo.url }}</option>
-            {% endfor %}
-        </select>
-
-        <label>Git Ref</label>
-        <div role="group" id="ref-type-group" style="margin-bottom: 1rem;">
-            <button type="button" class="ref-btn" data-type="branch">Branch</button>
-            <button type="button" class="ref-btn outline" data-type="tag">Tag</button>
-            <button type="button" class="ref-btn outline" data-type="commit">Commit</button>
+        <div class="grid" style="margin-bottom: 2rem;">
+            <button type="button" id="btn_scan_repo" class="">Scan Git Repository</button>
+            <button type="button" id="btn_scan_image" class="secondary outline">Scan Docker Image</button>
         </div>
-        <input type="hidden" id="ref_type" name="ref_type" value="branch">
+        <input type="hidden" name="scan_type" id="scan_type_hidden" value="repo">
 
-        <div style="margin-bottom: 1rem;">
-            <select id="git_ref_branch" class="ref-input">
-                <option value="" disabled selected>Select a repository first...</option>
+        <div id="repo-selection-area">
+            <label for="repo_id">Target Repository</label>
+            <select id="repo_id" name="repo_id">
+                <option value="" disabled selected>Select a mapped repository...</option>
+                {% for repo in repositories %}
+                <option value="{{ repo.id }}">{{ repo.url }}</option>
+                {% endfor %}
             </select>
 
-            <select id="git_ref_tag" class="ref-input" style="display: none;">
-                <option value="" disabled selected>Select a repository first...</option>
-            </select>
+            <label>Git Ref</label>
+            <div role="group" id="ref-type-group" style="margin-bottom: 1rem;">
+                <button type="button" class="ref-btn" data-type="branch">Branch</button>
+                <button type="button" class="ref-btn outline" data-type="tag">Tag</button>
+                <button type="button" class="ref-btn outline" data-type="commit">Commit</button>
+            </div>
+            <input type="hidden" id="ref_type" name="ref_type" value="branch">
 
-            <input type="text" id="git_ref_commit" class="ref-input" placeholder="Enter commit hash..."
-                style="display: none;">
+            <div style="margin-bottom: 1rem;">
+                <select id="git_ref_branch" class="ref-input">
+                    <option value="" disabled selected>Select a repository first...</option>
+                </select>
+
+                <select id="git_ref_tag" class="ref-input" style="display: none;">
+                    <option value="" disabled selected>Select a repository first...</option>
+                </select>
+
+                <input type="text" id="git_ref_commit" class="ref-input" placeholder="Enter commit hash..."
+                    style="display: none;">
+            </div>
+            <input type="hidden" name="git_ref" id="git_ref_final">
         </div>
 
-        <input type="hidden" name="git_ref" id="git_ref_final">
+        <div id="image-selection-area" style="display: none;">
+            <label for="image_id">Target Image</label>
+            <select id="image_id" name="image_id">
+                <option value="" disabled selected>Select a mapped image...</option>
+                {% for image in images %}
+                <option value="{{ image.id }}">{{ image.name }}</option>
+                {% endfor %}
+            </select>
+            <small>Scanning images will automatically use the tag specified in the name (or latest if none).</small>
+        </div>
 
-        <button type="submit">Start Vulnerability Scan</button>
+        <button type="submit" style="margin-top: 1rem;">Start Vulnerability Scan</button>
     </form>
 </section>
 
@@ -140,25 +157,64 @@
     });
 
     scanForm.addEventListener('submit', (e) => {
-        const selectedType = refTypeHidden.value;
-        let selectedRef = '';
+        const scanType = document.getElementById('scan_type_hidden').value;
 
-        if (selectedType === 'branch') {
-            selectedRef = branchSelect.value;
-        } else if (selectedType === 'tag') {
-            selectedRef = tagSelect.value;
-        } else {
-            selectedRef = commitInput.value;
+        if (scanType === 'repo') {
+            const selectedType = refTypeHidden.value;
+            let selectedRef = '';
+
+            if (selectedType === 'branch') {
+                selectedRef = branchSelect.value;
+            } else if (selectedType === 'tag') {
+                selectedRef = tagSelect.value;
+            } else {
+                selectedRef = commitInput.value;
+            }
+
+            if (!selectedRef) {
+                e.preventDefault();
+                alert('Please select or enter a Git Ref before scanning.');
+                return;
+            }
+            finalRefInput.value = selectedRef;
+
+            if (!repoSelect.value) {
+                e.preventDefault();
+                alert('Please select a repository.');
+                return;
+            }
+        } else if (scanType === 'image') {
+            const imageSelect = document.getElementById('image_id');
+            if (!imageSelect.value) {
+                e.preventDefault();
+                alert('Please select a Docker Image before scanning.');
+                return;
+            }
         }
-
-        if (!selectedRef) {
-            e.preventDefault();
-            alert('Please select or enter a Git Ref before scanning.');
-            return;
-        }
-
-        finalRefInput.value = selectedRef;
     });
+
+    const btnScanRepo = document.getElementById('btn_scan_repo');
+    const btnScanImage = document.getElementById('btn_scan_image');
+    const scanTypeHidden = document.getElementById('scan_type_hidden');
+    const areaRepo = document.getElementById('repo-selection-area');
+    const areaImage = document.getElementById('image-selection-area');
+
+    btnScanRepo.addEventListener('click', () => {
+        scanTypeHidden.value = 'repo';
+        btnScanRepo.classList.remove('outline', 'secondary');
+        btnScanImage.classList.add('outline', 'secondary');
+        areaRepo.style.display = 'block';
+        areaImage.style.display = 'none';
+    });
+
+    btnScanImage.addEventListener('click', () => {
+        scanTypeHidden.value = 'image';
+        btnScanImage.classList.remove('outline', 'secondary');
+        btnScanRepo.classList.add('outline', 'secondary');
+        areaRepo.style.display = 'none';
+        areaImage.style.display = 'block';
+    });
+
 </script>
 </table>
 </figure>
@@ -175,6 +231,23 @@
                 <input type="url" name="target_url" placeholder="https://github.com/organization/repo" required
                     style="margin-bottom: 0;">
                 <input type="submit" value="Add Repo" style="width: auto; margin-bottom: 0;">
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+
+<dialog id="add-image-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev"
+                onclick="document.getElementById('add-image-modal').close();"></button>
+            <strong>Add Docker Image</strong>
+        </header>
+        <form action="/image" method="POST" style="margin-bottom: 0;">
+            <fieldset role="group">
+                <input type="text" name="target_name" placeholder="ubuntu:latest or ghcr.io/org/image:tag" required
+                    style="margin-bottom: 0;">
+                <input type="submit" value="Add Image" style="width: auto; margin-bottom: 0;">
             </fieldset>
         </form>
     </article>

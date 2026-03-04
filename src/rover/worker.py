@@ -8,8 +8,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def process_job(job_id: str, target_url: str, git_ref: str | None = None) -> None:
-    logger.info(f"Starting job {job_id} for {target_url} at ref {git_ref}")
+async def process_job(
+    job_id: str, target_url: str, git_ref: str | None = None, target_type: str = "repo"
+) -> None:
+    logger.info(
+        f"Starting job {job_id} for {target_type} {target_url} at ref {git_ref}"
+    )
 
     # Job is already set to 'running' via claim_next_job.
 
@@ -20,7 +24,7 @@ async def process_job(job_id: str, target_url: str, git_ref: str | None = None) 
         # Since this is a blocking I/O operation (Docker), wrap it in to_thread so we don't
         # block the asyncio event loop while the container is running
         results, commit_hash, tags_str = await asyncio.to_thread(
-            scanner.run_trivy_scan, target_url, git_ref
+            scanner.run_trivy_scan, target_url, git_ref, target_type
         )
 
         # Update status to completed
@@ -48,7 +52,12 @@ async def worker_loop() -> None:
             job = claim_next_job()
 
             if job:
-                await process_job(job["id"], job["target_url"], job.get("git_ref"))
+                await process_job(
+                    job["id"],
+                    job["target_url"],
+                    job.get("git_ref"),
+                    job.get("target_type", "repo"),
+                )
             else:
                 # No jobs, sleep and poll again
                 await asyncio.sleep(2)

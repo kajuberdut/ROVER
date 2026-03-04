@@ -24,9 +24,13 @@ class DashboardResource:
     ) -> None:
         jobs = scan_queue.get_all_jobs()
         repositories = scan_queue.get_all_repositories()
+        images = scan_queue.get_all_images()
         template = template_env.get_template("dashboard.html")
         resp.text = template.render(
-            title="R.O.V.E.R Dashboard", jobs=jobs, repositories=repositories
+            title="R.O.V.E.R Dashboard",
+            jobs=jobs,
+            repositories=repositories,
+            images=images,
         )
         resp.content_type = falcon.MEDIA_HTML
 
@@ -39,6 +43,17 @@ class RepositoryResource:
         target_url = form.get("target_url")
         if target_url:
             scan_queue.add_repository(target_url)
+        raise falcon.HTTPFound("/")
+
+
+class ImageResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        form = await req.get_media()
+        target_name = form.get("target_name")
+        if target_name:
+            scan_queue.add_image(target_name)
         raise falcon.HTTPFound("/")
 
 
@@ -100,21 +115,42 @@ class ScanResource:
         # Parse form data
         form = await req.get_media()
         repo_id = form.get("repo_id")
+        image_id = form.get("image_id")
         git_ref = form.get("git_ref")
+        scan_type = form.get("scan_type", "repo")
 
-        if not repo_id:
+        if scan_type == "repo":
+            if not repo_id:
+                resp.status = falcon.HTTP_400
+                resp.text = "Missing repo_id"
+                return
+
+            repo = scan_queue.get_repository(repo_id)
+            if not repo:
+                resp.status = falcon.HTTP_404
+                resp.text = "Repository not found"
+                return
+
+            # Create a new scan job
+            scan_queue.create_job(repo["url"], git_ref, target_type="repo")
+        elif scan_type == "image":
+            if not image_id:
+                resp.status = falcon.HTTP_400
+                resp.text = "Missing image_id"
+                return
+
+            image = scan_queue.get_image(image_id)
+            if not image:
+                resp.status = falcon.HTTP_404
+                resp.text = "Image not found"
+                return
+
+            # Create a new scan job
+            scan_queue.create_job(image["name"], git_ref=None, target_type="image")
+        else:
             resp.status = falcon.HTTP_400
-            resp.text = "Missing repo_id"
+            resp.text = "Invalid scan_type"
             return
-
-        repo = scan_queue.get_repository(repo_id)
-        if not repo:
-            resp.status = falcon.HTTP_404
-            resp.text = "Repository not found"
-            return
-
-        # Create a new scan job
-        scan_queue.create_job(repo["url"], git_ref)
 
         # Redirect back to the dashboard to see the queued job
         raise falcon.HTTPFound("/")
@@ -163,6 +199,7 @@ app.add_static_route("/static", static_path)
 app.add_route("/", DashboardResource())
 app.add_route("/scan", ScanResource())
 app.add_route("/repo", RepositoryResource())
+app.add_route("/image", ImageResource())
 app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
 app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())

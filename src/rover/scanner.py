@@ -13,62 +13,72 @@ from typing import Any, cast
 
 
 def run_trivy_scan(
-    target_url: str, git_ref: str | None = None
+    target_url: str, git_ref: str | None = None, target_type: str = "repo"
 ) -> tuple[dict[str, Any], str, str | None]:
     """
-    Runs a Trivy CVE scan against a git repository using Testcontainers.
-    Clones the repository locally first to support checking out specific tags/commits.
+    Runs a Trivy CVE scan against a git repository or Docker image using Testcontainers.
     """
-    logger.info(f"Starting Trivy scan for {target_url} at ref {git_ref or 'HEAD'}")
+    logger.info(
+        f"Starting Trivy scan for {target_type} {target_url} (ref {git_ref or 'HEAD'})"
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Clone the repository locally
-        try:
-            subprocess.run(  # noqa: S603, S607
-                ["git", "clone", target_url, tmpdir], check=True, capture_output=True
-            )
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to clone repository: {e.stderr.decode('utf-8')}")
-            raise Exception("Failed to clone target repository")
+        commit_hash = "latest"
+        tags_str = None
 
-        if git_ref:
+        if target_type == "repo":
+            # Clone the repository locally
             try:
                 subprocess.run(  # noqa: S603, S607
-                    ["git", "checkout", git_ref],
-                    cwd=tmpdir,
+                    ["git", "clone", target_url, tmpdir],
                     check=True,
                     capture_output=True,
                 )
             except subprocess.CalledProcessError as e:
-                logger.error(
-                    f"Failed to checkout ref {git_ref}: {e.stderr.decode('utf-8')}"
+                logger.error(f"Failed to clone repository: {e.stderr.decode('utf-8')}")
+                raise Exception("Failed to clone target repository")
+
+            if git_ref:
+                try:
+                    subprocess.run(  # noqa: S603, S607
+                        ["git", "checkout", git_ref],
+                        cwd=tmpdir,
+                        check=True,
+                        capture_output=True,
+                    )
+                except subprocess.CalledProcessError as e:
+                    logger.error(
+                        f"Failed to checkout ref {git_ref}: {e.stderr.decode('utf-8')}"
+                    )
+                    raise Exception(f"Failed to checkout git reference: {git_ref}")
+
+            # Capture metadata
+            try:
+                res = subprocess.run(  # noqa: S603, S607
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                    text=True,
                 )
-                raise Exception(f"Failed to checkout git reference: {git_ref}")
+                commit_hash = res.stdout.strip()
 
-        # Capture metadata
-        try:
-            res = subprocess.run(  # noqa: S603, S607
-                ["git", "rev-parse", "HEAD"],
-                cwd=tmpdir,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            commit_hash = res.stdout.strip()
-
-            res = subprocess.run(  # noqa: S603, S607
-                ["git", "tag", "--points-at", "HEAD"],
-                cwd=tmpdir,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            tags = [t.strip() for t in res.stdout.split("\n") if t.strip()]
-            tags_str = ", ".join(tags) if tags else None
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"Failed to capture git metadata: {e}")
-            commit_hash = "unknown"
-            tags_str = None
+                res = subprocess.run(  # noqa: S603, S607
+                    ["git", "tag", "--points-at", "HEAD"],
+                    cwd=tmpdir,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                tags = [t.strip() for t in res.stdout.split("\n") if t.strip()]
+                tags_str = ", ".join(tags) if tags else None
+            except subprocess.CalledProcessError as e:
+                logger.warning(f"Failed to capture git metadata: {e}")
+                commit_hash = "unknown"
+                tags_str = None
+        elif target_type == "image":
+            # Just use the provided URL/name directly for images
+            tags_str = target_url
 
         container = DockerContainer("aquasec/trivy:latest")
 
@@ -77,9 +87,17 @@ def run_trivy_scan(
         container.with_volume_mapping(
             "trivy-vulnerability-db-cache", "/trivy-cache", "rw"
         )
+        # Mount the Docker socket so Trivy can scan images
+        container.with_volume_mapping(
+            "/var/run/docker.sock", "/var/run/docker.sock", "ro"
+        )
 
-        # Tell the container to execute the repo scan and output json for the specific commit we resolved
-        container.with_command(f"repo {target_url} --commit {commit_hash} -f json")
+        if target_type == "repo":
+            # Tell the container to execute the repo scan and output json for the specific commit we resolved
+            container.with_command(f"repo {target_url} --commit {commit_hash} -f json")
+        else:
+            # Tell the container to execute the image scan
+            container.with_command(f"image {target_url} -f json")
 
         try:
             container.start()

@@ -40,7 +40,8 @@ def init_db() -> None:
                     results_json TEXT DEFAULT NULL,
                     error_message TEXT DEFAULT NULL,
                     resolved_commit TEXT DEFAULT NULL,
-                    resolved_tags TEXT DEFAULT NULL
+                    resolved_tags TEXT DEFAULT NULL,
+                    target_type TEXT DEFAULT 'repo'
                 )
             """)
             conn.execute("""
@@ -50,18 +51,27 @@ def init_db() -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS images (
+                    id TEXT PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
 
 init_db()
 
 
-def create_job(target_url: str, git_ref: str | None = None) -> str:
+def create_job(
+    target_url: str, git_ref: str | None = None, target_type: str = "repo"
+) -> str:
     job_id = str(uuid.uuid4())
     with get_db_connection() as conn:
         with conn:
             conn.execute(
-                "INSERT INTO scan_jobs (id, target_url, git_ref, status) VALUES (?, ?, ?, ?)",
-                (job_id, target_url, git_ref, "queued"),
+                "INSERT INTO scan_jobs (id, target_url, git_ref, status, target_type) VALUES (?, ?, ?, ?, ?)",
+                (job_id, target_url, git_ref, "queued", target_type),
             )
     return job_id
 
@@ -118,7 +128,7 @@ def claim_next_job() -> dict[str, Any] | None:
             conn.execute("BEGIN IMMEDIATE")
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, target_url, git_ref FROM scan_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
+                "SELECT id, target_url, git_ref, target_type FROM scan_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
             )
             row = cursor.fetchone()
 
@@ -158,6 +168,37 @@ def get_repository(repo_id: str) -> dict[str, Any] | None:
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM repositories WHERE id = ?", (repo_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+    return None
+
+
+def add_image(name: str) -> str:
+    image_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "INSERT INTO images (id, name) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET name=excluded.name",
+                (image_id, name),
+            )
+            cursor = conn.execute("SELECT id FROM images WHERE name = ?", (name,))
+            row = cursor.fetchone()
+            return str(row["id"]) if row else image_id
+
+
+def get_all_images() -> list[dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM images ORDER BY created_at DESC")
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_image(image_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM images WHERE id = ?", (image_id,))
         row = cursor.fetchone()
         if row:
             return dict(row)

@@ -1,6 +1,9 @@
 {% for job in jobs %}
 <tr>
-    <td>{{ job.target_url }}</td>
+    <td>
+        <strong>{{ job.target_url }}</strong><br>
+        <small class="secondary">{{ job.target_type | capitalize }}</small>
+    </td>
     <td>
         {{ job.git_ref or 'default' }}
         {% if job.resolved_commit %}
