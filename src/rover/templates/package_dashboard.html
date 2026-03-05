@@ -1,35 +1,31 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section>
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+<section style="margin-bottom: 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <div style="display: flex; gap: 1rem; align-items: center;">
             <a href="/products/{{ package.product_id }}" role="button" class="secondary outline"
                 style="margin-bottom: 0;">&larr; Back</a>
             <hgroup style="margin-bottom: 0;">
-                <h2 style="margin-bottom: 0;">Release Package: {{ package.name }} (v{{ package.version }})</h2>
-                <h3 style="margin-bottom: 0; margin-top: 0.25rem;">Manage and view vulnerability rollups across multiple
-                    assets.</h3>
+                <h2 style="margin-bottom: 0;">Release v{{ package.version }}</h2>
+                <h3 style="margin-bottom: 0; margin-top: 0.25rem; color: var(--pico-muted-color);">{{ package.name }}
+                    &mdash; Asset Management</h3>
             </hgroup>
         </div>
-    </div>
-</section>
-
-<section>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <h3>Package Assets</h3>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             <form action="/packages/{{ package.id }}/scan" method="POST" style="margin-bottom: 0;">
                 <button type="submit" class="outline" style="margin-bottom: 0;">Scan All Assets</button>
             </form>
             <button type="button" class="outline" onclick="document.getElementById('add-asset-modal').showModal();"
-                style="margin-bottom: 0;">Add Asset to Package</button>
+                style="margin-bottom: 0;">Add Asset</button>
         </div>
     </div>
+</section>
 
-    <p style="margin-bottom: 1rem; color: grey;">
-        <small><em>Tip: To edit the Git Ref of an existing repository asset, simply re-add it using the "Add Asset"
-                button with the new branch, tag, or commit.</em></small>
+<section>
+    <p style="margin-bottom: 1rem; color: var(--pico-muted-color); font-size: 0.85em;">
+        <em>Tip: To target a different Git branch, simply swap it by using "Add Asset" with the exact same mapping
+            URL.</em>
     </p>
 
     <figure>

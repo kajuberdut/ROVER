@@ -1,24 +1,54 @@
 {% for asset in assets %}
+{% set ns = namespace(critical=0, high=0, medium=0, low=0, has_data=false) %}
+{% if asset.results_json %}
+{% set results = asset.results_json|loadjson %}
+{% set ns.has_data = true %}
+{% for r in results.get('Results', []) %}
+{% for v in r.get('Vulnerabilities', []) %}
+{% if v.Severity == 'CRITICAL' %}{% set ns.critical = ns.critical + 1 %}{% endif %}
+{% if v.Severity == 'HIGH' %}{% set ns.high = ns.high + 1 %}{% endif %}
+{% if v.Severity == 'MEDIUM' %}{% set ns.medium = ns.medium + 1 %}{% endif %}
+{% if v.Severity == 'LOW' %}{% set ns.low = ns.low + 1 %}{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}
 <tr>
-    <td>
+    <td style="text-align: center; vertical-align: middle;">
         {% if asset.asset_type == 'repo' %}
-        <span style="white-space: nowrap; color: var(--pico-primary);">📦 Repository</span>
+        <span style="white-space: nowrap; color: var(--pico-primary); font-size: 1.25rem;" title="Repository">📦</span>
         {% else %}
-        <span style="white-space: nowrap; color: var(--pico-ins-color);">🐳 Image</span>
+        <span style="white-space: nowrap; color: var(--pico-ins-color); font-size: 1.25rem;"
+            title="Container Image">🐳</span>
         {% endif %}
     </td>
-    <td>{{ asset.asset_name }}</td>
+    <td>
+        <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 1.1em;">
+            {% if ns.has_data %}
+            {% if ns.critical > 0 %}<span style="color: #d32f2f;" title="Critical Risk">●</span>
+            {% elif ns.high > 0 %}<span style="color: #f57c00;" title="High Risk">●</span>
+            {% elif ns.medium > 0 %}<span style="color: #fbc02d;" title="Medium Risk">●</span>
+            {% elif ns.low > 0 %}<span style="color: #388e3c;" title="Low Risk">●</span>
+            {% else %}<span style="color: #388e3c;" title="Clean">●</span>{% endif %}
+            {% else %}
+            <span style="color: grey;" title="No Scan Data">○</span>
+            {% endif %}
+            <span title="{{ asset.asset_name }}">{{ asset.asset_name | short_url }}</span>
+        </div>
+    </td>
     <td>
         {% if asset.asset_type == 'image' %}
-        <span style="color: grey;">N/A</span>
+        <span style="color: var(--pico-muted-color); font-size: 0.85em;">N/A</span>
         {% else %}
-        {{ asset.git_ref or 'default' }}
-        {% if asset.resolved_commit %}
-        <br><small title="{{ asset.resolved_commit }}">{{ asset.resolved_commit[:7] }}</small>
-        {% endif %}
-        {% if asset.resolved_tags %}
-        <br><small>{{ asset.resolved_tags }}</small>
-        {% endif %}
+        <span style="font-size: 0.9em;">
+            {{ asset.git_ref or 'default' }}
+            {% if asset.resolved_commit %}
+            <br><span style="color: var(--pico-muted-color);" title="{{ asset.resolved_commit }}">({{
+                asset.resolved_commit[:7] }})</span>
+            {% endif %}
+            {% if asset.resolved_tags %}
+            <br><span style="color: var(--pico-muted-color);">[{{ asset.resolved_tags }}]</span>
+            {% endif %}
+        </span>
         {% endif %}
     </td>
     <td>
@@ -34,54 +64,50 @@
         <span style="white-space: nowrap; color: grey;">Not Scanned</span>
         {% endif %}
     </td>
-    <td>{{ asset.latest_scan_time or 'N/A' }}</td>
+    <td style="white-space: nowrap; color: var(--pico-muted-color); font-size: 0.85em;">{{ asset.latest_scan_time |
+        humanize_time }}</td>
     <td>
-        {% if asset.results_json %}
-        {% set results = asset.results_json|loadjson %}
-        {% set ns = namespace(critical=0, high=0, medium=0, low=0) %}
-        {% for r in results.get('Results', []) %}
-        {% for v in r.get('Vulnerabilities', []) %}
-        {% if v.Severity == 'CRITICAL' %}{% set ns.critical = ns.critical + 1 %}{% endif %}
-        {% if v.Severity == 'HIGH' %}{% set ns.high = ns.high + 1 %}{% endif %}
-        {% if v.Severity == 'MEDIUM' %}{% set ns.medium = ns.medium + 1 %}{% endif %}
-        {% if v.Severity == 'LOW' %}{% set ns.low = ns.low + 1 %}{% endif %}
-        {% endfor %}
-        {% endfor %}
-        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-            {% if ns.critical > 0 %}<span style="color: #d32f2f; font-weight: bold;">{{ ns.critical }}
-                Critical</span>{% endif %}
-            {% if ns.high > 0 %}<span style="color: #f57c00; font-weight: bold;">{{ ns.high }}
-                High</span>{% endif %}
-            {% if ns.medium > 0 %}<span style="color: #fbc02d; font-weight: bold;">{{ ns.medium }}
-                Medium</span>{% endif %}
-            {% if ns.low > 0 %}<span style="color: #388e3c; font-weight: bold;">{{ ns.low }}
-                Low</span>{% endif %}
+        {% if ns.has_data %}
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+            {% if ns.critical > 0 %}<kbd
+                style="background-color: #d32f2f; border: 1px solid #b71c1c; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
+                ns.critical }} CRIT</kbd>{% endif %}
+            {% if ns.high > 0 %}<kbd
+                style="background-color: #f57c00; border: 1px solid #e65100; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
+                ns.high }} HIGH</kbd>{% endif %}
+            {% if ns.medium > 0 %}<kbd
+                style="background-color: #fbc02d; border: 1px solid #f57f17; color: #333; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
+                ns.medium }} MED</kbd>{% endif %}
+            {% if ns.low > 0 %}<kbd
+                style="background-color: #388e3c; border: 1px solid #1b5e20; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
+                ns.low }} LOW</kbd>{% endif %}
             {% if ns.critical == 0 and ns.high == 0 and ns.medium == 0 and ns.low == 0 %}
-            <span style="color: #388e3c;">No Vulnerabilities</span>
+            <kbd
+                style="background-color: transparent; color: #388e3c; border: 1px solid #388e3c; font-family: inherit; font-size: 0.85em; font-weight: bold;">Clean</kbd>
             {% endif %}
         </div>
         {% else %}
-        <span style="color: grey;">No Data</span>
+        <span style="color: grey; font-size: 0.85em;">No Data</span>
         {% endif %}
     </td>
     <td>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
-            {% if asset.latest_scan_id %}
-            <a href="/reports/{{ asset.latest_scan_id }}" role="button" class="outline">View Report</a>
-            {% else %}
-            <span style="color: grey; margin-right: 0.5rem;">No Report</span>
-            {% endif %}
-
             <form action="/packages/assets/{{ asset.package_asset_id }}" method="POST" style="margin-bottom: 0;">
                 <input type="hidden" name="action" value="delete">
-                <button type="submit" class="outline"
-                    style="border-color: var(--pico-del-color); color: var(--pico-del-color);">Remove</button>
+                <button type="submit" class="outline" title="Remove Asset"
+                    style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.25rem 0.5rem; margin-bottom: 0;">✕</button>
             </form>
+            {% if asset.latest_scan_id %}
+            <a href="/reports/{{ asset.latest_scan_id }}" role="button" class="outline"
+                style="padding: 0.25rem 0.75rem; margin-bottom: 0;">View Report</a>
+            {% else %}
+            <span style="color: grey; margin-right: 0.5rem; font-size: 0.85em;">No Report</span>
+            {% endif %}
         </div>
     </td>
 </tr>
 {% else %}
 <tr>
-    <td colspan="7">No assets added to this package yet.</td>
+    <td colspan="7">No assets added to this release yet.</td>
 </tr>
 {% endfor %}

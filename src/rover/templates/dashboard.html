@@ -5,7 +5,8 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <hgroup style="margin-bottom: 0;">
             <h2>Product Portfolio</h2>
-            <h3>Monitor your active releases and their vulnerability posture.</h3>
+            <h3 style="color: var(--pico-muted-color);">Monitor your active releases and their vulnerability posture.
+            </h3>
         </hgroup>
         <button type="button" class="outline" onclick="document.getElementById('add-product-modal').showModal();"
             style="margin-bottom: 0;">Create Product</button>
@@ -79,15 +80,20 @@
                 {% elif ns.not_scanned %}
                 <span style="color: grey;">Pending initial scans.</span>
                 {% elif ns.highest_severity == 'critical' %}
-                <strong style="color: #d32f2f;">Critical Vulnerabilities Found</strong>
+                <div style="color: #d32f2f; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>●</span> Critical Vulnerabilities Found</div>
                 {% elif ns.highest_severity == 'high' %}
-                <strong style="color: #f57c00;">High Vulnerabilities Found</strong>
+                <div style="color: #f57c00; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>●</span> High Vulnerabilities Found</div>
                 {% elif ns.highest_severity == 'medium' %}
-                <strong style="color: #fbc02d;">Medium Vulnerabilities Found</strong>
+                <div style="color: #fbc02d; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>●</span> Medium Vulnerabilities Found</div>
                 {% elif ns.highest_severity == 'low' %}
-                <strong style="color: #388e3c;">Low Vulnerabilities Found</strong>
+                <div style="color: #388e3c; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>●</span> Low Vulnerabilities Found</div>
                 {% else %}
-                <strong style="color: #388e3c;">Clean (No Vulns Found)</strong>
+                <div style="color: #388e3c; font-weight: bold; display: flex; align-items: center; gap: 0.5rem;">
+                    <span>●</span> Clean (No Vulns Found)</div>
                 {% endif %}
             </div>
 

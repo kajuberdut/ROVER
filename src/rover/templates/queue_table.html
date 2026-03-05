@@ -1,35 +1,47 @@
 {% for job in jobs %}
 <tr>
     <td>
-        <strong>{{ job.target_url }}</strong><br>
-        <small class="secondary">{{ job.target_type | capitalize }}</small>
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+            {% if job.target_type == 'repo' %}
+            <span style="font-size: 1.25rem;" title="Repository">📦</span>
+            {% else %}
+            <span style="font-size: 1.25rem;" title="Container Image">🐳</span>
+            {% endif %}
+            <strong style="font-size: 1.1em;" title="{{ job.target_url }}">{{ job.target_url | short_url }}</strong>
+        </div>
     </td>
     <td>
-        {{ job.git_ref or 'default' }}
-        {% if job.resolved_commit %}
-        <br><small title="{{ job.resolved_commit }}">{{ job.resolved_commit[:7] }}</small>
-        {% endif %}
-        {% if job.resolved_tags %}
-        <br><small>{{ job.resolved_tags }}</small>
-        {% endif %}
+        <span style="font-size: 0.9em;">
+            {{ job.git_ref or 'default' }}
+            {% if job.resolved_commit %}
+            <br><span style="color: var(--pico-muted-color);" title="{{ job.resolved_commit }}">({{
+                job.resolved_commit[:7] }})</span>
+            {% endif %}
+            {% if job.resolved_tags %}
+            <br><span style="color: var(--pico-muted-color);">[{{ job.resolved_tags }}]</span>
+            {% endif %}
+        </span>
     </td>
     <td>
         {% if job.status == 'completed' %}
-        <ins>{{ job.status }}</ins>
+        <span style="color: #388e3c; white-space: nowrap;">✅ Completed</span>
         {% elif job.status == 'failed' %}
-        <del>{{ job.status }}</del>
+        <span style="color: #d32f2f; white-space: nowrap;">❌ Failed</span>
         {% else %}
-        <mark>{{ job.status }}</mark>
+        <span aria-busy="true" style="color: var(--pico-primary); white-space: nowrap;">Scanning...</span>
         {% endif %}
     </td>
-    <td><small>{{ job.created_at }}</small></td>
+    <td style="color: var(--pico-muted-color); font-size: 0.85em; white-space: nowrap;">
+        <span title="{{ job.created_at }}">{{ job.created_at | humanize_time }}</span>
+    </td>
     <td>
         {% if job.status == 'completed' %}
-        <a href="/reports/{{ job.id }}" role="button" class="outline">View Report</a>
+        <a href="/reports/{{ job.id }}" role="button" class="outline"
+            style="padding: 0.25rem 0.75rem; margin-bottom: 0;">View Report</a>
         {% elif job.status == 'failed' %}
-        <small>{{ job.error_message }}</small>
+        <span style="color: #d32f2f; font-size: 0.85em;">{{ job.error_message }}</span>
         {% else %}
-        <span aria-busy="true">Scanning...</span>
+        <span style="color: var(--pico-muted-color); font-size: 0.85em;">Awaiting results...</span>
         {% endif %}
     </td>
 </tr>
