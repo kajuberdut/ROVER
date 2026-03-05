@@ -25,6 +25,7 @@ class DashboardResource:
         jobs = scan_queue.get_all_jobs()
         repositories = scan_queue.get_all_repositories()
         images = scan_queue.get_all_images()
+        products = scan_queue.get_all_products()
         packages = scan_queue.get_all_packages()
         template = template_env.get_template("dashboard.html")
         resp.text = template.render(
@@ -32,6 +33,7 @@ class DashboardResource:
             jobs=jobs,
             repositories=repositories,
             images=images,
+            products=products,
             packages=packages,
             scan_queue=scan_queue,
         )
@@ -225,15 +227,48 @@ class QueueTableResource:
         resp.content_type = falcon.MEDIA_HTML
 
 
+class ProductResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        form = await req.get_media()
+        name = form.get("product_name")
+        description = form.get("product_description", "")
+        if name:
+            scan_queue.add_product(name, description)
+        referer = req.get_header("Referer", default="/")
+        raise falcon.HTTPFound(referer)
+
+
+class ProductDashboardResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, product_id: str
+    ) -> None:
+        product = scan_queue.get_product(product_id)
+        if not product:
+            raise falcon.HTTPFound("/?error=product_not_found")
+
+        releases = scan_queue.get_product_packages(product_id)
+        template = template_env.get_template("product_dashboard.html")
+        resp.text = template.render(
+            title=f"Product: {product['name']}",
+            product=product,
+            releases=releases,
+            scan_queue=scan_queue,
+        )
+        resp.content_type = falcon.MEDIA_HTML
+
+
 class PackageResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         form = await req.get_media()
+        product_id = form.get("product_id")
         name = form.get("package_name")
         version = form.get("package_version")
-        if name and version:
-            scan_queue.add_package(name, version)
+        if product_id and name and version:
+            scan_queue.add_package(product_id, name, version)
         referer = req.get_header("Referer", default="/")
         raise falcon.HTTPFound(referer)
 
@@ -356,6 +391,8 @@ app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
 app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
 app.add_route("/api/images/{image_id}/refs", ImageRefsResource())
+app.add_route("/products", ProductResource())
+app.add_route("/products/{product_id}", ProductDashboardResource())
 app.add_route("/packages", PackageResource())
 app.add_route("/packages/{package_id}/assets", PackageAssetResource())
 app.add_route("/packages/assets/{package_asset_id}", PackageAssetDetailResource())

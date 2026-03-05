@@ -78,7 +78,7 @@
             <ul>
                 <li>
                     <hgroup style="margin-bottom: 0;">
-                        <h1>R.O.V.E.R</h1>
+                        <h1><a href="/" style="color: inherit; text-decoration: none;">R.O.V.E.R</a></h1>
                         <h2>Release Oriented Vulnerability Evaluation & Reporting</h2>
                     </hgroup>
                 </li>
@@ -102,8 +102,8 @@
                                     onclick="document.getElementById('add-image-modal')?.showModal(); event.preventDefault();">Add
                                     Container Image</a></li>
                             <li><a href="#"
-                                    onclick="document.getElementById('add-package-modal')?.showModal(); event.preventDefault();">Create
-                                    Package</a></li>
+                                    onclick="document.getElementById('add-product-modal')?.showModal(); event.preventDefault();">Create
+                                    Product</a></li>
                         </ul>
                     </details>
                 </li>
@@ -151,22 +151,22 @@
         </article>
     </dialog>
 
-    <dialog id="add-package-modal">
+    <dialog id="add-product-modal">
         <article>
             <header>
                 <button aria-label="Close" rel="prev"
-                    onclick="document.getElementById('add-package-modal').close();"></button>
-                <strong>Create Package</strong>
+                    onclick="document.getElementById('add-product-modal').close();"></button>
+                <strong>Create Product</strong>
             </header>
-            <form action="/packages" method="POST" style="margin-bottom: 0;">
+            <form action="/products" method="POST" style="margin-bottom: 0;">
                 <fieldset>
-                    <label>Package Name
-                        <input type="text" name="package_name" placeholder="e.g., v1.0 Release Bundle" required>
+                    <label>Product Name
+                        <input type="text" name="product_name" placeholder="e.g., Core API Webserver" required>
                     </label>
-                    <label>Version
-                        <input type="text" name="package_version" placeholder="e.g., 1.0.0" required>
+                    <label>Description (Optional)
+                        <input type="text" name="product_description" placeholder="A brief description...">
                     </label>
-                    <input type="submit" value="Create Package" style="margin-top: 1rem;">
+                    <input type="submit" value="Create Product" style="margin-top: 1rem;">
                 </fieldset>
             </form>
         </article>
@@ -205,6 +205,20 @@
                 window.history.replaceState({}, '', newUrl);
             }
         });
+
+        function setupAutoPoll(endpoint, targetElementId, intervalMs = 3000) {
+            setInterval(() => {
+                fetch(endpoint)
+                    .then(response => response.text())
+                    .then(html => {
+                        const target = document.getElementById(targetElementId);
+                        if (target) {
+                            target.innerHTML = html;
+                        }
+                    })
+                    .catch(error => console.error(`Error polling ${endpoint}:`, error));
+            }, intervalMs);
+        }
     </script>
 </body>
 

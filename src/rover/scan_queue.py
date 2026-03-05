@@ -59,6 +59,14 @@ def init_db() -> None:
                 )
             """)
             conn.execute("""
+                CREATE TABLE IF NOT EXISTS products (
+                    id TEXT PRIMARY KEY,
+                    name TEXT UNIQUE NOT NULL,
+                    description TEXT DEFAULT '',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS packages (
                     id TEXT PRIMARY KEY,
                     name TEXT NOT NULL,
@@ -67,6 +75,40 @@ def init_db() -> None:
                     UNIQUE(name, version)
                 )
             """)
+
+            # DB Migration logic for Phase 2: adding Products to Packages
+            cursor = conn.execute("PRAGMA table_info(packages)")
+            columns = [col["name"] for col in cursor.fetchall()]
+            if "product_id" not in columns:
+                conn.execute("ALTER TABLE packages ADD COLUMN product_id TEXT")
+                conn.execute(
+                    "ALTER TABLE packages ADD COLUMN is_end_of_life BOOLEAN DEFAULT 0"
+                )
+
+                # Auto-migrate existing flat packages into Products
+                cursor = conn.execute(
+                    "SELECT id, name FROM packages WHERE product_id IS NULL"
+                )
+                existing_pkgs = cursor.fetchall()
+                for pkg in existing_pkgs:
+                    # Check if product exists
+                    prod_cursor = conn.execute(
+                        "SELECT id FROM products WHERE name = ?", (pkg["name"],)
+                    )
+                    prod_row = prod_cursor.fetchone()
+                    if prod_row:
+                        prod_id = prod_row["id"]
+                    else:
+                        prod_id = str(uuid.uuid4())
+                        conn.execute(
+                            "INSERT INTO products (id, name, description) VALUES (?, ?, ?)",
+                            (prod_id, pkg["name"], "Auto-migrated product mapping"),
+                        )
+                    conn.execute(
+                        "UPDATE packages SET product_id = ? WHERE id = ?",
+                        (prod_id, pkg["id"]),
+                    )
+
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS package_assets (
                     id TEXT PRIMARY KEY,
@@ -229,13 +271,44 @@ def get_image(image_id: str) -> dict[str, Any] | None:
     return None
 
 
-def add_package(name: str, version: str) -> str:
+def add_product(name: str, description: str = "") -> str:
+    product_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "INSERT INTO products (id, name, description) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET description=excluded.description",
+                (product_id, name, description),
+            )
+            cursor = conn.execute("SELECT id FROM products WHERE name = ?", (name,))
+            row = cursor.fetchone()
+            return str(row["id"]) if row else product_id
+
+
+def get_all_products() -> list[dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM products ORDER BY name ASC")
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_product(product_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM products WHERE id = ?", (product_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+    return None
+
+
+def add_package(product_id: str, name: str, version: str) -> str:
     package_id = str(uuid.uuid4())
     with get_db_connection() as conn:
         with conn:
             conn.execute(
-                "INSERT INTO packages (id, name, version) VALUES (?, ?, ?) ON CONFLICT(name, version) DO UPDATE SET name=excluded.name",
-                (package_id, name, version),
+                "INSERT INTO packages (id, product_id, name, version) VALUES (?, ?, ?, ?) ON CONFLICT(name, version) DO UPDATE SET name=excluded.name",
+                (package_id, product_id, name, version),
             )
             cursor = conn.execute(
                 "SELECT id FROM packages WHERE name = ? AND version = ?",
@@ -248,9 +321,31 @@ def add_package(name: str, version: str) -> str:
 def get_all_packages() -> list[dict[str, Any]]:
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM packages ORDER BY created_at DESC")
+        cursor.execute(
+            "SELECT * FROM packages WHERE is_end_of_life = 0 ORDER BY created_at DESC"
+        )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+def get_product_packages(product_id: str) -> list[dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM packages WHERE product_id = ? ORDER BY version DESC",
+            (product_id,),
+        )
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def update_package_eol_status(package_id: str, is_eol: bool) -> None:
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "UPDATE packages SET is_end_of_life = ? WHERE id = ?",
+                (1 if is_eol else 0, package_id),
+            )
 
 
 def get_package(package_id: str) -> dict[str, Any] | None:
@@ -290,6 +385,45 @@ def remove_package_asset(package_asset_id: str) -> None:
     with get_db_connection() as conn:
         with conn:
             conn.execute("DELETE FROM package_assets WHERE id = ?", (package_asset_id,))
+
+
+def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]]:
+    query = """
+    WITH LatestScans AS (
+        SELECT sj.*, ROW_NUMBER() OVER(PARTITION BY sj.target_url, sj.target_type, IFNULL(sj.git_ref, '') ORDER BY sj.created_at DESC) as rn
+        FROM scan_jobs sj
+    )
+    SELECT 
+        pa.id as package_asset_id,
+        pa.asset_type,
+        pa.asset_id,
+        pa.git_ref,
+        CASE 
+            WHEN pa.asset_type = 'repo' THEN r.url
+            WHEN pa.asset_type = 'image' THEN i.name
+        END as asset_name,
+        ls.id as latest_scan_id,
+        ls.status as latest_scan_status,
+        ls.created_at as latest_scan_time,
+        ls.results_json,
+        ls.resolved_commit,
+        ls.resolved_tags
+    FROM package_assets pa
+    JOIN packages pk ON pa.package_id = pk.id
+    LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
+    LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
+    LEFT JOIN LatestScans ls ON 
+        (ls.rn = 1) AND 
+        (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url ELSE i.name END) AND
+        (ls.target_type = pa.asset_type) AND
+        (IFNULL(ls.git_ref, '') = IFNULL(pa.git_ref, ''))
+    WHERE pk.product_id = ? AND pk.is_end_of_life = 0
+    """
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, (product_id,))
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
 
 
 def get_package_assets_with_latest_scans(package_id: str) -> list[dict[str, Any]]:

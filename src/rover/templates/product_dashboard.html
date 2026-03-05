@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+        <div style="display: flex; gap: 1rem; align-items: center;">
+            <a href="/" role="button" class="secondary outline" style="margin-bottom: 0;">&larr; Back</a>
+            <hgroup style="margin-bottom: 0;">
+                <h2 style="margin-bottom: 0;">Product: {{ product.name }}</h2>
+                <h3 style="margin-bottom: 0; margin-top: 0.25rem;">{{ product.description or 'Manage releases and
+                    vulnerability posture for this product.' }}</h3>
+            </hgroup>
+        </div>
+        <button type="button" class="outline" onclick="document.getElementById('add-package-modal').showModal();"
+            style="margin-bottom: 0;">Create Release</button>
+    </div>
+
+    <!-- Active Releases Grid -->
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+        {% for pkg in releases %}
+        {% set assets = scan_queue.get_package_assets_with_latest_scans(pkg.id) %}
+        {% set ns = namespace(highest_severity='clean', is_scanning=false, is_failed=false, not_scanned=false) %}
+
+        {% if not assets %}
+        {% set ns.highest_severity = 'unknown' %}
+        {% else %}
+        {% for asset in assets %}
+        {% if asset.latest_scan_status == 'queued' or asset.latest_scan_status == 'running' %}
+        {% set ns.is_scanning = true %}
+        {% elif asset.latest_scan_status == 'failed' %}
+        {% set ns.is_failed = true %}
+        {% elif asset.latest_scan_status == 'completed' and asset.results_json %}
+        {% set results = asset.results_json|loadjson %}
+        {% for r in results.get('Results', []) %}
+        {% for v in r.get('Vulnerabilities', []) %}
+        {% if v.Severity == 'CRITICAL' %}
+        {% set ns.highest_severity = 'critical' %}
+        {% elif v.Severity == 'HIGH' and ns.highest_severity != 'critical' %}
+        {% set ns.highest_severity = 'high' %}
+        {% elif v.Severity == 'MEDIUM' and ns.highest_severity not in ['critical', 'high'] %}
+        {% set ns.highest_severity = 'medium' %}
+        {% elif v.Severity == 'LOW' and ns.highest_severity not in ['critical', 'high', 'medium'] %}
+        {% set ns.highest_severity = 'low' %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% else %}
+        {% set ns.not_scanned = true %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+
+        {# Determine card border styling #}
+        {% set border_style = "var(--pico-muted-color)" %}
+        {% if ns.highest_severity == 'critical' %}
+        {% set border_style = "2px solid #d32f2f" %}
+        {% elif ns.highest_severity == 'high' %}
+        {% set border_style = "2px solid #f57c00" %}
+        {% elif ns.highest_severity == 'medium' %}
+        {% set border_style = "2px solid #fbc02d" %}
+        {% elif ns.highest_severity == 'low' %}
+        {% set border_style = "2px solid #388e3c" %}
+        {% elif ns.highest_severity == 'clean' and not ns.is_scanning and not ns.is_failed and not ns.not_scanned %}
+        {% set border_style = "2px solid #388e3c" %}
+        {% endif %}
+
+        <article
+            style="border: {{ border_style }}; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem;">
+                <h3 style="margin-bottom: 0.25rem;">Release v{{ pkg.version }}</h3>
+                <small style="color: grey;">{{ pkg.name }}</small>
+            </header>
+
+            <div style="flex-grow: 1; margin-bottom: 1rem;">
+                {% if ns.highest_severity == 'unknown' %}
+                <span style="color: grey;">No assets attached.</span>
+                {% elif ns.is_scanning %}
+                <span aria-busy="true" style="color: var(--pico-primary);">Scanning active assets...</span>
+                {% elif ns.is_failed %}
+                <span style="color: #d32f2f;">Scan failures detected.</span>
+                {% elif ns.not_scanned %}
+                <span style="color: grey;">Pending initial scans.</span>
+                {% elif ns.highest_severity == 'critical' %}
+                <strong style="color: #d32f2f;">Critical Vulnerabilities Found</strong>
+                {% elif ns.highest_severity == 'high' %}
+                <strong style="color: #f57c00;">High Vulnerabilities Found</strong>
+                {% elif ns.highest_severity == 'medium' %}
+                <strong style="color: #fbc02d;">Medium Vulnerabilities Found</strong>
+                {% elif ns.highest_severity == 'low' %}
+                <strong style="color: #388e3c;">Low Vulnerabilities Found</strong>
+                {% else %}
+                <strong style="color: #388e3c;">Clean (No Vulns Found)</strong>
+                {% endif %}
+            </div>
+
+            <footer>
+                <div style="display: flex; gap: 0.5rem;">
+                    <a href="/packages/{{ pkg.id }}" role="button" class="outline"
+                        style="flex-grow: 1; text-align: center;">View Details</a>
+                </div>
+            </footer>
+        </article>
+        {% else %}
+        <article style="grid-column: 1 / -1;">
+            <em>No releases found for this product. Click "Create Release" to get started.</em>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Modal for creating a Release for this Product -->
+<dialog id="add-package-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev"
+                onclick="document.getElementById('add-package-modal').close();"></button>
+            <strong>Create Release</strong>
+        </header>
+        <form action="/packages" method="POST" style="margin-bottom: 0;">
+            <fieldset>
+                <input type="hidden" name="product_id" value="{{ product.id }}">
+                <label>Release Name
+                    <input type="text" name="package_name" placeholder="e.g., Stable Build" required>
+                </label>
+                <label>Version
+                    <input type="text" name="package_version" placeholder="e.g., 1.0.0" required>
+                </label>
+                <input type="submit" value="Create Release" style="margin-top: 1rem;">
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+{% endblock %}

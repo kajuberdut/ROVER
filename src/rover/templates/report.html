@@ -2,7 +2,7 @@
 
 {% block content %}
 <section>
-    <a href="/" id="top-anchor" role="button" class="secondary outline">← Dashboard</a>
+    <a href="javascript:history.back()" id="top-anchor" role="button" class="secondary outline">← Back</a>
     <h2 style="margin-top: 1rem;">Report Details: {{ report_id }}</h2>
 
     <article>
@@ -84,7 +84,7 @@
 
 <!-- Floating Navigation Combo -->
 <div id="floating-nav" class="floating-nav hidden" aria-hidden="true">
-    <a href="/" role="button" class="secondary outline">← Dashboard</a>
+    <a href="javascript:history.back()" role="button" class="secondary outline">← Back</a>
     <button class="secondary" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑ Top</button>
 </div>
 

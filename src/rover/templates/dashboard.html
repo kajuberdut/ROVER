@@ -7,16 +7,16 @@
             <h2>Product Portfolio</h2>
             <h3>Monitor your active releases and their vulnerability posture.</h3>
         </hgroup>
-        <button type="button" class="outline" onclick="document.getElementById('add-package-modal').showModal();">
-            Create Product Release
-        </button>
+        <button type="button" class="outline" onclick="document.getElementById('add-product-modal').showModal();"
+            style="margin-bottom: 0;">Create Product</button>
     </div>
 
     <!-- Phase 1: Product Card Grid Presentation -->
     <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
-        {% for pkg in packages %}
-        {# Calculate the highest severity for this package's assets to color-code the card #}
-        {% set assets = scan_queue.get_package_assets_with_latest_scans(pkg.id) %}
+        {% for prod in products %}
+        {# Calculate the highest severity for this product's assets to color-code the card #}
+        {% set assets = scan_queue.get_product_assets_with_latest_scans(prod.id) %}
+        {% set releases = scan_queue.get_product_packages(prod.id) %}
         {% set ns = namespace(highest_severity='clean', is_scanning=false, is_failed=false, not_scanned=false) %}
 
         {% if not assets %}
@@ -65,8 +65,8 @@
         <article
             style="border: {{ border_style }}; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
             <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem;">
-                <h3 style="margin-bottom: 0.25rem;">{{ pkg.name }}</h3>
-                <small style="color: grey;">Release: <strong>v{{ pkg.version }}</strong></small>
+                <h3 style="margin-bottom: 0.25rem;">{{ prod.name }}</h3>
+                <small style="color: grey;">{{ releases|length }} Active Releases</small>
             </header>
 
             <div style="flex-grow: 1; margin-bottom: 1rem;">
@@ -92,7 +92,7 @@
             </div>
 
             <footer>
-                <a href="/packages/{{ pkg.id }}" role="button" class="outline"
+                <a href="/products/{{ prod.id }}" role="button" class="outline"
                     style="width: 100%; text-align: center;">View Dashboard</a>
             </footer>
         </article>
@@ -173,36 +173,31 @@
 
 <section>
     <details>
-        <summary>View Recent Scan Queue Logs</summary>
-        <figure style="margin-top: 1rem;">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Repository / Target</th>
-                        <th>Ref</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="queue-body">
-                    {% include 'queue_table.html' %}
-                </tbody>
-            </table>
-        </figure>
+        <summary role="button" class="secondary outline">View Recent Scans</summary>
+        <article>
+            <figure style="margin-bottom: 0;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Repository / Target</th>
+                            <th>Ref</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queue-body">
+                        {% include 'queue_table.html' %}
+                    </tbody>
+                </table>
+            </figure>
+        </article>
     </details>
 </section>
 
 <script>
     // Auto-poll the queue table every 3 seconds
-    setInterval(() => {
-        fetch('/api/queue_table')
-            .then(response => response.text())
-            .then(html => {
-                document.getElementById('queue-body').innerHTML = html;
-            })
-            .catch(error => console.error('Error fetching queue status:', error));
-    }, 3000);
+    setupAutoPoll('/api/queue_table', 'queue-body', 3000);
 
     // Advanced Ref Selection Logic
     const repoSelect = document.getElementById('repo_id');
