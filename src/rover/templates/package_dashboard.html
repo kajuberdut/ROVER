@@ -198,6 +198,11 @@
                             {% endfor %}
                         </select>
                     </label>
+                    <label id="modal_image_tag_label" style="display: none; margin-top: 1rem;">Image Tag
+                        <select id="modal_git_ref_image" class="ref-input">
+                            <option value="" disabled selected>Select an image first...</option>
+                        </select>
+                    </label>
                 </div>
 
                 <input type="hidden" name="asset_id" id="modal_asset_id_final" required>
@@ -224,6 +229,10 @@
     const tagSelect = document.getElementById('modal_git_ref_tag');
     const commitInput = document.getElementById('modal_git_ref_commit');
     const finalRefInput = document.getElementById('modal_git_ref_final');
+
+    // Image specific inputs
+    const imageTagLabel = document.getElementById('modal_image_tag_label');
+    const imageTagSelect = document.getElementById('modal_git_ref_image');
 
     // --- Ref Selection Logic ---
     function updateRefVisibility() {
@@ -293,7 +302,6 @@
             repoDiv.style.display = 'none';
             imageDiv.style.display = 'block';
             finalIdInput.value = imageSelect.value;
-            // Clear out ref so it doesn't get sent by mistake for images
             finalRefInput.value = "";
         }
         // Force required state
@@ -305,9 +313,35 @@
     }
 
     typeSelect.addEventListener('change', updateSelection);
-    imageSelect.addEventListener('change', () => {
+
+    imageSelect.addEventListener('change', (e) => {
         finalIdInput.value = imageSelect.value;
         finalIdInput.setCustomValidity("");
+
+        const imageId = e.target.value;
+        if (!imageId) return;
+
+        imageTagLabel.style.display = 'block';
+        imageTagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
+
+        fetch(`/api/images/${imageId}/refs`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    imageTagSelect.innerHTML = '<option value="">(Failed to load - leave blank)</option>';
+                    return;
+                }
+                imageTagSelect.innerHTML = '<option value="" selected>Default/latest tag (leave blank)</option>';
+                data.tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    imageTagSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                imageTagSelect.innerHTML = '<option value="">(Error loading tags)</option>';
+            });
     });
 
     // Hook form submission to populate git_ref
@@ -323,6 +357,8 @@
                 selectedRef = commitInput.value;
             }
             finalRefInput.value = selectedRef;
+        } else if (typeSelect.value === 'image') {
+            finalRefInput.value = imageTagSelect.value || "";
         }
     });
 

@@ -49,7 +49,14 @@
                 <option value="{{ image.id }}">{{ image.name }}</option>
                 {% endfor %}
             </select>
-            <small>Scanning images will automatically use the tag specified in the name (or latest if none).</small>
+
+            <label for="image_tag">Image Tag</label>
+            <div style="margin-bottom: 1rem;">
+                <select id="image_tag" class="ref-input">
+                    <option value="" disabled selected>Select an image first...</option>
+                </select>
+            </div>
+            <small>If no tag is selected, `skopeo` might pull `latest` depending on the registry.</small>
         </div>
 
         <button type="submit" style="margin-top: 1rem;">Start Vulnerability Scan</button>
@@ -190,6 +197,38 @@
             });
     });
 
+    const imageSelect = document.getElementById('image_id');
+    const imageTagSelect = document.getElementById('image_tag');
+
+    imageSelect.addEventListener('change', (e) => {
+        const imageId = e.target.value;
+        if (!imageId) return;
+
+        imageTagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
+
+        fetch(`/api/images/${imageId}/refs`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    imageTagSelect.innerHTML = '<option value="" disabled selected>Failed to load tags</option>';
+                    return;
+                }
+
+                imageTagSelect.innerHTML = '<option value="" disabled selected>Select a tag (optional)...</option>';
+                data.tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    imageTagSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                console.error("Error fetching image tags:", err);
+                imageTagSelect.innerHTML = '<option value="" disabled selected>Error loading tags</option>';
+            });
+    });
+
     scanForm.addEventListener('submit', (e) => {
         const scanType = document.getElementById('scan_type_hidden').value;
 
@@ -218,11 +257,15 @@
                 return;
             }
         } else if (scanType === 'image') {
-            const imageSelect = document.getElementById('image_id');
             if (!imageSelect.value) {
                 e.preventDefault();
                 alert('Please select a Docker Image before scanning.');
                 return;
+            }
+            if (imageTagSelect.value) {
+                finalRefInput.value = imageTagSelect.value;
+            } else {
+                finalRefInput.value = '';
             }
         }
     });
@@ -233,21 +276,29 @@
     const areaRepo = document.getElementById('repo-selection-area');
     const areaImage = document.getElementById('image-selection-area');
 
-    btnScanRepo.addEventListener('click', () => {
-        scanTypeHidden.value = 'repo';
-        btnScanRepo.classList.remove('outline', 'secondary');
-        btnScanImage.classList.add('outline', 'secondary');
-        areaRepo.style.display = 'block';
-        areaImage.style.display = 'none';
-    });
+    function setTab(tabName) {
+        if (tabName === 'image') {
+            scanTypeHidden.value = 'image';
+            btnScanImage.classList.remove('outline', 'secondary');
+            btnScanRepo.classList.add('outline', 'secondary');
+            areaRepo.style.display = 'none';
+            areaImage.style.display = 'block';
+        } else {
+            scanTypeHidden.value = 'repo';
+            btnScanRepo.classList.remove('outline', 'secondary');
+            btnScanImage.classList.add('outline', 'secondary');
+            areaRepo.style.display = 'block';
+            areaImage.style.display = 'none';
+        }
+    }
 
-    btnScanImage.addEventListener('click', () => {
-        scanTypeHidden.value = 'image';
-        btnScanImage.classList.remove('outline', 'secondary');
-        btnScanRepo.classList.add('outline', 'secondary');
-        areaRepo.style.display = 'none';
-        areaImage.style.display = 'block';
-    });
+    btnScanRepo.addEventListener('click', () => setTab('repo'));
+    btnScanImage.addEventListener('click', () => setTab('image'));
 
+    // Select tab based on URL parameter if present
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('tab') === 'image') {
+        setTab('image');
+    }
 </script>
 {% endblock %}

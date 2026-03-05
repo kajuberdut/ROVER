@@ -58,6 +58,10 @@ class ImageResource:
         if target_name:
             scan_queue.add_image(target_name)
         referer = req.get_header("Referer", default="/")
+        if "?" not in referer:
+            referer += "?tab=image"
+        elif "tab=image" not in referer:
+            referer += "&tab=image"
         raise falcon.HTTPFound(referer)
 
 
@@ -112,6 +116,46 @@ class RepoRefsResource:
             resp.text = json.dumps({"error": f"Failed to fetch refs: {e.stderr}"})
 
 
+class ImageRefsResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, image_id: str
+    ) -> None:
+        image = scan_queue.get_image(image_id)
+        if not image:
+            resp.status = falcon.HTTP_404
+            resp.text = json.dumps({"error": "Image not found"})
+            return
+
+        image_name = image["name"]
+
+        # If the user didn't specify a registry, skopeo defaults to docker.io
+        # but requires the docker:// prefix
+        url = f"docker://{image_name}"
+        try:
+            # Run skopeo list-tags to securely fetch tags
+            result = subprocess.run(  # noqa: S603
+                ["skopeo", "list-tags", url],  # noqa: S607
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=10,
+            )
+            data = json.loads(result.stdout)
+            tags = data.get("Tags", [])
+
+            resp.text = json.dumps({"tags": sorted(tags)})
+            resp.content_type = falcon.MEDIA_JSON
+        except subprocess.TimeoutExpired:
+            resp.status = falcon.HTTP_504
+            resp.text = json.dumps({"error": "Timeout fetching tags"})
+        except subprocess.CalledProcessError as e:
+            resp.status = falcon.HTTP_500
+            resp.text = json.dumps({"error": f"Failed to fetch tags: {e.stderr}"})
+        except json.JSONDecodeError:
+            resp.status = falcon.HTTP_500
+            resp.text = json.dumps({"error": "Invalid JSON response from skopeo"})
+
+
 class ScanResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
@@ -150,7 +194,7 @@ class ScanResource:
                 return
 
             # Create a new scan job
-            scan_queue.create_job(image["name"], git_ref=None, target_type="image")
+            scan_queue.create_job(image["name"], git_ref=git_ref, target_type="image")
         else:
             resp.status = falcon.HTTP_400
             resp.text = "Invalid scan_type"
@@ -202,9 +246,7 @@ class PackageAssetResource:
         asset_id = form.get("asset_id")
         git_ref = form.get("git_ref")
 
-        # Only use git_ref if asset is a repository
-        if asset_type == "image":
-            git_ref = None
+        # Images can also use git_ref as their container tag
 
         if asset_type and asset_id:
             scan_queue.add_package_asset(package_id, asset_type, asset_id, git_ref)
@@ -243,7 +285,7 @@ class PackageScanResource:
                 scan_queue.create_job(
                     target_url=asset["asset_name"],
                     target_type="image",
-                    git_ref=None,
+                    git_ref=asset.get("git_ref"),
                 )
 
         referer = req.get_header("Referer", default=f"/packages/{package_id}")
@@ -256,6 +298,8 @@ class PackageDashboardResource:
     ) -> None:
         package = scan_queue.get_package(package_id)
         if not package:
+            # TODO: Instead of returning 404 text, re-route to the dashboard ('/')
+            # and display a clean Pico CSS toast notification explaining the package was not found.
             resp.status = falcon.HTTP_404
             resp.text = "Package not found"
             return
@@ -312,6 +356,7 @@ app.add_route("/image", ImageResource())
 app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
 app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
+app.add_route("/api/images/{image_id}/refs", ImageRefsResource())
 app.add_route("/packages", PackageResource())
 app.add_route("/packages/{package_id}/assets", PackageAssetResource())
 app.add_route("/packages/assets/{package_asset_id}", PackageAssetDetailResource())

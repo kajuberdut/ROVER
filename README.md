@@ -26,7 +26,7 @@ You can run the application using Docker Compose (recommended) or locally using 
 
 #### Local Installation with `uv`
 
-1. Ensure you have `uv` and the Docker daemon running on your system.
+1. Ensure you have `uv`, `skopeo`, and the Docker daemon running on your system.
 2. Clone the repository and navigate into it.
 3. Install dependencies and create the virtual environment:
    ```bash

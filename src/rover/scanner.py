@@ -77,18 +77,17 @@ def run_trivy_scan(
                 commit_hash = "unknown"
                 tags_str = None
         elif target_type == "image":
-            # Just use the provided URL/name directly for images
-            tags_str = target_url
+            # If git_ref is provided, use it as the image tag, unless target_url already has a tag
+            image_target = target_url
+            if git_ref and ":" not in image_target.split("/")[-1]:
+                image_target = f"{target_url}:{git_ref}"
+            tags_str = image_target
+            commit_hash = "latest"  # Images don't have git commits in the same way
 
         container = DockerContainer("aquasec/trivy:latest")
 
         # Configure Trivy database cache using an ephemeral named volume
         container.with_env("TRIVY_CACHE_DIR", "/trivy-cache")
-        # Override default DB mirrors — GCR mirror (mirror.gcr.io) returns 404
-        container.with_env("TRIVY_DB_REPOSITORY", "ghcr.io/aquasecurity/trivy-db:2")
-        container.with_env(
-            "TRIVY_JAVA_DB_REPOSITORY", "ghcr.io/aquasecurity/trivy-java-db:1"
-        )
         container.with_volume_mapping(
             "trivy-vulnerability-db-cache", "/trivy-cache", "rw"
         )
@@ -102,7 +101,7 @@ def run_trivy_scan(
             container.with_command(f"repo {target_url} --commit {commit_hash} -f json")
         else:
             # Tell the container to execute the image scan
-            container.with_command(f"image {target_url} -f json")
+            container.with_command(f"image {image_target} -f json")
 
         try:
             container.start()
