@@ -25,12 +25,49 @@
             cursor: pointer;
         }
 
-        .hamburger-menu summary:hover,
-        .hamburger-menu summary:focus,
         .hamburger-menu summary:active {
             background: transparent !important;
             box-shadow: none !important;
             outline: none !important;
+        }
+
+        /* Toast Component overrides */
+        #global-toast {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 9999;
+            transform: translateX(150%);
+            transition: transform 0.4s ease-out;
+            margin: 0;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background-color: var(--pico-del-color);
+            color: white;
+            border-radius: var(--pico-border-radius);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        #global-toast.show {
+            transform: translateX(0);
+        }
+
+        #global-toast button.close {
+            background: none;
+            border: none;
+            color: white;
+            padding: 0;
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+        #global-toast button.close:hover {
+            opacity: 1;
+            background: transparent;
         }
     </style>
 </head>
@@ -134,6 +171,41 @@
             </form>
         </article>
     </dialog>
+
+    <div id="global-toast">
+        <span id="global-toast-message">An error occurred.</span>
+        <button class="close" onclick="document.getElementById('global-toast').classList.remove('show');"
+            aria-label="Close">&times;</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('error')) {
+                const errorType = urlParams.get('error');
+                const toast = document.getElementById('global-toast');
+                const messageEl = document.getElementById('global-toast-message');
+
+                if (errorType === 'package_not_found') {
+                    messageEl.textContent = 'Package not found or has been deleted.';
+                } else {
+                    messageEl.textContent = errorType;
+                }
+
+                toast.classList.add('show');
+
+                // Keep toast open slightly longer automatically
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 5000);
+
+                // Clean up URL without reloading page
+                const newUrl = new URL(window.location);
+                newUrl.searchParams.delete('error');
+                window.history.replaceState({}, '', newUrl);
+            }
+        });
+    </script>
 </body>
 
 </html>

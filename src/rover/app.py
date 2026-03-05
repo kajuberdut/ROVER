@@ -298,11 +298,9 @@ class PackageDashboardResource:
     ) -> None:
         package = scan_queue.get_package(package_id)
         if not package:
-            # TODO: Instead of returning 404 text, re-route to the dashboard ('/')
-            # and display a clean Pico CSS toast notification explaining the package was not found.
-            resp.status = falcon.HTTP_404
-            resp.text = "Package not found"
-            return
+            # Re-route to the dashboard ('/') and display a clean Pico CSS
+            # toast notification explaining the package was not found.
+            raise falcon.HTTPFound("/?error=package_not_found")
 
         assets = scan_queue.get_package_assets_with_latest_scans(package_id)
         repositories = scan_queue.get_all_repositories()
