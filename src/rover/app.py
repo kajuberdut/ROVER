@@ -33,6 +33,7 @@ class DashboardResource:
             repositories=repositories,
             images=images,
             packages=packages,
+            scan_queue=scan_queue,
         )
         resp.content_type = falcon.MEDIA_HTML
 

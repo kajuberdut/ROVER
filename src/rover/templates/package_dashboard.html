@@ -151,7 +151,7 @@
                 <label>Asset Type
                     <select name="asset_type" id="modal_asset_type" required>
                         <option value="repo">Git Repository</option>
-                        <option value="image">Docker Image</option>
+                        <option value="image">Container Image</option>
                     </select>
                 </label>
 
@@ -190,7 +190,7 @@
                 </div>
 
                 <div id="modal_image_selection" style="display: none;">
-                    <label>Docker Image
+                    <label>Container Image
                         <select name="asset_id_image" id="modal_asset_id_image">
                             <option value="" disabled selected>Select an image...</option>
                             {% for i in images %}

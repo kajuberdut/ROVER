@@ -2,119 +2,195 @@
 
 {% block content %}
 <section>
-    <form action="/scan" method="POST" id="scan-form">
-        <div class="grid" style="margin-bottom: 2rem;">
-            <button type="button" id="btn_scan_repo" class="">Scan Git Repository</button>
-            <button type="button" id="btn_scan_image" class="secondary outline">Scan Docker Image</button>
-        </div>
-        <input type="hidden" name="scan_type" id="scan_type_hidden" value="repo">
-
-        <div id="repo-selection-area">
-            <label for="repo_id">Target Repository</label>
-            <select id="repo_id" name="repo_id">
-                <option value="" disabled selected>Select a mapped repository...</option>
-                {% for repo in repositories %}
-                <option value="{{ repo.id }}">{{ repo.url }}</option>
-                {% endfor %}
-            </select>
-
-            <label>Git Ref</label>
-            <div role="group" id="ref-type-group" style="margin-bottom: 1rem;">
-                <button type="button" class="ref-btn" data-type="branch">Branch</button>
-                <button type="button" class="ref-btn outline" data-type="tag">Tag</button>
-                <button type="button" class="ref-btn outline" data-type="commit">Commit</button>
-            </div>
-            <input type="hidden" id="ref_type" name="ref_type" value="branch">
-
-            <div style="margin-bottom: 1rem;">
-                <select id="git_ref_branch" class="ref-input">
-                    <option value="" disabled selected>Select a repository first...</option>
-                </select>
-
-                <select id="git_ref_tag" class="ref-input" style="display: none;">
-                    <option value="" disabled selected>Select a repository first...</option>
-                </select>
-
-                <input type="text" id="git_ref_commit" class="ref-input" placeholder="Enter commit hash..."
-                    style="display: none;">
-            </div>
-            <input type="hidden" name="git_ref" id="git_ref_final">
-        </div>
-
-        <div id="image-selection-area" style="display: none;">
-            <label for="image_id">Target Image</label>
-            <select id="image_id" name="image_id">
-                <option value="" disabled selected>Select a mapped image...</option>
-                {% for image in images %}
-                <option value="{{ image.id }}">{{ image.name }}</option>
-                {% endfor %}
-            </select>
-
-            <label for="image_tag">Image Tag</label>
-            <div style="margin-bottom: 1rem;">
-                <select id="image_tag" class="ref-input">
-                    <option value="" disabled selected>Select an image first...</option>
-                </select>
-            </div>
-            <small>If no tag is selected, `skopeo` might pull `latest` depending on the registry.</small>
-        </div>
-
-        <button type="submit" style="margin-top: 1rem;">Start Vulnerability Scan</button>
-    </form>
-</section>
-
-<section>
-    <h2>Scan History</h2>
-    <figure>
-        <table>
-            <thead>
-                <tr>
-                    <th>Repository</th>
-                    <th>Ref</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="queue-body">
-                {% include 'queue_table.html' %}
-            </tbody>
-        </table>
-    </figure>
-</section>
-
-<section>
-    <h2>Artifact Bundles (Packages)</h2>
-    <div style="margin-bottom: 1rem;">
-        <button type="button" class="outline" onclick="document.getElementById('add-package-modal').showModal();">Create
-            Package</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <hgroup style="margin-bottom: 0;">
+            <h2>Product Portfolio</h2>
+            <h3>Monitor your active releases and their vulnerability posture.</h3>
+        </hgroup>
+        <button type="button" class="outline" onclick="document.getElementById('add-package-modal').showModal();">
+            Create Product Release
+        </button>
     </div>
-    <figure>
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Version</th>
-                    <th>Created</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for pkg in packages %}
-                <tr>
-                    <td>{{ pkg.name }}</td>
-                    <td>{{ pkg.version }}</td>
-                    <td>{{ pkg.created_at }}</td>
-                    <td><a href="/packages/{{ pkg.id }}" role="button" class="outline">View Dashboard</a></td>
-                </tr>
+
+    <!-- Phase 1: Product Card Grid Presentation -->
+    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+        {% for pkg in packages %}
+        {# Calculate the highest severity for this package's assets to color-code the card #}
+        {% set assets = scan_queue.get_package_assets_with_latest_scans(pkg.id) %}
+        {% set ns = namespace(highest_severity='clean', is_scanning=false, is_failed=false, not_scanned=false) %}
+
+        {% if not assets %}
+        {% set ns.highest_severity = 'unknown' %}
+        {% else %}
+        {% for asset in assets %}
+        {% if asset.latest_scan_status == 'queued' or asset.latest_scan_status == 'running' %}
+        {% set ns.is_scanning = true %}
+        {% elif asset.latest_scan_status == 'failed' %}
+        {% set ns.is_failed = true %}
+        {% elif asset.latest_scan_status == 'completed' and asset.results_json %}
+        {% set results = asset.results_json|loadjson %}
+        {% for r in results.get('Results', []) %}
+        {% for v in r.get('Vulnerabilities', []) %}
+        {% if v.Severity == 'CRITICAL' %}
+        {% set ns.highest_severity = 'critical' %}
+        {% elif v.Severity == 'HIGH' and ns.highest_severity != 'critical' %}
+        {% set ns.highest_severity = 'high' %}
+        {% elif v.Severity == 'MEDIUM' and ns.highest_severity not in ['critical', 'high'] %}
+        {% set ns.highest_severity = 'medium' %}
+        {% elif v.Severity == 'LOW' and ns.highest_severity not in ['critical', 'high', 'medium'] %}
+        {% set ns.highest_severity = 'low' %}
+        {% endif %}
+        {% endfor %}
+        {% endfor %}
+        {% else %}
+        {% set ns.not_scanned = true %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+
+        {# Determine card border styling #}
+        {% set border_style = "var(--pico-muted-color)" %}
+        {% if ns.highest_severity == 'critical' %}
+        {% set border_style = "2px solid #d32f2f" %}
+        {% elif ns.highest_severity == 'high' %}
+        {% set border_style = "2px solid #f57c00" %}
+        {% elif ns.highest_severity == 'medium' %}
+        {% set border_style = "2px solid #fbc02d" %}
+        {% elif ns.highest_severity == 'low' %}
+        {% set border_style = "2px solid #388e3c" %}
+        {% elif ns.highest_severity == 'clean' and not ns.is_scanning and not ns.is_failed and not ns.not_scanned %}
+        {% set border_style = "2px solid #388e3c" %}
+        {% endif %}
+
+        <article
+            style="border: {{ border_style }}; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem;">
+                <h3 style="margin-bottom: 0.25rem;">{{ pkg.name }}</h3>
+                <small style="color: grey;">Release: <strong>v{{ pkg.version }}</strong></small>
+            </header>
+
+            <div style="flex-grow: 1; margin-bottom: 1rem;">
+                {% if ns.highest_severity == 'unknown' %}
+                <span style="color: grey;">No assets attached.</span>
+                {% elif ns.is_scanning %}
+                <span aria-busy="true" style="color: var(--pico-primary);">Scanning active assets...</span>
+                {% elif ns.is_failed %}
+                <span style="color: #d32f2f;">Scan failures detected.</span>
+                {% elif ns.not_scanned %}
+                <span style="color: grey;">Pending initial scans.</span>
+                {% elif ns.highest_severity == 'critical' %}
+                <strong style="color: #d32f2f;">Critical Vulnerabilities Found</strong>
+                {% elif ns.highest_severity == 'high' %}
+                <strong style="color: #f57c00;">High Vulnerabilities Found</strong>
+                {% elif ns.highest_severity == 'medium' %}
+                <strong style="color: #fbc02d;">Medium Vulnerabilities Found</strong>
+                {% elif ns.highest_severity == 'low' %}
+                <strong style="color: #388e3c;">Low Vulnerabilities Found</strong>
                 {% else %}
-                <tr>
-                    <td colspan="4">No packages found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </figure>
+                <strong style="color: #388e3c;">Clean (No Vulns Found)</strong>
+                {% endif %}
+            </div>
+
+            <footer>
+                <a href="/packages/{{ pkg.id }}" role="button" class="outline"
+                    style="width: 100%; text-align: center;">View Dashboard</a>
+            </footer>
+        </article>
+        {% else %}
+        <article>
+            <em>No products or releases found. Create one to get started.</em>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section>
+    <details>
+        <summary role="button" class="secondary outline">Manual Quick Scan</summary>
+        <article>
+            <form action="/scan" method="POST" id="scan-form" style="margin-bottom: 0;">
+                <div class="grid" style="margin-bottom: 2rem;">
+                    <button type="button" id="btn_scan_repo" class="">Scan Git Repository</button>
+                    <button type="button" id="btn_scan_image" class="secondary outline">Scan Container Image</button>
+                </div>
+                <input type="hidden" name="scan_type" id="scan_type_hidden" value="repo">
+
+                <div id="repo-selection-area">
+                    <label for="repo_id">Target Repository</label>
+                    <select id="repo_id" name="repo_id">
+                        <option value="" disabled selected>Select a mapped repository...</option>
+                        {% for repo in repositories %}
+                        <option value="{{ repo.id }}">{{ repo.url }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <label>Git Ref</label>
+                    <div role="group" id="ref-type-group" style="margin-bottom: 1rem;">
+                        <button type="button" class="ref-btn" data-type="branch">Branch</button>
+                        <button type="button" class="ref-btn outline" data-type="tag">Tag</button>
+                        <button type="button" class="ref-btn outline" data-type="commit">Commit</button>
+                    </div>
+                    <input type="hidden" id="ref_type" name="ref_type" value="branch">
+
+                    <div style="margin-bottom: 1rem;">
+                        <select id="git_ref_branch" class="ref-input">
+                            <option value="" disabled selected>Select a repository first...</option>
+                        </select>
+
+                        <select id="git_ref_tag" class="ref-input" style="display: none;">
+                            <option value="" disabled selected>Select a repository first...</option>
+                        </select>
+
+                        <input type="text" id="git_ref_commit" class="ref-input" placeholder="Enter commit hash..."
+                            style="display: none;">
+                    </div>
+                    <input type="hidden" name="git_ref" id="git_ref_final">
+                </div>
+
+                <div id="image-selection-area" style="display: none;">
+                    <label for="image_id">Target Image</label>
+                    <select id="image_id" name="image_id">
+                        <option value="" disabled selected>Select a mapped image...</option>
+                        {% for image in images %}
+                        <option value="{{ image.id }}">{{ image.name }}</option>
+                        {% endfor %}
+                    </select>
+
+                    <label for="image_tag">Image Tag</label>
+                    <div style="margin-bottom: 1rem;">
+                        <select id="image_tag" class="ref-input">
+                            <option value="" disabled selected>Select an image first...</option>
+                        </select>
+                    </div>
+                    <small>If no tag is selected, `skopeo` might pull `latest` depending on the registry.</small>
+                </div>
+
+                <button type="submit" style="margin-top: 1rem;">Start Quick Scan</button>
+            </form>
+        </article>
+    </details>
+</section>
+
+<section>
+    <details>
+        <summary>View Recent Scan Queue Logs</summary>
+        <figure style="margin-top: 1rem;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Repository / Target</th>
+                        <th>Ref</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="queue-body">
+                    {% include 'queue_table.html' %}
+                </tbody>
+            </table>
+        </figure>
+    </details>
 </section>
 
 <script>
@@ -259,7 +335,7 @@
         } else if (scanType === 'image') {
             if (!imageSelect.value) {
                 e.preventDefault();
-                alert('Please select a Docker Image before scanning.');
+                alert('Please select a Container Image before scanning.');
                 return;
             }
             if (imageTagSelect.value) {
