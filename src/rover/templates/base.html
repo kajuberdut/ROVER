@@ -119,6 +119,9 @@
                             <li><a href="#"
                                     onclick="document.getElementById('add-product-modal')?.showModal(); event.preventDefault();">Create
                                     Product</a></li>
+                            <li><a href="#"
+                                    onclick="document.getElementById('add-eol-modal')?.showModal(); event.preventDefault();">Add
+                                    EOL Component</a></li>
                         </ul>
                     </details>
                 </li>
@@ -166,6 +169,31 @@
         </article>
     </dialog>
 
+    <dialog id="add-eol-modal">
+        <article>
+            <header>
+                <button aria-label="Close" rel="prev"
+                    onclick="document.getElementById('add-eol-modal').close();"></button>
+                <strong>Add End of Life Component Tracker</strong>
+            </header>
+            <form action="/eol_components" method="POST" style="margin-bottom: 0;">
+                <fieldset role="group">
+                    <input type="text" name="target_name" id="eol_target_name"
+                        placeholder="Component name (e.g. postgresql)" required style="margin-bottom: 0;"
+                        list="eol_names_list" autocomplete="off">
+                    <datalist id="eol_names_list"></datalist>
+
+                    <input type="text" name="target_version" id="eol_target_version" placeholder="Version (e.g. 14)"
+                        required style="margin-bottom: 0;" list="eol_versions_list" autocomplete="off">
+                    <datalist id="eol_versions_list"></datalist>
+
+                    <input type="submit" value="Add EOL Tracker" style="width: auto; margin-bottom: 0;">
+                </fieldset>
+                <small>Checks lifecycle APIs at endoflife.date API periodically.</small>
+            </form>
+        </article>
+    </dialog>
+
     <dialog id="add-product-modal">
         <article>
             <header>
@@ -195,6 +223,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Toast logic
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('error')) {
                 const errorType = urlParams.get('error');
@@ -218,6 +247,54 @@
                 const newUrl = new URL(window.location);
                 newUrl.searchParams.delete('error');
                 window.history.replaceState({}, '', newUrl);
+            }
+
+            // EOL Autocomplete logic
+            const eolNameInput = document.getElementById('eol_target_name');
+            const eolVersionInput = document.getElementById('eol_target_version');
+            const namesList = document.getElementById('eol_names_list');
+            const versionsList = document.getElementById('eol_versions_list');
+
+            if (eolNameInput) {
+                // Fetch all components to populate the names datalist
+                fetch('/api/eol/all')
+                    .then(res => res.json())
+                    .then(data => {
+                        const fragment = document.createDocumentFragment();
+                        data.forEach(name => {
+                            const opt = document.createElement('option');
+                            opt.value = name;
+                            fragment.appendChild(opt);
+                        });
+                        namesList.appendChild(fragment);
+                    })
+                    .catch(err => console.error("Failed to fetch EOL names", err));
+
+                // When a name is entered or selected, fetch its versions
+                eolNameInput.addEventListener('change', (e) => {
+                    const val = e.target.value;
+                    if (!val) return;
+
+                    // Clear existing versions
+                    versionsList.innerHTML = '';
+                    eolVersionInput.value = '';
+
+                    fetch(`/api/eol/${val}`)
+                        .then(res => {
+                            if (!res.ok) throw new Error("Component not found");
+                            return res.json();
+                        })
+                        .then(data => {
+                            const fragment = document.createDocumentFragment();
+                            data.forEach(item => {
+                                const opt = document.createElement('option');
+                                opt.value = item.cycle;
+                                fragment.appendChild(opt);
+                            });
+                            versionsList.appendChild(fragment);
+                        })
+                        .catch(err => console.log("No version data for this component", err));
+                });
             }
         });
     </script>

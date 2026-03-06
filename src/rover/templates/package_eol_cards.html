@@ -1,0 +1,58 @@
+{% for asset in assets %}
+{% set eol_data = asset.results_json|loadjson if asset.results_json else {} %}
+<article style="display: flex; flex-direction: column; justify-content: space-between;">
+    <header style="padding: 0.75rem; margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
+                <span title="End Of Life Component">⏳</span>
+                <span title="{{ asset.asset_name }}">{{ asset.asset_name | short_url }} v{{ asset.git_ref }}</span>
+            </div>
+
+            <form action="/packages/assets/{{ asset.package_asset_id }}" method="POST" style="margin-bottom: 0;">
+                <input type="hidden" name="action" value="delete">
+                <button type="submit" class="outline" title="Remove Component"
+                    style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.1rem 0.4rem; margin-bottom: 0;">✕</button>
+            </form>
+        </div>
+    </header>
+
+    <div style="padding: 1rem; flex-grow: 1;">
+        {% if asset.latest_scan_status == 'queued' or asset.latest_scan_status == 'running' %}
+        <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+            <span aria-busy="true">Fetching lifecycle dates...</span>
+        </div>
+        {% elif asset.latest_scan_status == 'completed' and eol_data %}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9em;">
+            <div><strong>EOL Date:</strong></div>
+            <div>{{ eol_data.get('eol', 'N/A') }}</div>
+
+            <div><strong>Release Date:</strong></div>
+            <div>{{ eol_data.get('releaseDate', 'N/A') }}</div>
+
+            <div><strong>LTS Status:</strong></div>
+            <div>{% if eol_data.get('lts') %}Yes{% else %}No{% endif %}</div>
+        </div>
+        {% elif asset.latest_scan_status == 'failed' %}
+        <div style="color: var(--pico-del-color);">
+            <strong>Failed to fetch:</strong> {{ asset.error_message }}
+        </div>
+        {% else %}
+        <div style="color: grey; text-align: center; font-style: italic;">
+            Scan pending
+        </div>
+        {% endif %}
+    </div>
+
+    <footer style="padding: 0.5rem; text-align: right; background-color: var(--pico-card-sectioning-background-color);">
+        <small style="color: var(--pico-muted-color);" {% if eol_data.get('latest')
+            %}title="Latest Release: {{ eol_data.latest }}" {% endif %}>
+            {% if asset.latest_scan_time %}Updated: {{ asset.latest_scan_time | humanize_time }}{% else %}Never
+            checked{% endif %}
+            {% if eol_data.get('latest') %}&nbsp;ℹ️{% endif %}
+        </small>
+    </footer>
+</article>
+{% else %}
+<p style="color: var(--pico-muted-color); font-style: italic;">No major components are currently being tracked for this
+    release.</p>
+{% endfor %}

@@ -71,6 +71,7 @@ class DashboardResource:
         images = scan_queue.get_all_images()
         products = scan_queue.get_all_products()
         packages = scan_queue.get_all_packages()
+        eol_components = scan_queue.get_all_eol_components()
         template = template_env.get_template("dashboard.html")
         resp.text = template.render(
             title="R.O.V.E.R Dashboard",
@@ -79,6 +80,7 @@ class DashboardResource:
             images=images,
             products=products,
             packages=packages,
+            eol_components=eol_components,
             scan_queue=scan_queue,
         )
         resp.content_type = falcon.MEDIA_HTML
@@ -109,6 +111,23 @@ class ImageResource:
             referer += "?tab=image"
         elif "tab=image" not in referer:
             referer += "&tab=image"
+        raise falcon.HTTPFound(referer)
+
+
+class EolComponentResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        form = await req.get_media()
+        target_name = form.get("target_name")
+        target_version = form.get("target_version")
+        if target_name and target_version:
+            scan_queue.add_eol_component(target_name, target_version)
+        referer = req.get_header("Referer", default="/")
+        if "?" not in referer:
+            referer += "?tab=eol_component"
+        elif "tab=eol_component" not in referer:
+            referer += "&tab=eol_component"
         raise falcon.HTTPFound(referer)
 
 
@@ -367,6 +386,12 @@ class PackageScanResource:
                     target_type="image",
                     git_ref=asset.get("git_ref"),
                 )
+            elif asset["asset_type"] == "eol_component":
+                scan_queue.create_job(
+                    target_url=asset["asset_name"],
+                    target_type="eol_component",
+                    git_ref=asset.get("git_ref"),
+                )
 
         referer = req.get_header("Referer", default=f"/packages/{package_id}")
         raise falcon.HTTPFound(referer)
@@ -385,6 +410,7 @@ class PackageDashboardResource:
         assets = scan_queue.get_package_assets_with_latest_scans(package_id)
         repositories = scan_queue.get_all_repositories()
         images = scan_queue.get_all_images()
+        eol_components = scan_queue.get_all_eol_components()
 
         template = template_env.get_template("package_dashboard.html")
         resp.text = template.render(
@@ -393,6 +419,7 @@ class PackageDashboardResource:
             assets=assets,
             repositories=repositories,
             images=images,
+            eol_components=eol_components,
         )
         resp.content_type = falcon.MEDIA_HTML
 
@@ -404,6 +431,17 @@ class PackageAssetsTableResource:
         assets = scan_queue.get_package_assets_with_latest_scans(package_id)
         template = template_env.get_template("package_assets_table.html")
         resp.text = template.render(assets=assets)
+        resp.content_type = falcon.MEDIA_HTML
+
+
+class PackageEolCardsResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+    ) -> None:
+        assets = scan_queue.get_package_assets_with_latest_scans(package_id)
+        eol_assets = [a for a in assets if a["asset_type"] == "eol_component"]
+        template = template_env.get_template("package_eol_cards.html")
+        resp.text = template.render(assets=eol_assets)
         resp.content_type = falcon.MEDIA_HTML
 
 
@@ -420,7 +458,11 @@ def start_worker() -> None:
 worker_thread = threading.Thread(target=start_worker, daemon=True)
 worker_thread.start()
 
+from rover.eol_proxy import EolProxyAllResource, EolProxyProductResource
+
 app = falcon.asgi.App()
+app.add_route("/api/eol/all", EolProxyAllResource())
+app.add_route("/api/eol/{product}", EolProxyProductResource())
 
 # Serve static files
 static_path = os.path.join(os.path.dirname(__file__), "static")
@@ -431,6 +473,7 @@ app.add_route("/", DashboardResource())
 app.add_route("/scan", ScanResource())
 app.add_route("/repo", RepositoryResource())
 app.add_route("/image", ImageResource())
+app.add_route("/eol_components", EolComponentResource())
 app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
 app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
@@ -442,4 +485,5 @@ app.add_route("/packages/{package_id}/assets", PackageAssetResource())
 app.add_route("/packages/assets/{package_asset_id}", PackageAssetDetailResource())
 app.add_route("/packages/{package_id}/scan", PackageScanResource())
 app.add_route("/api/packages/{package_id}/assets_table", PackageAssetsTableResource())
+app.add_route("/api/packages/{package_id}/eol_cards", PackageEolCardsResource())
 app.add_route("/packages/{package_id}", PackageDashboardResource())

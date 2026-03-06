@@ -23,11 +23,23 @@
 </section>
 
 <section>
-    <p style="margin-bottom: 1rem; color: var(--pico-muted-color); font-size: 0.85em;">
+    <p style="margin-bottom: 2rem; color: var(--pico-muted-color); font-size: 0.85em;">
         <em>Tip: To target a different Git branch, simply swap it by using "Add Asset" with the exact same mapping
             URL.</em>
     </p>
 
+    <!-- MAJOR COMPONENTS SECTION -->
+    <h3 style="margin-bottom: 0.5rem;">Major Components</h3>
+    <p style="margin-bottom: 1rem; color: var(--pico-muted-color); font-size: 0.85em;">
+        <em>Core framework dependencies and databases tracked for End-of-Life dates.</em>
+    </p>
+    <div id="eol-cards-container"
+        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 3rem;">
+        {% include 'package_eol_cards.html' with context %}
+    </div>
+
+    <!-- PACKAGE ASSETS SECTION -->
+    <h3 style="margin-bottom: 0.5rem;">Package Assets</h3>
     <figure>
         <table>
             <thead>
@@ -42,7 +54,7 @@
                 </tr>
             </thead>
             <tbody id="assets-table-body">
-                {% include 'package_assets_table.html' %}
+                {% include 'package_assets_table.html' with context %}
             </tbody>
         </table>
     </figure>
@@ -51,6 +63,9 @@
 <script>
     // Auto-poll the package assets table every 3 seconds
     setupAutoPoll('/api/packages/{{ package.id }}/assets_table', 'assets-table-body', 3000);
+
+    // Auto-poll the major components cards every 3 seconds
+    setupAutoPoll('/api/packages/{{ package.id }}/eol_cards', 'eol-cards-container', 3000);
 </script>
 
 <dialog id="add-asset-modal">
@@ -66,6 +81,7 @@
                     <select name="asset_type" id="modal_asset_type" required>
                         <option value="repo">Git Repository</option>
                         <option value="image">Container Image</option>
+                        <option value="eol_component">End Of Life Component</option>
                     </select>
                 </label>
 
@@ -119,6 +135,18 @@
                     </label>
                 </div>
 
+                <div id="modal_eol_selection" style="display: none;">
+                    <label>Tracked EOL Component
+                        <select name="asset_id_eol" id="modal_asset_id_eol">
+                            <option value="" disabled selected>Select an EOL Component...</option>
+                            {% for e in eol_components %}
+                            <option value="{{ e.id }}" data-version="{{ e.version }}">{{ e.name }} v{{ e.version }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+
                 <input type="hidden" name="asset_id" id="modal_asset_id_final" required>
                 <input type="hidden" name="git_ref" id="modal_git_ref_final">
 
@@ -132,8 +160,10 @@
     const typeSelect = document.getElementById('modal_asset_type');
     const repoDiv = document.getElementById('modal_repo_selection');
     const imageDiv = document.getElementById('modal_image_selection');
+    const eolDiv = document.getElementById('modal_eol_selection');
     const repoSelect = document.getElementById('modal_asset_id_repo');
     const imageSelect = document.getElementById('modal_asset_id_image');
+    const eolSelect = document.getElementById('modal_asset_id_eol');
     const finalIdInput = document.getElementById('modal_asset_id_final');
 
     // Ref specific inputs
@@ -211,12 +241,20 @@
         if (typeSelect.value === 'repo') {
             repoDiv.style.display = 'block';
             imageDiv.style.display = 'none';
+            eolDiv.style.display = 'none';
             finalIdInput.value = repoSelect.value;
-        } else {
+        } else if (typeSelect.value === 'image') {
             repoDiv.style.display = 'none';
             imageDiv.style.display = 'block';
+            eolDiv.style.display = 'none';
             finalIdInput.value = imageSelect.value;
             finalRefInput.value = "";
+        } else if (typeSelect.value === 'eol_component') {
+            repoDiv.style.display = 'none';
+            imageDiv.style.display = 'none';
+            eolDiv.style.display = 'block';
+            finalIdInput.value = eolSelect.value;
+            finalRefInput.value = eolSelect.options[eolSelect.selectedIndex]?.dataset.version || "";
         }
         // Force required state
         if (!finalIdInput.value) {
@@ -227,6 +265,7 @@
     }
 
     typeSelect.addEventListener('change', updateSelection);
+    eolSelect.addEventListener('change', updateSelection);
 
     imageSelect.addEventListener('change', (e) => {
         finalIdInput.value = imageSelect.value;
@@ -273,6 +312,8 @@
             finalRefInput.value = selectedRef;
         } else if (typeSelect.value === 'image') {
             finalRefInput.value = imageTagSelect.value || "";
+        } else if (typeSelect.value === 'eol_component') {
+            finalRefInput.value = eolSelect.options[eolSelect.selectedIndex]?.dataset.version || "";
         }
     });
 

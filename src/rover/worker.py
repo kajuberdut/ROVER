@@ -20,12 +20,20 @@ async def process_job(
     try:
         from rover import scanner
 
-        # Run the actual Trivy scan using testcontainers
-        # Since this is a blocking I/O operation (Docker), wrap it in to_thread so we don't
-        # block the asyncio event loop while the container is running
-        results, commit_hash, tags_str = await asyncio.to_thread(
-            scanner.run_trivy_scan, target_url, git_ref, target_type
-        )
+        if target_type == "eol_component":
+            # We expect target_url to be the name, and git_ref to be the version
+            if not git_ref:
+                raise ValueError("EOL scan requires a version string in git_ref")
+            results, commit_hash, tags_str = await asyncio.to_thread(
+                scanner.run_eol_scan, target_url, git_ref
+            )
+        else:
+            # Run the actual Trivy scan using testcontainers
+            # Since this is a blocking I/O operation (Docker), wrap it in to_thread so we don't
+            # block the asyncio event loop while the container is running
+            results, commit_hash, tags_str = await asyncio.to_thread(
+                scanner.run_trivy_scan, target_url, git_ref, target_type
+            )
 
         # Update status to completed
         update_job_status(

@@ -5,7 +5,9 @@ from contextlib import contextmanager
 from typing import Any, Generator
 
 # Initialize the jobs database
-DB_PATH = os.path.join(os.path.dirname(__file__), "jobs.db")
+DB_PATH = os.environ.get(
+    "ROVER_DB_PATH", os.path.join(os.path.dirname(__file__), "jobs.db")
+)
 
 
 @contextmanager
@@ -56,6 +58,25 @@ def init_db() -> None:
                     id TEXT PRIMARY KEY,
                     name TEXT UNIQUE NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS eol_components (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    version TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(name, version)
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS eol_cache (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    version TEXT NOT NULL,
+                    response_json TEXT NOT NULL,
+                    cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(name, version)
                 )
             """)
             conn.execute("""
@@ -271,6 +292,62 @@ def get_image(image_id: str) -> dict[str, Any] | None:
     return None
 
 
+def add_eol_component(name: str, version: str) -> str:
+    eol_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "INSERT INTO eol_components (id, name, version) VALUES (?, ?, ?) ON CONFLICT(name, version) DO NOTHING",
+                (eol_id, name, version),
+            )
+            cursor = conn.execute(
+                "SELECT id FROM eol_components WHERE name = ? AND version = ?",
+                (name, version),
+            )
+            row = cursor.fetchone()
+            return str(row["id"]) if row else eol_id
+
+
+def get_all_eol_components() -> list[dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM eol_components ORDER BY name ASC, version DESC")
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_eol_component(eol_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM eol_components WHERE id = ?", (eol_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+    return None
+
+
+def get_cached_eol_data(name: str, version: str) -> str | None:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        # 28 days validity
+        cursor.execute(
+            "SELECT response_json FROM eol_cache WHERE name = ? AND version = ? AND cached_at >= datetime('now', '-28 days')",
+            (name, version),
+        )
+        row = cursor.fetchone()
+        return row["response_json"] if row else None
+
+
+def set_cached_eol_data(name: str, version: str, response_json: str) -> None:
+    cache_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "INSERT INTO eol_cache (id, name, version, response_json) VALUES (?, ?, ?, ?) ON CONFLICT(name, version) DO UPDATE SET response_json=excluded.response_json, cached_at=CURRENT_TIMESTAMP",
+                (cache_id, name, version, response_json),
+            )
+
+
 def add_product(name: str, description: str = "") -> str:
     product_id = str(uuid.uuid4())
     with get_db_connection() as conn:
@@ -401,6 +478,7 @@ def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]
         CASE 
             WHEN pa.asset_type = 'repo' THEN r.url
             WHEN pa.asset_type = 'image' THEN i.name
+            WHEN pa.asset_type = 'eol_component' THEN e.name
         END as asset_name,
         ls.id as latest_scan_id,
         ls.status as latest_scan_status,
@@ -412,9 +490,10 @@ def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]
     JOIN packages pk ON pa.package_id = pk.id
     LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
     LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
+    LEFT JOIN eol_components e ON pa.asset_type = 'eol_component' AND pa.asset_id = e.id
     LEFT JOIN LatestScans ls ON 
         (ls.rn = 1) AND 
-        (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url ELSE i.name END) AND
+        (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name WHEN pa.asset_type = 'eol_component' THEN e.name END) AND
         (ls.target_type = pa.asset_type) AND
         (IFNULL(ls.git_ref, '') = IFNULL(pa.git_ref, ''))
     WHERE pk.product_id = ? AND pk.is_end_of_life = 0
@@ -440,6 +519,7 @@ def get_package_assets_with_latest_scans(package_id: str) -> list[dict[str, Any]
         CASE 
             WHEN pa.asset_type = 'repo' THEN r.url
             WHEN pa.asset_type = 'image' THEN i.name
+            WHEN pa.asset_type = 'eol_component' THEN e.name
         END as asset_name,
         ls.id as latest_scan_id,
         ls.status as latest_scan_status,
@@ -450,9 +530,10 @@ def get_package_assets_with_latest_scans(package_id: str) -> list[dict[str, Any]
     FROM package_assets pa
     LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
     LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
+    LEFT JOIN eol_components e ON pa.asset_type = 'eol_component' AND pa.asset_id = e.id
     LEFT JOIN LatestScans ls ON 
         (ls.rn = 1) AND 
-        (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url ELSE i.name END) AND
+        (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name WHEN pa.asset_type = 'eol_component' THEN e.name END) AND
         (ls.target_type = pa.asset_type) AND
         (IFNULL(ls.git_ref, '') = IFNULL(pa.git_ref, ''))
     WHERE pa.package_id = ?

@@ -2,6 +2,8 @@ import json
 import logging
 import subprocess
 import tempfile
+import urllib.error
+import urllib.request
 
 # ruff: noqa: S603, S607
 from testcontainers.core.container import DockerContainer  # type: ignore
@@ -10,6 +12,46 @@ logger = logging.getLogger(__name__)
 
 
 from typing import Any, cast
+
+from rover import scan_queue
+
+
+def run_eol_scan(
+    target_name: str, target_version: str
+) -> tuple[dict[str, Any], str, str | None]:
+    """
+    Fetches the end of life date for a given component and version.
+    Utilizes a 28-day database cache to avoid rate limiting.
+    """
+    logger.info(f"Checking EOL data for {target_name} version {target_version}")
+
+    cached_json = scan_queue.get_cached_eol_data(target_name, target_version)
+    if cached_json:
+        logger.info(f"Using cached EOL data for {target_name} v{target_version}")
+        return json.loads(cached_json), "eol_cache", "cached"
+
+    url = f"https://endoflife.date/api/{target_name}/{target_version}.json"
+    req = urllib.request.Request(url, headers={"User-Agent": "RoverScanner/1.0"})  # noqa: S310
+
+    try:
+        with urllib.request.urlopen(req) as response:  # noqa: S310
+            data = response.read().decode("utf-8")
+            parsed_data = json.loads(data)
+
+            # Store the raw validated json exactly into our cache
+            scan_queue.set_cached_eol_data(
+                target_name, target_version, json.dumps(parsed_data)
+            )
+
+            return parsed_data, "eol_api", "fresh"
+    except urllib.error.HTTPError as e:
+        logger.error(f"HTTP error fetching EOL data: {e.code} - {e.reason}")
+        if e.code == 404:
+            raise Exception(f"EOL data not found for {target_name} v{target_version}")
+        raise Exception(f"Failed to fetch EOL data: {e.reason}")
+    except Exception as e:
+        logger.error(f"Error fetching EOL data: {e}")
+        raise Exception("Failed to retrieve EOL data from endoflife.date API")
 
 
 def run_trivy_scan(

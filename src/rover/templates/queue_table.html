@@ -1,9 +1,12 @@
 {% for job in jobs %}
+{% if job.target_type != 'eol_component' %}
 <tr>
     <td>
         <div style="display: flex; align-items: center; gap: 0.5rem;">
             {% if job.target_type == 'repo' %}
             <span style="font-size: 1.25rem;" title="Repository">📦</span>
+            {% elif job.target_type == 'eol_component' %}
+            <span style="font-size: 1.25rem;" title="End Of Life Component">⏳</span>
             {% else %}
             <span style="font-size: 1.25rem;" title="Container Image">🐳</span>
             {% endif %}
@@ -45,6 +48,7 @@
         {% endif %}
     </td>
 </tr>
+{% endif %}
 {% else %}
 <tr>
     <td colspan="5">No scans initiated yet.</td>
