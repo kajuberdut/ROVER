@@ -70,8 +70,8 @@ class DashboardResource:
         repositories = scan_queue.get_all_repositories()
         images = scan_queue.get_all_images()
         products = scan_queue.get_all_products()
-        packages = scan_queue.get_all_packages()
-        eol_components = scan_queue.get_all_eol_components()
+        releases = scan_queue.get_all_releases()
+        major_components = scan_queue.get_all_major_components()
         template = template_env.get_template("dashboard.html")
         resp.text = template.render(
             title="R.O.V.E.R Dashboard",
@@ -79,8 +79,8 @@ class DashboardResource:
             repositories=repositories,
             images=images,
             products=products,
-            packages=packages,
-            eol_components=eol_components,
+            releases=releases,
+            major_components=major_components,
             scan_queue=scan_queue,
         )
         resp.content_type = falcon.MEDIA_HTML
@@ -114,20 +114,22 @@ class ImageResource:
         raise falcon.HTTPFound(referer)
 
 
-class EolComponentResource:
+class MajorComponentResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         form = await req.get_media()
-        target_name = form.get("target_eol_name") or form.get("target_name")
-        target_version = form.get("target_eol_version") or form.get("target_version")
+        target_name = form.get("target_major_component_name") or form.get("target_name")
+        target_version = form.get("target_major_component_version") or form.get(
+            "target_version"
+        )
         if target_name and target_version:
-            scan_queue.add_eol_component(target_name, target_version)
+            scan_queue.add_major_component(target_name, target_version)
         referer = req.get_header("Referer", default="/")
         if "?" not in referer:
-            referer += "?tab=eol_component"
-        elif "tab=eol_component" not in referer:
-            referer += "&tab=eol_component"
+            referer += "?tab=major_component"
+        elif "tab=major_component" not in referer:
+            referer += "&tab=major_component"
         raise falcon.HTTPFound(referer)
 
 
@@ -403,7 +405,7 @@ class ProductDashboardResource:
         if not product:
             raise falcon.HTTPFound("/?error=product_not_found")
 
-        releases = scan_queue.get_product_packages(product_id)
+        releases = scan_queue.get_product_releases(product_id)
         template = template_env.get_template("product_dashboard.html")
         resp.text = template.render(
             title=f"Product: {product['name']}",
@@ -414,23 +416,23 @@ class ProductDashboardResource:
         resp.content_type = falcon.MEDIA_HTML
 
 
-class PackageResource:
+class ReleaseResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         form = await req.get_media()
         product_id = form.get("product_id")
-        name = form.get("package_name")
-        version = form.get("package_version")
+        name = form.get("release_name")
+        version = form.get("release_version")
         if product_id and name and version:
-            scan_queue.add_package(product_id, name, version)
+            scan_queue.add_release(product_id, name, version)
         referer = req.get_header("Referer", default="/")
         raise falcon.HTTPFound(referer)
 
 
-class PackageAssetResource:
+class ReleaseAssetResource:
     async def on_post(
-        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
         form = await req.get_media()
         asset_type = form.get("asset_type")
@@ -447,42 +449,46 @@ class PackageAssetResource:
                 target_name = form.get("target_image_name") or form.get("target_name")
                 if target_name:
                     asset_id = scan_queue.add_image(target_name)
-            elif asset_type == "eol_component":
-                target_name = form.get("target_eol_name") or form.get("target_name")
-                target_version = form.get("target_eol_version") or form.get(
+            elif asset_type == "major_component":
+                target_name = form.get("target_major_component_name") or form.get(
+                    "target_name"
+                )
+                target_version = form.get("target_major_component_version") or form.get(
                     "target_version"
                 )
                 if target_name and target_version:
-                    asset_id = scan_queue.add_eol_component(target_name, target_version)
+                    asset_id = scan_queue.add_major_component(
+                        target_name, target_version
+                    )
 
         # Images can also use git_ref as their container tag
 
         if asset_type and asset_id:
-            scan_queue.add_package_asset(package_id, asset_type, asset_id, git_ref)
-        raise falcon.HTTPFound(f"/packages/{package_id}")
+            scan_queue.add_release_asset(release_id, asset_type, asset_id, git_ref)
+        raise falcon.HTTPFound(f"/releases/{release_id}")
 
 
-class PackageAssetDetailResource:
+class ReleaseAssetDetailResource:
     async def on_post(
         self,
         req: falcon.asgi.Request,
         resp: falcon.asgi.Response,
-        package_asset_id: str,
+        release_asset_id: str,
     ) -> None:
         form = await req.get_media()
         action = form.get("action")
         if action == "delete":
-            scan_queue.remove_package_asset(package_asset_id)
-        referer = req.get_header("Referer", default="/packages")
+            scan_queue.remove_release_asset(release_asset_id)
+        referer = req.get_header("Referer", default="/releases")
         raise falcon.HTTPFound(referer)
 
 
-class PackageScanResource:
+class ReleaseScanResource:
     async def on_post(
-        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
-        """Trigger a scan for all assets within this package."""
-        assets = scan_queue.get_package_assets_with_latest_scans(package_id)
+        """Trigger a scan for all assets within this release."""
+        assets = scan_queue.get_release_assets_with_latest_scans(release_id)
         for asset in assets:
             if asset["asset_type"] == "repo":
                 scan_queue.create_job(
@@ -496,78 +502,82 @@ class PackageScanResource:
                     target_type="image",
                     git_ref=asset.get("git_ref"),
                 )
-            elif asset["asset_type"] == "eol_component":
+            elif asset["asset_type"] == "major_component":
                 scan_queue.create_job(
                     target_url=asset["asset_name"],
-                    target_type="eol_component",
+                    target_type="major_component",
                     git_ref=asset.get("git_ref"),
                 )
 
-        referer = req.get_header("Referer", default=f"/packages/{package_id}")
+        referer = req.get_header("Referer", default=f"/releases/{release_id}")
         raise falcon.HTTPFound(referer)
 
 
-class PackageDashboardResource:
+class ReleaseDashboardResource:
     async def on_get(
-        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
-        package = scan_queue.get_package(package_id)
-        if not package:
+        release = scan_queue.get_release(release_id)
+        if not release:
             # Re-route to the dashboard ('/') and display a clean Pico CSS
-            # toast notification explaining the package was not found.
-            raise falcon.HTTPFound("/?error=package_not_found")
+            # toast notification explaining the release was not found.
+            raise falcon.HTTPFound("/?error=release_not_found")
 
-        assets = scan_queue.get_package_assets_with_latest_scans(package_id)
-        eol_assets = [a for a in assets if a["asset_type"] == "eol_component"]
+        assets = scan_queue.get_release_assets_with_latest_scans(release_id)
+        major_component_assets = [
+            a for a in assets if a["asset_type"] == "major_component"
+        ]
         repositories = scan_queue.get_all_repositories()
         images = scan_queue.get_all_images()
-        eol_components = scan_queue.get_all_eol_components()
+        major_components = scan_queue.get_all_major_components()
 
-        template = template_env.get_template("package_dashboard.html")
+        template = template_env.get_template("release_dashboard.html")
         resp.text = template.render(
-            title=f"Package: {package['name']} {package['version']}",
-            package=package,
+            title=f"Release: {release['name']} {release['version']}",
+            release=release,
             assets=assets,
-            eol_assets=eol_assets,
+            major_component_assets=major_component_assets,
             repositories=repositories,
             images=images,
-            eol_components=eol_components,
+            major_components=major_components,
         )
         resp.content_type = falcon.MEDIA_HTML
 
 
-class PackageAssetsTableResource:
+class ReleaseAssetsTableResource:
     async def on_get(
-        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
-        assets = scan_queue.get_package_assets_with_latest_scans(package_id)
-        template = template_env.get_template("package_assets_table.html")
+        assets = scan_queue.get_release_assets_with_latest_scans(release_id)
+        template = template_env.get_template("release_assets_table.html")
         resp.text = template.render(assets=assets)
         resp.content_type = falcon.MEDIA_HTML
 
 
-class PackageEolCardsResource:
+class ReleaseMajorComponentCardsResource:
     async def on_get(
-        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
-        assets = scan_queue.get_package_assets_with_latest_scans(package_id)
-        eol_assets = [a for a in assets if a["asset_type"] == "eol_component"]
-        template = template_env.get_template("package_eol_cards.html")
-        resp.text = template.render(eol_assets=eol_assets)
+        assets = scan_queue.get_release_assets_with_latest_scans(release_id)
+        major_component_assets = [
+            a for a in assets if a["asset_type"] == "major_component"
+        ]
+        template = template_env.get_template("release_major_component_cards.html")
+        resp.text = template.render(major_component_assets=major_component_assets)
         resp.content_type = falcon.MEDIA_HTML
 
 
-class PackageEolResource:
+class ReleaseEolResource:
     async def on_post(
-        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
         form = await req.get_media()
         action = form.get("action")
         if action == "mark_eol":
-            scan_queue.update_package_eol_status(package_id, is_eol=True)
+            scan_queue.update_release_eol_status(release_id, is_eol=True)
         elif action == "unmark_eol":
-            scan_queue.update_package_eol_status(package_id, is_eol=False)
-        referer = req.get_header("Referer", default=f"/packages/{package_id}")
+            scan_queue.update_release_eol_status(release_id, is_eol=False)
+        referer = req.get_header("Referer", default=f"/releases/{release_id}")
         raise falcon.HTTPFound(referer)
 
 
@@ -599,7 +609,7 @@ app.add_route("/", DashboardResource())
 app.add_route("/scan", ScanResource())
 app.add_route("/repo", RepositoryResource())
 app.add_route("/image", ImageResource())
-app.add_route("/eol_components", EolComponentResource())
+app.add_route("/major_components", MajorComponentResource())
 app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
 app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
@@ -608,11 +618,14 @@ app.add_route("/api/remote_refs/repo", RemoteRepoRefsResource())
 app.add_route("/api/remote_refs/image", RemoteImageRefsResource())
 app.add_route("/products", ProductResource())
 app.add_route("/products/{product_id}", ProductDashboardResource())
-app.add_route("/packages", PackageResource())
-app.add_route("/packages/{package_id}/assets", PackageAssetResource())
-app.add_route("/packages/assets/{package_asset_id}", PackageAssetDetailResource())
-app.add_route("/packages/{package_id}/scan", PackageScanResource())
-app.add_route("/packages/{package_id}/eol", PackageEolResource())
-app.add_route("/api/packages/{package_id}/assets_table", PackageAssetsTableResource())
-app.add_route("/api/packages/{package_id}/eol_cards", PackageEolCardsResource())
-app.add_route("/packages/{package_id}", PackageDashboardResource())
+app.add_route("/releases", ReleaseResource())
+app.add_route("/releases/{release_id}/assets", ReleaseAssetResource())
+app.add_route("/releases/assets/{release_asset_id}", ReleaseAssetDetailResource())
+app.add_route("/releases/{release_id}/scan", ReleaseScanResource())
+app.add_route("/releases/{release_id}/eol", ReleaseEolResource())
+app.add_route("/api/releases/{release_id}/assets_table", ReleaseAssetsTableResource())
+app.add_route(
+    "/api/releases/{release_id}/major_component_cards",
+    ReleaseMajorComponentCardsResource(),
+)
+app.add_route("/releases/{release_id}", ReleaseDashboardResource())

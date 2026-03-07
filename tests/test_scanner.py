@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rover.scanner import run_eol_scan, run_trivy_scan
+from rover.scanner import run_major_component_scan, run_trivy_scan
 
 
 def _mock_subprocess_run(cmd, *args, **kwargs):
@@ -183,7 +183,7 @@ def test_run_trivy_scan_image_with_existing_tag_and_git_ref():
 
 
 @patch("rover.scanner.urllib.request.urlopen")
-def test_run_eol_scan_success(mock_urlopen):
+def test_run_major_component_scan_success(mock_urlopen):
     mock_response = MagicMock()
     mock_response.read.return_value = (
         b'{"eol": "2026-11-12", "releaseDate": "2021-09-30"}'
@@ -192,7 +192,7 @@ def test_run_eol_scan_success(mock_urlopen):
 
     with patch("rover.scanner.scan_queue.get_cached_eol_data", return_value=None):
         with patch("rover.scanner.scan_queue.set_cached_eol_data") as mock_set:
-            data, source, status = run_eol_scan("postgresql", "14")
+            data, source, status = run_major_component_scan("postgresql", "14")
             assert data["eol"] == "2026-11-12"
             assert source == "eol_api"
             assert status == "fresh"
@@ -200,10 +200,10 @@ def test_run_eol_scan_success(mock_urlopen):
 
 
 @patch("rover.scanner.scan_queue.get_cached_eol_data")
-def test_run_eol_scan_cached(mock_get_cached):
+def test_run_major_component_scan_cached(mock_get_cached):
     mock_get_cached.return_value = '{"eol": "2026-11-12", "releaseDate": "2021-09-30"}'
 
-    data, source, status = run_eol_scan("postgresql", "14")
+    data, source, status = run_major_component_scan("postgresql", "14")
     assert data["eol"] == "2026-11-12"
     assert source == "eol_cache"
     assert status == "cached"

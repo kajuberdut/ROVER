@@ -1,14 +1,14 @@
-{% for asset in eol_assets %}
+{% for asset in major_component_assets %}
 {% set eol_data = asset.results_json|loadjson if asset.results_json else {} %}
 <article style="display: flex; flex-direction: column; justify-content: space-between;">
     <header style="padding: 0.75rem; margin-bottom: 0;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
-                <span title="End Of Life Component">⏳</span>
+                <span title="Major Component">⏳</span>
                 <span title="{{ asset.asset_name }}">{{ asset.asset_name | short_url }} v{{ asset.git_ref }}</span>
             </div>
 
-            <form action="/packages/assets/{{ asset.package_asset_id }}" method="POST" style="margin-bottom: 0;">
+            <form action="/releases/assets/{{ asset.release_asset_id }}" method="POST" style="margin-bottom: 0;">
                 <input type="hidden" name="action" value="delete">
                 <button type="submit" class="outline" title="Remove Component"
                     style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.1rem 0.4rem; margin-bottom: 0;">✕</button>

@@ -17,7 +17,7 @@
         {% for prod in products %}
         {# Calculate the highest severity for this product's assets to color-code the card #}
         {% set assets = scan_queue.get_product_assets_with_latest_scans(prod.id) %}
-        {% set releases = scan_queue.get_product_packages(prod.id) %}
+        {% set releases = scan_queue.get_product_releases(prod.id) %}
         {% set ns = namespace(highest_severity='clean', is_scanning=false, is_failed=false, not_scanned=false) %}
 
         {% if not assets %}

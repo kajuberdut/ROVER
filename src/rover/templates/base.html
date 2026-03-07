@@ -142,8 +142,8 @@
                 const toast = document.getElementById('global-toast');
                 const messageEl = document.getElementById('global-toast-message');
 
-                if (errorType === 'package_not_found') {
-                    messageEl.textContent = 'Package not found or has been deleted.';
+                if (errorType === 'release_not_found') {
+                    messageEl.textContent = 'Release not found or has been deleted.';
                 } else {
                     messageEl.textContent = errorType;
                 }

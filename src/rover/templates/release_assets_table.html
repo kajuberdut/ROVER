@@ -1,5 +1,5 @@
 {% for asset in assets %}
-{% if asset.asset_type != 'eol_component' %}
+{% if asset.asset_type != 'major_component' %}
 {% set ns = namespace(critical=0, high=0, medium=0, low=0, has_data=false) %}
 {% if asset.results_json %}
 {% set results = asset.results_json|loadjson %}
@@ -17,8 +17,8 @@
     <td style="text-align: center; vertical-align: middle;">
         {% if asset.asset_type == 'repo' %}
         <span style="white-space: nowrap; color: var(--pico-primary); font-size: 1.25rem;" title="Repository">📦</span>
-        {% elif asset.asset_type == 'eol_component' %}
-        <span style="white-space: nowrap; font-size: 1.25rem;" title="End Of Life Component">⏳</span>
+        {% elif asset.asset_type == 'major_component' %}
+        <span style="white-space: nowrap; font-size: 1.25rem;" title="Major Component">⏳</span>
         {% else %}
         <span style="white-space: nowrap; color: var(--pico-ins-color); font-size: 1.25rem;"
             title="Container Image">🐳</span>
@@ -95,7 +95,7 @@
     </td>
     <td>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
-            <form action="/packages/assets/{{ asset.package_asset_id }}" method="POST" style="margin-bottom: 0;">
+            <form action="/releases/assets/{{ asset.release_asset_id }}" method="POST" style="margin-bottom: 0;">
                 <input type="hidden" name="action" value="delete">
                 <button type="submit" class="outline" title="Remove Asset"
                     style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.25rem 0.5rem; margin-bottom: 0;">✕</button>

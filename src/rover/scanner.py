@@ -16,7 +16,7 @@ from typing import Any, cast
 from rover import scan_queue
 
 
-def run_eol_scan(
+def run_major_component_scan(
     target_name: str, target_version: str
 ) -> tuple[dict[str, Any], str, str | None]:
     """

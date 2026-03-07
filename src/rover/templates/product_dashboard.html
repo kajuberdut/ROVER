@@ -11,14 +11,14 @@
                     vulnerability posture for this product.' }}</h3>
             </hgroup>
         </div>
-        <button type="button" class="outline" onclick="document.getElementById('add-package-modal').showModal();"
+        <button type="button" class="outline" onclick="document.getElementById('add-release-modal').showModal();"
             style="margin-bottom: 0;">Create Release</button>
     </div>
 
     <!-- Active Releases Grid -->
     <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
-        {% for pkg in releases %}
-        {% set assets = scan_queue.get_package_assets_with_latest_scans(pkg.id) %}
+        {% for release in releases %}
+        {% set assets = scan_queue.get_release_assets_with_latest_scans(release.id) %}
         {% set ns = namespace(highest_severity='clean', is_scanning=false, is_failed=false, not_scanned=false) %}
 
         {% if not assets %}
@@ -65,7 +65,7 @@
         {% endif %}
 
         {% set card_opacity = "1" %}
-        {% if pkg.is_end_of_life %}
+        {% if release.is_end_of_life %}
         {% set border_style = "2px solid var(--pico-muted-color)" %}
         {% set card_opacity = "0.7" %}
         {% endif %}
@@ -74,16 +74,16 @@
             style="border: {{ border_style }}; opacity: {{ card_opacity }}; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
             <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
-                    <h3 style="margin-bottom: 0.25rem;">Release v{{ pkg.version }}</h3>
-                    <small style="color: grey;">{{ pkg.name }}</small>
+                    <h3 style="margin-bottom: 0.25rem;">Release v{{ release.version }}</h3>
+                    <small style="color: grey;">{{ release.name }}</small>
                 </div>
-                {% if pkg.is_end_of_life %}
+                {% if release.is_end_of_life %}
                 <span style="font-size: 0.7em; color: var(--pico-muted-color); border: 1px solid var(--pico-muted-color); padding: 2px 6px; border-radius: 4px;">EOL</span>
                 {% endif %}
             </header>
 
             <div style="flex-grow: 1; margin-bottom: 1rem;">
-                {% if pkg.is_end_of_life %}
+                {% if release.is_end_of_life %}
                 <span style="color: var(--pico-muted-color);">End of Life (Scans Disabled)</span>
                 {% elif ns.highest_severity == 'unknown' %}
                 <span style="color: grey;">No assets attached.</span>
@@ -108,7 +108,7 @@
 
             <footer>
                 <div style="display: flex; gap: 0.5rem;">
-                    <a href="/packages/{{ pkg.id }}" role="button" class="outline"
+                    <a href="/releases/{{ release.id }}" role="button" class="outline"
                         style="flex-grow: 1; text-align: center;">View Details</a>
                 </div>
             </footer>
@@ -122,21 +122,21 @@
 </section>
 
 <!-- Modal for creating a Release for this Product -->
-<dialog id="add-package-modal">
+<dialog id="add-release-modal">
     <article>
         <header>
             <button aria-label="Close" rel="prev"
-                onclick="document.getElementById('add-package-modal').close();"></button>
+                onclick="document.getElementById('add-release-modal').close();"></button>
             <strong>Create Release</strong>
         </header>
-        <form action="/packages" method="POST" style="margin-bottom: 0;">
+        <form action="/releases" method="POST" style="margin-bottom: 0;">
             <fieldset>
                 <input type="hidden" name="product_id" value="{{ product.id }}">
                 <label>Release Name
-                    <input type="text" name="package_name" placeholder="e.g., Stable Build" required>
+                    <input type="text" name="release_name" placeholder="e.g., Stable Build" required>
                 </label>
                 <label>Version
-                    <input type="text" name="package_version" placeholder="e.g., 1.0.0" required>
+                    <input type="text" name="release_version" placeholder="e.g., 1.0.0" required>
                 </label>
                 <input type="submit" value="Create Release" style="margin-top: 1rem;">
             </fieldset>
