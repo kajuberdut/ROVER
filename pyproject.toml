@@ -8,6 +8,7 @@ dependencies = [
     "httpx>=0.28.1",
     "jinja2",
     "testcontainers>=4.14.1",
+    "tomlkit>=0.14.0",
     "uvicorn[standard]",
 ]
 

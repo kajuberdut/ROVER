@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section style="margin-bottom: 2rem;">
+    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
+        <a href="/" role="button" class="secondary outline" style="margin-bottom: 0;">&larr; Back</a>
+        <hgroup style="margin-bottom: 0;">
+            <h2>Configuration</h2>
+            <h3>Manage R.O.V.E.R application settings</h3>
+        </hgroup>
+    </div>
+    
+    {% if error %}
+    <article style="background-color: var(--pico-del-color); color: white; padding: 1rem; margin-bottom: 1rem;">
+        <strong>Error saving configuration:</strong> {{ error }}
+    </article>
+    {% endif %}
+    {% if success %}
+    <article style="background-color: var(--pico-ins-color); color: white; padding: 1rem; margin-bottom: 1rem;">
+        <strong>Success:</strong> Configuration saved successfully!
+    </article>
+    {% endif %}
+
+    <p style="color: var(--pico-muted-color); font-size: 0.9em;">
+        Edit the raw TOML configuration below. Valid TOML syntax is required. Comments will be preserved. Data will be saved to <code>config.toml</code>.
+    </p>
+
+    <form method="POST" action="/config" style="margin-bottom: 0;">
+        <label for="raw_toml" style="margin-bottom: 0;">
+            <strong>config.toml</strong>
+            <div id="editor" style="border: 1px solid var(--pico-muted-border-color); border-radius: var(--pico-border-radius); overflow: hidden; margin-bottom: 0.5rem; background: var(--pico-background-color);"></div>
+            <textarea 
+                id="raw_toml" 
+                name="raw_toml" 
+                style="display: none;"
+                required
+            >{{ raw_toml }}</textarea>
+            <small>Current settings dictate behavior until restart, or until reloaded.</small>
+        </label>
+        <button type="submit" style="margin-top: 1rem;">Save Configuration</button>
+    </form>
+</section>
+
+<script src="/static/js/codemirror-toml.bundle.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const textarea = document.getElementById("raw_toml");
+        
+        // createTomlEditor is exposed by our Docker-based esbuild bundle
+        window.createTomlEditor("editor", textarea.value, (newDoc) => {
+            textarea.value = newDoc;
+        });
+    });
+</script>
+{% endblock %}

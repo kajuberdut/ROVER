@@ -214,3 +214,6 @@ __marimo__/
 
 # PicoCSS
 **/pico-main/
+
+# App Configuration
+config.toml

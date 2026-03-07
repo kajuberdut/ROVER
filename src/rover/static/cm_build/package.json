@@ -1,0 +1,10 @@
+{
+  "name": "codemirror-toml-bundle",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@codemirror/language": "^6.0.0",
+    "@codemirror/legacy-modes": "^6.0.0",
+    "codemirror": "^6.0.0"
+  }
+}

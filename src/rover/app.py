@@ -8,7 +8,7 @@ import falcon
 import falcon.asgi
 import jinja2
 
-from rover import scan_queue, worker
+from rover import config, scan_queue, worker
 
 # Configure Jinja2 environment
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
@@ -60,6 +60,37 @@ def short_url(url: str | None) -> str:
 
 
 template_env.filters["short_url"] = short_url
+
+
+class ConfigResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        raw_toml = config.read_raw_config()
+        template = template_env.get_template("config.html")
+        resp.text = template.render(title="Configuration", raw_toml=raw_toml)
+        resp.content_type = falcon.MEDIA_HTML
+
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        form = await req.get_media()
+        raw_toml = form.get("raw_toml", "")
+        template = template_env.get_template("config.html")
+        try:
+            config.save_raw_config(raw_toml)
+            saved_toml = config.read_raw_config()
+            # Update global settings in memory
+            config.settings = config.load_config()
+            resp.text = template.render(
+                title="Configuration", raw_toml=saved_toml, success=True
+            )
+        except Exception as e:
+            resp.text = template.render(
+                title="Configuration", raw_toml=raw_toml, error=str(e)
+            )
+            resp.status = falcon.HTTP_400
+        resp.content_type = falcon.MEDIA_HTML
 
 
 class DashboardResource:
@@ -606,6 +637,7 @@ app.add_static_route("/static", static_path)
 
 # Add routes
 app.add_route("/", DashboardResource())
+app.add_route("/config", ConfigResource())
 app.add_route("/scan", ScanResource())
 app.add_route("/repo", RepositoryResource())
 app.add_route("/image", ImageResource())
