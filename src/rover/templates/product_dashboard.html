@@ -64,15 +64,28 @@
         {% set border_style = "2px solid #388e3c" %}
         {% endif %}
 
+        {% set card_opacity = "1" %}
+        {% if pkg.is_end_of_life %}
+        {% set border_style = "2px solid var(--pico-muted-color)" %}
+        {% set card_opacity = "0.7" %}
+        {% endif %}
+
         <article
-            style="border: {{ border_style }}; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
-            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem;">
-                <h3 style="margin-bottom: 0.25rem;">Release v{{ pkg.version }}</h3>
-                <small style="color: grey;">{{ pkg.name }}</small>
+            style="border: {{ border_style }}; opacity: {{ card_opacity }}; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                    <h3 style="margin-bottom: 0.25rem;">Release v{{ pkg.version }}</h3>
+                    <small style="color: grey;">{{ pkg.name }}</small>
+                </div>
+                {% if pkg.is_end_of_life %}
+                <span style="font-size: 0.7em; color: var(--pico-muted-color); border: 1px solid var(--pico-muted-color); padding: 2px 6px; border-radius: 4px;">EOL</span>
+                {% endif %}
             </header>
 
             <div style="flex-grow: 1; margin-bottom: 1rem;">
-                {% if ns.highest_severity == 'unknown' %}
+                {% if pkg.is_end_of_life %}
+                <span style="color: var(--pico-muted-color);">End of Life (Scans Disabled)</span>
+                {% elif ns.highest_severity == 'unknown' %}
                 <span style="color: grey;">No assets attached.</span>
                 {% elif ns.is_scanning %}
                 <span aria-busy="true" style="color: var(--pico-primary);">Scanning active assets...</span>

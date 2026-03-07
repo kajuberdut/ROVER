@@ -7,17 +7,33 @@
             <a href="/products/{{ package.product_id }}" role="button" class="secondary outline"
                 style="margin-bottom: 0;">&larr; Back</a>
             <hgroup style="margin-bottom: 0;">
-                <h2 style="margin-bottom: 0;">Release v{{ package.version }}</h2>
+                <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    Release v{{ package.version }}
+                    {% if package.is_end_of_life %}
+                    <span style="font-size: 0.5em; color: #d32f2f; border: 1px solid #d32f2f; padding: 2px 6px; border-radius: 4px; font-weight: normal;">EOL</span>
+                    {% endif %}
+                </h2>
                 <h3 style="margin-bottom: 0; margin-top: 0.25rem; color: var(--pico-muted-color);">{{ package.name }}
                     &mdash; Asset Management</h3>
             </hgroup>
         </div>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <form action="/packages/{{ package.id }}/eol" method="POST" style="margin-bottom: 0;">
+                {% if package.is_end_of_life %}
+                <input type="hidden" name="action" value="unmark_eol">
+                <button type="submit" class="outline secondary" style="margin-bottom: 0;">Reactivate</button>
+                {% else %}
+                <input type="hidden" name="action" value="mark_eol">
+                <button type="submit" class="outline secondary" style="margin-bottom: 0;">Mark as EOL</button>
+                {% endif %}
+            </form>
+            {% if not package.is_end_of_life %}
             <form action="/packages/{{ package.id }}/scan" method="POST" style="margin-bottom: 0;">
                 <button type="submit" class="outline" style="margin-bottom: 0;">Scan All Assets</button>
             </form>
             <button type="button" class="outline" onclick="document.getElementById('add-asset-modal').showModal();"
                 style="margin-bottom: 0;">Add Asset</button>
+            {% endif %}
         </div>
     </div>
 </section>

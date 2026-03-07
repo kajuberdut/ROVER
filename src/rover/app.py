@@ -445,6 +445,20 @@ class PackageEolCardsResource:
         resp.content_type = falcon.MEDIA_HTML
 
 
+class PackageEolResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, package_id: str
+    ) -> None:
+        form = await req.get_media()
+        action = form.get("action")
+        if action == "mark_eol":
+            scan_queue.update_package_eol_status(package_id, is_eol=True)
+        elif action == "unmark_eol":
+            scan_queue.update_package_eol_status(package_id, is_eol=False)
+        referer = req.get_header("Referer", default=f"/packages/{package_id}")
+        raise falcon.HTTPFound(referer)
+
+
 import threading
 
 
@@ -484,6 +498,7 @@ app.add_route("/packages", PackageResource())
 app.add_route("/packages/{package_id}/assets", PackageAssetResource())
 app.add_route("/packages/assets/{package_asset_id}", PackageAssetDetailResource())
 app.add_route("/packages/{package_id}/scan", PackageScanResource())
+app.add_route("/packages/{package_id}/eol", PackageEolResource())
 app.add_route("/api/packages/{package_id}/assets_table", PackageAssetsTableResource())
 app.add_route("/api/packages/{package_id}/eol_cards", PackageEolCardsResource())
 app.add_route("/packages/{package_id}", PackageDashboardResource())

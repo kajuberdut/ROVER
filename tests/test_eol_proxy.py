@@ -1,6 +1,8 @@
+import os
 from unittest.mock import MagicMock, patch
 
 import falcon
+import platformdirs
 import pytest
 from falcon import testing
 
@@ -11,8 +13,9 @@ from rover.app import app
 @pytest.fixture
 def client():
     # Setup isolated test database for proxy cache tests
-    # TODO: we should use platformdirs as a dev dependency to avoid assumin /tmp
-    scan_queue.DB_PATH = "/tmp/rover_test_proxy.db"
+    cache_dir = platformdirs.user_cache_dir("rover_test")
+    os.makedirs(cache_dir, exist_ok=True)
+    scan_queue.DB_PATH = os.path.join(cache_dir, "rover_test_proxy.db")
     scan_queue.init_db()
 
     # We must yield the client, then cleanup if necessary, but the key is we MUST clear the cache BEFORE each test
