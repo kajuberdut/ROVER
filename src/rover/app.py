@@ -103,7 +103,7 @@ class ImageResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         form = await req.get_media()
-        target_name = form.get("target_name")
+        target_name = form.get("target_image_name") or form.get("target_name")
         if target_name:
             scan_queue.add_image(target_name)
         referer = req.get_header("Referer", default="/")
@@ -119,8 +119,8 @@ class EolComponentResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         form = await req.get_media()
-        target_name = form.get("target_name")
-        target_version = form.get("target_version")
+        target_name = form.get("target_eol_name") or form.get("target_name")
+        target_version = form.get("target_eol_version") or form.get("target_version")
         if target_name and target_version:
             scan_queue.add_eol_component(target_name, target_version)
         referer = req.get_header("Referer", default="/")
@@ -182,6 +182,55 @@ class RepoRefsResource:
             resp.text = json.dumps({"error": f"Failed to fetch refs: {e.stderr}"})
 
 
+class RemoteRepoRefsResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        url = req.get_param("url")
+        if not url:
+            resp.status = falcon.HTTP_400
+            resp.text = json.dumps({"error": "Missing url parameter"})
+            return
+
+        try:
+            # Run git ls-remote to securely fetch branches and tags from arbitrary url
+            result = subprocess.run(  # noqa: S603
+                ["git", "ls-remote", "--heads", "--tags", url],  # noqa: S607
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=10,
+            )
+
+            branches = []
+            tags = []
+            for line in result.stdout.splitlines():
+                if not line:
+                    continue
+                parts = line.split("\t")
+                if len(parts) != 2:
+                    continue
+                ref = parts[1]
+
+                if ref.startswith("refs/heads/"):
+                    branches.append(ref[len("refs/heads/") :])
+                elif ref.startswith("refs/tags/"):
+                    clean_tag = ref[len("refs/tags/") :]
+                    if clean_tag.endswith("^{}"):
+                        clean_tag = clean_tag[:-3]
+                    if clean_tag not in tags:
+                        tags.append(clean_tag)
+
+            resp.text = json.dumps({"branches": sorted(branches), "tags": sorted(tags)})
+            resp.content_type = falcon.MEDIA_JSON
+        except subprocess.TimeoutExpired:
+            resp.status = falcon.HTTP_504
+            resp.text = json.dumps({"error": "Timeout fetching refs"})
+        except subprocess.CalledProcessError as e:
+            resp.status = falcon.HTTP_500
+            resp.text = json.dumps({"error": f"Failed to fetch refs: {e.stderr}"})
+
+
 class ImageRefsResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, image_id: str
@@ -222,6 +271,41 @@ class ImageRefsResource:
             resp.text = json.dumps({"error": "Invalid JSON response from skopeo"})
 
 
+class RemoteImageRefsResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        name = req.get_param("name")
+        if not name:
+            resp.status = falcon.HTTP_400
+            resp.text = json.dumps({"error": "Missing name parameter"})
+            return
+
+        url = f"docker://{name}"
+        try:
+            result = subprocess.run(  # noqa: S603
+                ["skopeo", "list-tags", url],  # noqa: S607
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=10,
+            )
+            data = json.loads(result.stdout)
+            tags = data.get("Tags", [])
+
+            resp.text = json.dumps({"tags": sorted(tags)})
+            resp.content_type = falcon.MEDIA_JSON
+        except subprocess.TimeoutExpired:
+            resp.status = falcon.HTTP_504
+            resp.text = json.dumps({"error": "Timeout fetching tags"})
+        except subprocess.CalledProcessError as e:
+            resp.status = falcon.HTTP_500
+            resp.text = json.dumps({"error": f"Failed to fetch tags: {e.stderr}"})
+        except json.JSONDecodeError:
+            resp.status = falcon.HTTP_500
+            resp.text = json.dumps({"error": "Invalid JSON response from skopeo"})
+
+
 class ScanResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
@@ -234,9 +318,13 @@ class ScanResource:
         scan_type = form.get("scan_type", "repo")
 
         if scan_type == "repo":
+            target_url = form.get("target_url")
+            if target_url:
+                repo_id = scan_queue.add_repository(target_url)
+
             if not repo_id:
                 resp.status = falcon.HTTP_400
-                resp.text = "Missing repo_id"
+                resp.text = "Missing repo_id or target_url"
                 return
 
             repo = scan_queue.get_repository(repo_id)
@@ -248,9 +336,13 @@ class ScanResource:
             # Create a new scan job
             scan_queue.create_job(repo["url"], git_ref, target_type="repo")
         elif scan_type == "image":
+            target_name = form.get("target_image_name") or form.get("target_name")
+            if target_name:
+                image_id = scan_queue.add_image(target_name)
+
             if not image_id:
                 resp.status = falcon.HTTP_400
-                resp.text = "Missing image_id"
+                resp.text = "Missing image_id or target_name"
                 return
 
             image = scan_queue.get_image(image_id)
@@ -345,6 +437,24 @@ class PackageAssetResource:
         asset_id = form.get("asset_id")
         git_ref = form.get("git_ref")
 
+        # Handle auto-creation if asset_id is not provided
+        if not asset_id:
+            if asset_type == "repo":
+                target_url = form.get("target_url")
+                if target_url:
+                    asset_id = scan_queue.add_repository(target_url)
+            elif asset_type == "image":
+                target_name = form.get("target_image_name") or form.get("target_name")
+                if target_name:
+                    asset_id = scan_queue.add_image(target_name)
+            elif asset_type == "eol_component":
+                target_name = form.get("target_eol_name") or form.get("target_name")
+                target_version = form.get("target_eol_version") or form.get(
+                    "target_version"
+                )
+                if target_name and target_version:
+                    asset_id = scan_queue.add_eol_component(target_name, target_version)
+
         # Images can also use git_ref as their container tag
 
         if asset_type and asset_id:
@@ -408,6 +518,7 @@ class PackageDashboardResource:
             raise falcon.HTTPFound("/?error=package_not_found")
 
         assets = scan_queue.get_package_assets_with_latest_scans(package_id)
+        eol_assets = [a for a in assets if a["asset_type"] == "eol_component"]
         repositories = scan_queue.get_all_repositories()
         images = scan_queue.get_all_images()
         eol_components = scan_queue.get_all_eol_components()
@@ -417,6 +528,7 @@ class PackageDashboardResource:
             title=f"Package: {package['name']} {package['version']}",
             package=package,
             assets=assets,
+            eol_assets=eol_assets,
             repositories=repositories,
             images=images,
             eol_components=eol_components,
@@ -441,7 +553,7 @@ class PackageEolCardsResource:
         assets = scan_queue.get_package_assets_with_latest_scans(package_id)
         eol_assets = [a for a in assets if a["asset_type"] == "eol_component"]
         template = template_env.get_template("package_eol_cards.html")
-        resp.text = template.render(assets=eol_assets)
+        resp.text = template.render(eol_assets=eol_assets)
         resp.content_type = falcon.MEDIA_HTML
 
 
@@ -492,6 +604,8 @@ app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
 app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
 app.add_route("/api/images/{image_id}/refs", ImageRefsResource())
+app.add_route("/api/remote_refs/repo", RemoteRepoRefsResource())
+app.add_route("/api/remote_refs/image", RemoteImageRefsResource())
 app.add_route("/products", ProductResource())
 app.add_route("/products/{product_id}", ProductDashboardResource())
 app.add_route("/packages", PackageResource())

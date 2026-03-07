@@ -1,4 +1,4 @@
-{% for asset in assets %}
+{% for asset in eol_assets %}
 {% set eol_data = asset.results_json|loadjson if asset.results_json else {} %}
 <article style="display: flex; flex-direction: column; justify-content: space-between;">
     <header style="padding: 0.75rem; margin-bottom: 0;">

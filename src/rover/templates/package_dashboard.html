@@ -89,27 +89,44 @@
         <header>
             <button aria-label="Close" rel="prev"
                 onclick="document.getElementById('add-asset-modal').close();"></button>
-            <strong>Add Existing Asset to Package</strong>
+            <strong>Add Asset to Package</strong>
         </header>
-        <form action="/packages/{{ package.id }}/assets" method="POST" style="margin-bottom: 0;">
+        <form action="/packages/{{ package.id }}/assets" method="POST" style="margin-bottom: 0;" id="add-asset-form">
             <fieldset>
-                <label>Asset Type
-                    <select name="asset_type" id="modal_asset_type" required>
-                        <option value="repo">Git Repository</option>
-                        <option value="image">Container Image</option>
-                        <option value="eol_component">End Of Life Component</option>
-                    </select>
-                </label>
+                <label style="margin-bottom: 0.5rem;">Asset Type</label>
+                <div role="group" id="modal_asset_type_group" style="margin-bottom: 1.5rem;">
+                    <button type="button" class="modal-asset-type-btn" data-type="repo">Git Repository</button>
+                    <button type="button" class="modal-asset-type-btn outline" data-type="image">Container Image</button>
+                    <button type="button" class="modal-asset-type-btn outline" data-type="eol_component">Major Component</button>
+                </div>
+                <input type="hidden" name="asset_type" id="modal_asset_type" value="repo">
 
                 <div id="modal_repo_selection">
-                    <label>Repository
-                        <select name="asset_id_repo" id="modal_asset_id_repo">
-                            <option value="" disabled selected>Select a repository...</option>
-                            {% for r in repositories %}
-                            <option value="{{ r.id }}">{{ r.url }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
+                    <fieldset>
+                        <legend>Repository</legend>
+                        <div>
+                            <label>Select Existing
+                                <select name="asset_id_repo" id="modal_asset_id_repo">
+                                    <option value="" disabled selected>Select a repository...</option>
+                                    {% for r in repositories %}
+                                    <option value="{{ r.id }}">{{ r.url }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            
+                            <div style="text-align: center; margin: 1.5rem 0; color: var(--pico-muted-color); position: relative;">
+                                <hr style="position: absolute; width: 100%; top: 50%; z-index: -1; margin: 0;">
+                                <span style="background: var(--pico-background-color); padding: 0 1rem; font-weight: bold; font-size: 0.8em;">OR</span>
+                            </div>
+
+                            <label>Map New Repository
+                                <div role="group" style="margin-bottom:0;">
+                                    <input type="url" name="target_url" id="modal_target_url" placeholder="https://github.com/organization/repo">
+                                    <button type="button" id="modal_btn_fetch_new_repo_refs" class="outline secondary" style="width:auto; white-space:nowrap;">Fetch Refs</button>
+                                </div>
+                            </label>
+                        </div>
+                    </fieldset>
 
                     <label id="modal_ref_label">Git Ref (Optional)</label>
                     <div role="group" id="modal_ref_type_group" style="margin-bottom: 1rem;">
@@ -136,14 +153,31 @@
                 </div>
 
                 <div id="modal_image_selection" style="display: none;">
-                    <label>Container Image
-                        <select name="asset_id_image" id="modal_asset_id_image">
-                            <option value="" disabled selected>Select an image...</option>
-                            {% for i in images %}
-                            <option value="{{ i.id }}">{{ i.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </label>
+                    <fieldset>
+                        <legend>Container Image</legend>
+                        <div>
+                            <label>Select Existing
+                                <select name="asset_id_image" id="modal_asset_id_image">
+                                    <option value="" disabled selected>Select an image...</option>
+                                    {% for i in images %}
+                                    <option value="{{ i.id }}">{{ i.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+
+                            <div style="text-align: center; margin: 1.5rem 0; color: var(--pico-muted-color); position: relative;">
+                                <hr style="position: absolute; width: 100%; top: 50%; z-index: -1; margin: 0;">
+                                <span style="background: var(--pico-background-color); padding: 0 1rem; font-weight: bold; font-size: 0.8em;">OR</span>
+                            </div>
+
+                            <label>Map New Image
+                                <div role="group" style="margin-bottom:0;">
+                                    <input type="text" name="target_image_name" id="modal_target_image_name" placeholder="ubuntu:latest or ghcr.io/org/image:tag">
+                                    <button type="button" id="modal_btn_fetch_new_image_refs" class="outline secondary" style="width:auto; white-space:nowrap;">Fetch Tags</button>
+                                </div>
+                            </label>
+                        </div>
+                    </fieldset>
                     <label id="modal_image_tag_label" style="display: none; margin-top: 1rem;">Image Tag
                         <select id="modal_git_ref_image" class="ref-input">
                             <option value="" disabled selected>Select an image first...</option>
@@ -152,18 +186,41 @@
                 </div>
 
                 <div id="modal_eol_selection" style="display: none;">
-                    <label>Tracked EOL Component
-                        <select name="asset_id_eol" id="modal_asset_id_eol">
-                            <option value="" disabled selected>Select an EOL Component...</option>
-                            {% for e in eol_components %}
-                            <option value="{{ e.id }}" data-version="{{ e.version }}">{{ e.name }} v{{ e.version }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </label>
+                    <fieldset>
+                        <legend>Tracked EOL Component</legend>
+                        <div>
+                            <label>Select Existing
+                                <select name="asset_id_eol" id="modal_asset_id_eol">
+                                    <option value="" disabled selected>Select an EOL Component...</option>
+                                    {% for e in eol_components %}
+                                    <option value="{{ e.id }}" data-version="{{ e.version }}">{{ e.name }} v{{ e.version }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+
+                            <div style="text-align: center; margin: 1.5rem 0; color: var(--pico-muted-color); position: relative;">
+                                <hr style="position: absolute; width: 100%; top: 50%; z-index: -1; margin: 0;">
+                                <span style="background: var(--pico-background-color); padding: 0 1rem; font-weight: bold; font-size: 0.8em;">OR</span>
+                            </div>
+
+                            <div>
+                                <div class="grid" style="grid-template-columns: 2fr 1fr; gap: 0.5rem; margin-bottom: 0;">
+                                    <label>New Component Name
+                                        <input type="text" name="target_eol_name" id="modal_eol_target_name" placeholder="Name (e.g. postgresql)" list="eol_names_list" autocomplete="off" style="margin-bottom:0;">
+                                    </label>
+                                    <label>New Version
+                                        <input type="text" name="target_eol_version" id="modal_eol_target_version" placeholder="Version (e.g. 14)" list="eol_versions_list" autocomplete="off" style="margin-bottom:0;">
+                                    </label>
+                                </div>
+                                <datalist id="eol_names_list"></datalist>
+                                <datalist id="eol_versions_list"></datalist>
+                            </div>
+                        </div>
+                    </fieldset>
                 </div>
 
-                <input type="hidden" name="asset_id" id="modal_asset_id_final" required>
+                <input type="hidden" name="asset_id" id="modal_asset_id_final">
                 <input type="hidden" name="git_ref" id="modal_git_ref_final">
 
                 <input type="submit" value="Add Asset" style="margin-top: 1rem;">
@@ -174,6 +231,7 @@
 
 <script>
     const typeSelect = document.getElementById('modal_asset_type');
+    const assetTypeBtns = document.querySelectorAll('.modal-asset-type-btn');
     const repoDiv = document.getElementById('modal_repo_selection');
     const imageDiv = document.getElementById('modal_image_selection');
     const eolDiv = document.getElementById('modal_eol_selection');
@@ -253,6 +311,55 @@
     });
     // ----------------------------
 
+    const modalNewRepoUrlInput = document.getElementById('modal_target_url');
+    const modalBtnFetchNewRepoRefs = document.getElementById('modal_btn_fetch_new_repo_refs');
+
+    modalBtnFetchNewRepoRefs.addEventListener('click', () => {
+        const url = modalNewRepoUrlInput.value;
+        if (!url) {
+            alert('Please enter a repository URL to fetch refs from.');
+            return;
+        }
+
+        branchSelect.innerHTML = '<option value="" disabled selected>Fetching branches...</option>';
+        tagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
+        modalBtnFetchNewRepoRefs.setAttribute('aria-busy', 'true');
+
+        fetch(`/api/remote_refs/repo?url=${encodeURIComponent(url)}`)
+            .then(res => res.json())
+            .then(data => {
+                modalBtnFetchNewRepoRefs.removeAttribute('aria-busy');
+                if (data.error) {
+                    console.error(data.error);
+                    branchSelect.innerHTML = '<option value="" disabled selected>Failed to load branches</option>';
+                    tagSelect.innerHTML = '<option value="" disabled selected>Failed to load tags</option>';
+                    return;
+                }
+
+                branchSelect.innerHTML = '<option value="" disabled selected>Select a branch...</option>';
+                data.branches.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    branchSelect.appendChild(opt);
+                });
+
+                tagSelect.innerHTML = '<option value="" disabled selected>Select a tag...</option>';
+                data.tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    tagSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                modalBtnFetchNewRepoRefs.removeAttribute('aria-busy');
+                console.error("Error fetching refs:", err);
+                branchSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
+                tagSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
+            });
+    });
+
     function updateSelection() {
         if (typeSelect.value === 'repo') {
             repoDiv.style.display = 'block';
@@ -272,15 +379,16 @@
             finalIdInput.value = eolSelect.value;
             finalRefInput.value = eolSelect.options[eolSelect.selectedIndex]?.dataset.version || "";
         }
-        // Force required state
-        if (!finalIdInput.value) {
-            finalIdInput.setCustomValidity("Please select an asset.");
-        } else {
-            finalIdInput.setCustomValidity("");
-        }
     }
 
-    typeSelect.addEventListener('change', updateSelection);
+    assetTypeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            assetTypeBtns.forEach(b => b.classList.add('outline'));
+            btn.classList.remove('outline');
+            typeSelect.value = btn.dataset.type;
+            updateSelection();
+        });
+    });
     eolSelect.addEventListener('change', updateSelection);
 
     imageSelect.addEventListener('change', (e) => {
@@ -313,9 +421,54 @@
             });
     });
 
-    // Hook form submission to populate git_ref
-    document.querySelector('form[action="/packages/{{ package.id }}/assets"]').addEventListener('submit', function (e) {
+    const modalNewTargetNameInput = document.getElementById('modal_target_image_name');
+    const modalBtnFetchNewImageRefs = document.getElementById('modal_btn_fetch_new_image_refs');
+
+    modalBtnFetchNewImageRefs.addEventListener('click', () => {
+        const name = modalNewTargetNameInput.value;
+        if (!name) {
+            alert('Please enter a container image name to fetch tags from.');
+            return;
+        }
+
+        imageTagLabel.style.display = 'block';
+        imageTagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
+        modalBtnFetchNewImageRefs.setAttribute('aria-busy', 'true');
+
+        fetch(`/api/remote_refs/image?name=${encodeURIComponent(name)}`)
+            .then(res => res.json())
+            .then(data => {
+                modalBtnFetchNewImageRefs.removeAttribute('aria-busy');
+                if (data.error) {
+                    console.error(data.error);
+                    imageTagSelect.innerHTML = '<option value="" disabled selected>Failed to load tags</option>';
+                    return;
+                }
+
+                imageTagSelect.innerHTML = '<option value="" disabled selected>Select a tag (optional)...</option>';
+                data.tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    imageTagSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                modalBtnFetchNewImageRefs.removeAttribute('aria-busy');
+                console.error("Error fetching image tags:", err);
+                imageTagSelect.innerHTML = '<option value="" disabled selected>Error loading tags</option>';
+            });
+    });
+
+    // Hook form submission to populate git_ref and validate
+    document.getElementById('add-asset-form').addEventListener('submit', function (e) {
         if (typeSelect.value === 'repo') {
+            const targetUrl = document.getElementById('modal_target_url').value;
+            if (!repoSelect.value && !targetUrl) {
+                e.preventDefault();
+                alert('Please select or map a repository.');
+                return;
+            }
             const selectedType = refTypeHidden.value;
             let selectedRef = '';
             if (selectedType === 'branch') {
@@ -327,11 +480,77 @@
             }
             finalRefInput.value = selectedRef;
         } else if (typeSelect.value === 'image') {
+            const targetName = document.getElementById('modal_target_image_name').value;
+            if (!imageSelect.value && !targetName) {
+                e.preventDefault();
+                alert('Please select or map a container image.');
+                return;
+            }
             finalRefInput.value = imageTagSelect.value || "";
         } else if (typeSelect.value === 'eol_component') {
-            finalRefInput.value = eolSelect.options[eolSelect.selectedIndex]?.dataset.version || "";
+            const targetName = document.getElementById('modal_eol_target_name').value;
+            const targetVersion = document.getElementById('modal_eol_target_version').value;
+            if (!eolSelect.value && (!targetName || !targetVersion)) {
+                e.preventDefault();
+                alert('Please select an existing EOL component or provide both a new name and version.');
+                return;
+            }
+            if (eolSelect.value && !targetName) {
+                finalRefInput.value = eolSelect.options[eolSelect.selectedIndex]?.dataset.version || "";
+            } else {
+                // If creating completely new, we set finalRefInput so nothing breaks, but the API will just insert it
+                finalRefInput.value = targetVersion;
+            }
         }
     });
+
+    // EOL Autocomplete logic from base.html mapped to package_dashboard.html
+    const eolNameInput = document.getElementById('modal_eol_target_name');
+    const eolVersionInput = document.getElementById('modal_eol_target_version');
+    const namesList = document.getElementById('eol_names_list');
+    const versionsList = document.getElementById('eol_versions_list');
+
+    if (eolNameInput) {
+        // Fetch all components to populate the names datalist
+        fetch('/api/eol/all')
+            .then(res => res.json())
+            .then(data => {
+                const fragment = document.createDocumentFragment();
+                data.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    fragment.appendChild(opt);
+                });
+                namesList.appendChild(fragment);
+            })
+            .catch(err => console.error("Failed to fetch EOL names", err));
+
+        // When a name is entered or selected, fetch its versions
+        eolNameInput.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (!val) return;
+
+            // Clear existing versions
+            versionsList.innerHTML = '';
+            eolVersionInput.value = '';
+
+            fetch(`/api/eol/${val}`)
+                .then(res => {
+                    if (!res.ok) throw new Error("Component not found");
+                    return res.json();
+                })
+                .then(data => {
+                    const fragment = document.createDocumentFragment();
+                    data.forEach(item => {
+                        const opt = document.createElement('option');
+                        opt.value = item.cycle;
+                        fragment.appendChild(opt);
+                    });
+                    versionsList.appendChild(fragment);
+                })
+                .catch(err => console.log("No version data for this component", err));
+        });
+    }
 
     // Initial setup
     updateSelection();

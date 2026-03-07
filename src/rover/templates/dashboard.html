@@ -122,13 +122,27 @@
                 <input type="hidden" name="scan_type" id="scan_type_hidden" value="repo">
 
                 <div id="repo-selection-area">
-                    <label for="repo_id">Target Repository</label>
-                    <select id="repo_id" name="repo_id">
-                        <option value="" disabled selected>Select a mapped repository...</option>
-                        {% for repo in repositories %}
-                        <option value="{{ repo.id }}">{{ repo.url }}</option>
-                        {% endfor %}
-                    </select>
+                    <fieldset>
+                        <legend>Target Repository</legend>
+                        <div class="grid">
+                            <label>
+                                Select Existing
+                                <select id="repo_id" name="repo_id">
+                                    <option value="" disabled selected>Select a mapped repository...</option>
+                                    {% for repo in repositories %}
+                                    <option value="{{ repo.id }}">{{ repo.url }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>
+                                Map New Target
+                                <div role="group" style="margin-bottom:0;">
+                                    <input type="url" id="target_url" name="target_url" placeholder="https://github.com/organization/repo">
+                                    <button type="button" id="btn_fetch_new_repo_refs" class="outline secondary" style="width:auto; white-space:nowrap;">Fetch Refs</button>
+                                </div>
+                            </label>
+                        </div>
+                    </fieldset>
 
                     <label>Git Ref</label>
                     <div role="group" id="ref-type-group" style="margin-bottom: 1rem;">
@@ -154,13 +168,27 @@
                 </div>
 
                 <div id="image-selection-area" style="display: none;">
-                    <label for="image_id">Target Image</label>
-                    <select id="image_id" name="image_id">
-                        <option value="" disabled selected>Select a mapped image...</option>
-                        {% for image in images %}
-                        <option value="{{ image.id }}">{{ image.name }}</option>
-                        {% endfor %}
-                    </select>
+                    <fieldset>
+                        <legend>Target Container Image</legend>
+                        <div class="grid">
+                            <label>
+                                Select Existing
+                                <select id="image_id" name="image_id">
+                                    <option value="" disabled selected>Select a mapped image...</option>
+                                    {% for image in images %}
+                                    <option value="{{ image.id }}">{{ image.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <label>
+                                Map New Target
+                                <div role="group" style="margin-bottom:0;">
+                                    <input type="text" id="target_name" name="target_image_name" placeholder="ubuntu:latest or ghcr.io/org/image:tag">
+                                    <button type="button" id="btn_fetch_new_image_refs" class="outline secondary" style="width:auto; white-space:nowrap;">Fetch Tags</button>
+                                </div>
+                            </label>
+                        </div>
+                    </fieldset>
 
                     <label for="image_tag">Image Tag</label>
                     <div style="margin-bottom: 1rem;">
@@ -178,7 +206,13 @@
 </section>
 
 <section>
-    <details>
+    {% set ns_queue = namespace(scan_active=false) %}
+    {% for job in jobs %}
+        {% if job.status not in ['completed', 'failed'] %}
+            {% set ns_queue.scan_active = true %}
+        {% endif %}
+    {% endfor %}
+    <details {% if ns_queue.scan_active %}open{% endif %}>
         <summary role="button" class="secondary outline">View Recent Scans</summary>
         <article>
             <figure style="margin-bottom: 0;">
@@ -274,6 +308,55 @@
             });
     });
 
+    const newRepoUrlInput = document.getElementById('target_url');
+    const btnFetchNewRepoRefs = document.getElementById('btn_fetch_new_repo_refs');
+
+    btnFetchNewRepoRefs.addEventListener('click', () => {
+        const url = newRepoUrlInput.value;
+        if (!url) {
+            alert('Please enter a repository URL to fetch refs from.');
+            return;
+        }
+
+        branchSelect.innerHTML = '<option value="" disabled selected>Fetching branches...</option>';
+        tagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
+        btnFetchNewRepoRefs.setAttribute('aria-busy', 'true');
+
+        fetch(`/api/remote_refs/repo?url=${encodeURIComponent(url)}`)
+            .then(res => res.json())
+            .then(data => {
+                btnFetchNewRepoRefs.removeAttribute('aria-busy');
+                if (data.error) {
+                    console.error(data.error);
+                    branchSelect.innerHTML = '<option value="" disabled selected>Failed to load branches</option>';
+                    tagSelect.innerHTML = '<option value="" disabled selected>Failed to load tags</option>';
+                    return;
+                }
+
+                branchSelect.innerHTML = '<option value="" disabled selected>Select a branch...</option>';
+                data.branches.forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    branchSelect.appendChild(opt);
+                });
+
+                tagSelect.innerHTML = '<option value="" disabled selected>Select a tag...</option>';
+                data.tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    tagSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                btnFetchNewRepoRefs.removeAttribute('aria-busy');
+                console.error("Error fetching refs:", err);
+                branchSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
+                tagSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
+            });
+    });
+
     const imageSelect = document.getElementById('image_id');
     const imageTagSelect = document.getElementById('image_tag');
 
@@ -306,6 +389,44 @@
             });
     });
 
+    const newTargetNameInput = document.getElementById('target_name');
+    const btnFetchNewImageRefs = document.getElementById('btn_fetch_new_image_refs');
+
+    btnFetchNewImageRefs.addEventListener('click', () => {
+        const name = newTargetNameInput.value;
+        if (!name) {
+            alert('Please enter a container image name to fetch tags from.');
+            return;
+        }
+
+        imageTagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
+        btnFetchNewImageRefs.setAttribute('aria-busy', 'true');
+
+        fetch(`/api/remote_refs/image?name=${encodeURIComponent(name)}`)
+            .then(res => res.json())
+            .then(data => {
+                btnFetchNewImageRefs.removeAttribute('aria-busy');
+                if (data.error) {
+                    console.error(data.error);
+                    imageTagSelect.innerHTML = '<option value="" disabled selected>Failed to load tags</option>';
+                    return;
+                }
+
+                imageTagSelect.innerHTML = '<option value="" disabled selected>Select a tag (optional)...</option>';
+                data.tags.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t;
+                    opt.textContent = t;
+                    imageTagSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                btnFetchNewImageRefs.removeAttribute('aria-busy');
+                console.error("Error fetching image tags:", err);
+                imageTagSelect.innerHTML = '<option value="" disabled selected>Error loading tags</option>';
+            });
+    });
+
     scanForm.addEventListener('submit', (e) => {
         const scanType = document.getElementById('scan_type_hidden').value;
 
@@ -322,21 +443,24 @@
             }
 
             if (!selectedRef) {
-                e.preventDefault();
-                alert('Please select or enter a Git Ref before scanning.');
-                return;
+                // If mapping a new repo, git ref is optional as we might not know branches yet (will use default)
+                if (!document.getElementById('target_url').value) {
+                    e.preventDefault();
+                    alert('Please select or enter a Git Ref before scanning.');
+                    return;
+                }
             }
             finalRefInput.value = selectedRef;
 
-            if (!repoSelect.value) {
+            if (!repoSelect.value && !document.getElementById('target_url').value) {
                 e.preventDefault();
-                alert('Please select a repository.');
+                alert('Please select or enter a repository.');
                 return;
             }
         } else if (scanType === 'image') {
-            if (!imageSelect.value) {
+            if (!imageSelect.value && !document.getElementById('target_name').value) {
                 e.preventDefault();
-                alert('Please select a Container Image before scanning.');
+                alert('Please select or enter a Container Image before scanning.');
                 return;
             }
             if (imageTagSelect.value) {
