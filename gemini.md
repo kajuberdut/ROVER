@@ -23,3 +23,18 @@ Tests are located in the `tests/` directory and use `pytest`. You can run them v
 ## Dependencies
 
 Dependency management is handled via `uv` as defined in `pyproject.toml`.
+
+## Version Control & Commits
+
+This environment uses the **Fish** shell, which does not execute bash-style heredocs (`<<EOF`) or handle nested string quotes the same way Bash does. When generating multi-line git commit messages via the terminal, do **not** use `git commit -m "..." -m "..."` with complex strings, as they often get garbled or truncated.
+
+Instead, write your multi-line commit message to a temporary file, commit it, and remove the file:
+
+```bash
+echo "feat(scope): title
+
+- Detail 1
+- Detail 2" > .git/commit-msg.tmp
+git commit -F .git/commit-msg.tmp
+rm .git/commit-msg.tmp
+```
