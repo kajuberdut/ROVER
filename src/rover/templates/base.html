@@ -116,6 +116,13 @@
                         <span style="font-size: 1.2em;">⚙️</span> Settings
                     </a>
                 </li>
+                {% if user and user.role == "admin" %}
+                <li>
+                    <a href="/admin/users" class="secondary" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none;">
+                        <span style="font-size: 1.2em;">👥</span> Users
+                    </a>
+                </li>
+                {% endif %}
             </ul>
         </nav>
     </header>

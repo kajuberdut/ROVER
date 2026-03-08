@@ -113,9 +113,129 @@ def init_db() -> None:
                 CREATE UNIQUE INDEX IF NOT EXISTS idx_rel_asset_unique 
                 ON release_assets(release_id, asset_type, asset_id, IFNULL(git_ref, ''))
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    sub        TEXT PRIMARY KEY,
+                    email      TEXT,
+                    name       TEXT,
+                    role       TEXT NOT NULL DEFAULT 'viewer',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS product_owners (
+                    user_sub   TEXT NOT NULL REFERENCES users(sub) ON DELETE CASCADE,
+                    product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                    PRIMARY KEY (user_sub, product_id)
+                )
+            """)
 
 
 init_db()
+
+
+# ── User / RBAC helpers ──────────────────────────────────────────────────────
+
+def upsert_user(sub: str, email: str | None, name: str | None) -> dict[str, Any]:
+    """Register or refresh a user record on login. Returns the full user row."""
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO users (sub, email, name, last_login)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(sub) DO UPDATE SET
+                    email      = excluded.email,
+                    name       = excluded.name,
+                    last_login = CURRENT_TIMESTAMP
+                """,
+                (sub, email, name),
+            )
+        cursor = conn.execute("SELECT * FROM users WHERE sub = ?", (sub,))
+        return dict(cursor.fetchone())
+
+
+def get_user(sub: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.execute("SELECT * FROM users WHERE sub = ?", (sub,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_user_by_email(email: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.execute("SELECT * FROM users WHERE email = ?", (email,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_all_users() -> list[dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "SELECT * FROM users ORDER BY role ASC, name ASC"
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def set_user_role(sub: str, role: str) -> None:
+    """Set a user's global role. Role must be viewer | product_owner | admin."""
+    if role not in ("viewer", "product_owner", "admin"):
+        raise ValueError(f"Invalid role: {role!r}")
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "UPDATE users SET role = ? WHERE sub = ?", (role, sub)
+            )
+
+
+def get_product_owners(product_id: str) -> list[dict[str, Any]]:
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT u.* FROM users u
+            JOIN product_owners po ON po.user_sub = u.sub
+            WHERE po.product_id = ?
+            """,
+            (product_id,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def user_owns_product(sub: str, product_id: str) -> bool:
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "SELECT 1 FROM product_owners WHERE user_sub = ? AND product_id = ?",
+            (sub, product_id),
+        )
+        return cursor.fetchone() is not None
+
+
+def add_product_owner(sub: str, product_id: str) -> None:
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO product_owners (user_sub, product_id) VALUES (?, ?)",
+                (sub, product_id),
+            )
+
+
+def remove_product_owner(sub: str, product_id: str) -> None:
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "DELETE FROM product_owners WHERE user_sub = ? AND product_id = ?",
+                (sub, product_id),
+            )
+
+
+def get_user_product_ids(sub: str) -> list[str]:
+    """Returns all product IDs owned by a given user."""
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "SELECT product_id FROM product_owners WHERE user_sub = ?", (sub,)
+        )
+        return [row["product_id"] for row in cursor.fetchall()]
 
 
 def create_job(

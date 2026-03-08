@@ -103,5 +103,9 @@ if ! grep -q "rover.local" /etc/hosts 2>/dev/null; then
 fi
 
 echo ""
-info "Setup complete. Run: docker compose up --build -d"
-info "Then navigate to: https://rover.local"
+info "Setup complete. Next steps:"
+info "  1. docker compose up --build -d"
+info "  2. Navigate to https://rover.local and log in with your Authelia 'admin' credentials."
+info "  3. Run: ./create-admin.sh admin@rover.local"
+info "     (This promotes the admin user to the ROVER admin role.)"
+info "     Re-run create-admin.sh at any time to recover access."

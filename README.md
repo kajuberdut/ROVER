@@ -55,6 +55,25 @@ Navigate to **https://rover.local**. Accept the self-signed certificate warning 
 
 ---
 
+### User Roles
+
+ROVER uses role-based access control layered on top of Authelia authentication. Roles are managed by admins via the `/admin/users` page.
+
+| Capability | Viewer | Product Owner | Admin |
+|---|:---:|:---:|:---:|
+| View dashboards & reports | ✅ | ✅ | ✅ |
+| Trigger scans | ✅ | ✅ | ✅ |
+| Create products | ❌ | ✅ (becomes owner) | ✅ |
+| Modify owned products & releases | ❌ | ✅ | ✅ |
+| Modify any product or release | ❌ | ❌ | ✅ |
+| Add / remove release assets | ❌ | ✅ (owned) | ✅ |
+| Toggle EOL status | ❌ | ✅ (owned) | ✅ |
+| Manage user roles | ❌ | ❌ | ✅ |
+
+New users are assigned the `viewer` role by default on first login.
+
+---
+
 ### Architecture
 
 - **App Setup**: Falcon ASGI application instance with `RequireAuthMiddleware` that enforces OIDC session cookies on all routes.

@@ -1,13 +1,14 @@
-import os
-import json
 import logging
+import os
 import urllib.parse
 import uuid
-import requests
-import falcon
 
-from authlib.jose import JsonWebKey, jwt
-from itsdangerous import URLSafeSerializer, BadSignature
+import falcon
+import requests
+from authlib.jose import jwt
+from itsdangerous import BadSignature, URLSafeSerializer
+
+from rover import scan_queue
 
 log = logging.getLogger(__name__)
 
@@ -15,13 +16,14 @@ log = logging.getLogger(__name__)
 # For redirects, the user's browser needs the public resolvable URL
 OIDC_AUTHORIZATION_ENDPOINT = "https://auth.rover.local/api/oidc/authorization"
 # For backend requests, we use the internal docker network URL
-OIDC_TOKEN_ENDPOINT = "http://authelia:9091/api/oidc/token"
+OIDC_TOKEN_ENDPOINT = "http://authelia:9091/api/oidc/token"  # noqa: S105
 OIDC_JWKS_URI = "http://authelia:9091/jwks.json"
 # The callback URI must match what goes through the external proxy
 OIDC_REDIRECT_URI = "https://rover.local/callback"
 
 OIDC_CLIENT_ID = "rover-client"
-OIDC_CLIENT_SECRET = "rover-secret"  # Matches plaintext of hash in authelia config
+# Read from env in production; fallback is the dev default set by setup.sh
+OIDC_CLIENT_SECRET = os.environ.get("ROVER_OIDC_CLIENT_SECRET", "rover-secret")
 
 # Session Configuration
 SESSION_SECRET = os.environ.get("ROVER_SECRET_KEY", "fallback_secret_key_change_in_production")
@@ -180,11 +182,43 @@ class CallbackResource:
             resp.status = falcon.HTTP_400
             return
 
-        # Authentication successful! Create a local session
+        # Authentication successful!
+        # Fetch userinfo from Authelia to get email/name — these aren't always
+        # in the id_token JWT for flat-file users, but are available via userinfo.
+        access_token = tokens.get("access_token")
+        userinfo = {}
+        if access_token:
+            try:
+                ui_resp = await asyncio.to_thread(
+                    requests.get,
+                    "http://authelia:9091/api/oidc/userinfo",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=5,
+                )
+                if ui_resp.ok:
+                    userinfo = ui_resp.json()
+            except Exception as e:
+                log.warning(f"Userinfo fetch failed (non-fatal): {e}")
+
+        sub = claims.get("sub")
+        email = userinfo.get("email") or claims.get("email")
+        name = (
+            userinfo.get("name")
+            or userinfo.get("preferred_username")
+            or claims.get("name")
+            or claims.get("preferred_username")
+        )
+
+        # Upsert user into ROVER's user registry.
+        db_user = scan_queue.upsert_user(sub=sub, email=email, name=name)
+
+        # Build local session — include role and owned products for permission checks.
         user_data = {
-            "sub": claims.get("sub"),
-            "email": claims.get("email"),
-            "name": claims.get("name") or claims.get("preferred_username")
+            "sub":        db_user["sub"],
+            "email":      db_user["email"],
+            "name":       db_user["name"],
+            "role":       db_user["role"],
+            "product_ids": scan_queue.get_user_product_ids(db_user["sub"]),
         }
         
         session_token = cookie_serializer.dumps(user_data)
