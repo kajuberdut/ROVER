@@ -1,23 +1,26 @@
 {% extends "base.html" %}
 
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<a href="/products/{{ release.product_id }}">Product</a>
+<span class="breadcrumb-sep">›</span>
+<span>{{ release.name }} v{{ release.version }}</span>
+{% endblock %}
+
 {% block content %}
 <section style="margin-bottom: 1rem;">
     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div style="display: flex; gap: 1rem; align-items: center;">
-            <a href="/products/{{ release.product_id }}" role="button" class="secondary outline"
-                style="margin-bottom: 0;">&larr; Back</a>
-            <hgroup style="margin-bottom: 0;">
-                <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
-                    Release v{{ release.version }}
-                    {% if release.is_end_of_life %}
-                    <span
-                        style="font-size: 0.5em; color: #d32f2f; border: 1px solid #d32f2f; padding: 2px 6px; border-radius: 4px; font-weight: normal;">EOL</span>
-                    {% endif %}
-                </h2>
-                <h3 style="margin-bottom: 0; margin-top: 0.25rem; color: var(--pico-muted-color);">{{ release.name }}
-                    &mdash; Asset Management</h3>
-            </hgroup>
-        </div>
+        <hgroup style="margin-bottom: 0;">
+            <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
+                {{ release.name }} v{{ release.version }}
+                {% if release.is_end_of_life %}
+                <span
+                    style="font-size: 0.5em; color: #d32f2f; border: 1px solid #d32f2f; padding: 2px 6px; border-radius: 4px; font-weight: normal;">EOL</span>
+                {% endif %}
+            </h2>
+            <h3 style="margin-bottom: 0; margin-top: 0.25rem; color: var(--pico-muted-color);">Asset Management</h3>
+        </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             <form action="/releases/{{ release.id }}/eol" method="POST" style="margin-bottom: 0;">
                 {% if release.is_end_of_life %}

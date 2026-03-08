@@ -1,16 +1,19 @@
 {% extends "base.html" %}
 
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<span>{{ product.name }}</span>
+{% endblock %}
+
 {% block content %}
 <section>
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-        <div style="display: flex; gap: 1rem; align-items: center;">
-            <a href="/" role="button" class="secondary outline" style="margin-bottom: 0;">&larr; Back</a>
-            <hgroup style="margin-bottom: 0;">
-                <h2 style="margin-bottom: 0;">Product: {{ product.name }}</h2>
-                <h3 style="margin-bottom: 0; margin-top: 0.25rem;">{{ product.description or 'Manage releases and
-                    vulnerability posture for this product.' }}</h3>
-            </hgroup>
-        </div>
+        <hgroup style="margin-bottom: 0;">
+            <h2 style="margin-bottom: 0;">{{ product.name }}</h2>
+            <h3 style="margin-bottom: 0; margin-top: 0.25rem;">{{ product.description or 'Manage releases and
+                vulnerability posture for this product.' }}</h3>
+        </hgroup>
         <button type="button" class="outline" onclick="document.getElementById('add-release-modal').showModal();"
             style="margin-bottom: 0;">Create Release</button>
     </div>

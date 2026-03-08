@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<span>Settings</span>
+{% endblock %}
+
 {% block content %}
 <section style="margin-bottom: 2rem;">
-    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
-        <a href="/" role="button" class="secondary outline" style="margin-bottom: 0;">&larr; Back</a>
-        <hgroup style="margin-bottom: 0;">
-            <h2>Configuration</h2>
-            <h3>Manage R.O.V.E.R application settings</h3>
-        </hgroup>
-    </div>
+    <hgroup style="margin-bottom: 1rem;">
+        <h2>Configuration</h2>
+        <h3>Manage R.O.V.E.R application settings</h3>
+    </hgroup>
     
     {% if error %}
     <article style="background-color: var(--pico-del-color); color: white; padding: 1rem; margin-bottom: 1rem;">

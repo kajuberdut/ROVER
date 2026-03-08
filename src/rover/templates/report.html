@@ -1,9 +1,14 @@
 {% extends "base.html" %}
 
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<span>Report {{ job.target_url | truncate(40) if job else report_id }}</span>
+{% endblock %}
+
 {% block content %}
 <section>
-    <a href="javascript:history.back()" id="top-anchor" role="button" class="secondary outline">← Back</a>
-    <h2 style="margin-top: 1rem;">Report Details: {{ report_id }}</h2>
+    <h2 id="top-anchor" style="margin-top: 0;">Report Details: {{ report_id }}</h2>
 
     <article>
         <header>
@@ -82,9 +87,7 @@
     </article>
 </section>
 
-<!-- Floating Navigation Combo -->
 <div id="floating-nav" class="floating-nav hidden" aria-hidden="true">
-    <a href="javascript:history.back()" role="button" class="secondary outline">← Back</a>
     <button class="secondary" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">↑ Top</button>
 </div>
 
