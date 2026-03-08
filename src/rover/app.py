@@ -8,7 +8,7 @@ import falcon
 import falcon.asgi
 import jinja2
 
-from rover import config, scan_queue, worker
+from rover import config, scan_queue, worker, auth
 
 # Configure Jinja2 environment
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
@@ -68,7 +68,7 @@ class ConfigResource:
     ) -> None:
         raw_toml = config.read_raw_config()
         template = template_env.get_template("config.html")
-        resp.text = template.render(title="Configuration", raw_toml=raw_toml)
+        resp.text = template.render(user=getattr(req.context, "user", None), title="Configuration", raw_toml=raw_toml)
         resp.content_type = falcon.MEDIA_HTML
 
     async def on_post(
@@ -83,11 +83,11 @@ class ConfigResource:
             # Update global settings in memory
             config.settings = config.load_config()
             resp.text = template.render(
-                title="Configuration", raw_toml=saved_toml, success=True
+                user=getattr(req.context, "user", None), title="Configuration", raw_toml=saved_toml, success=True
             )
         except Exception as e:
             resp.text = template.render(
-                title="Configuration", raw_toml=raw_toml, error=str(e)
+                user=getattr(req.context, "user", None), title="Configuration", raw_toml=raw_toml, error=str(e)
             )
             resp.status = falcon.HTTP_400
         resp.content_type = falcon.MEDIA_HTML
@@ -105,6 +105,7 @@ class DashboardResource:
         major_components = scan_queue.get_all_major_components()
         template = template_env.get_template("dashboard.html")
         resp.text = template.render(
+            user=getattr(req.context, "user", None),
             title="R.O.V.E.R Dashboard",
             jobs=jobs,
             repositories=repositories,
@@ -401,7 +402,7 @@ class ReportResource:
     ) -> None:
         job = scan_queue.get_job(report_id)
         template = template_env.get_template("report.html")
-        resp.text = template.render(title=f"Report {report_id}", job=job)
+        resp.text = template.render(user=getattr(req.context, "user", None), title=f"Report {report_id}", job=job)
         resp.content_type = falcon.MEDIA_HTML
 
 
@@ -439,6 +440,7 @@ class ProductDashboardResource:
         releases = scan_queue.get_product_releases(product_id)
         template = template_env.get_template("product_dashboard.html")
         resp.text = template.render(
+            user=getattr(req.context, "user", None),
             title=f"Product: {product['name']}",
             product=product,
             releases=releases,
@@ -564,6 +566,7 @@ class ReleaseDashboardResource:
 
         template = template_env.get_template("release_dashboard.html")
         resp.text = template.render(
+            user=getattr(req.context, "user", None),
             title=f"Release: {release['name']} {release['version']}",
             release=release,
             assets=assets,
@@ -627,13 +630,18 @@ worker_thread.start()
 
 from rover.eol_proxy import EolProxyAllResource, EolProxyProductResource
 
-app = falcon.asgi.App()
+app = falcon.asgi.App(middleware=[auth.RequireAuthMiddleware()])
 app.add_route("/api/eol/all", EolProxyAllResource())
 app.add_route("/api/eol/{product}", EolProxyProductResource())
 
 # Serve static files
 static_path = os.path.join(os.path.dirname(__file__), "static")
 app.add_static_route("/static", static_path)
+
+# Add auth routes
+app.add_route("/login", auth.LoginResource())
+app.add_route("/callback", auth.CallbackResource())
+app.add_route("/logout", auth.LogoutResource())
 
 # Add routes
 app.add_route("/", DashboardResource())

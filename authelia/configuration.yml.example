@@ -1,0 +1,65 @@
+theme: light
+
+identity_validation:
+  reset_password:
+    jwt_secret: PLACEHOLDER_JWT_SECRET
+
+default_2fa_method: ""
+
+server:
+  address: "tcp://0.0.0.0:9091/"
+
+log:
+  level: info
+
+totp:
+  issuer: authelia.com
+
+authentication_backend:
+  file:
+    path: /config/users_database.yml
+
+notifier:
+  filesystem:
+    filename: /config/notification.txt
+
+session:
+  secret: PLACEHOLDER_SESSION_SECRET
+  cookies:
+    - domain: 'rover.local'
+      authelia_url: 'https://auth.rover.local'
+
+storage:
+  encryption_key: PLACEHOLDER_STORAGE_ENCRYPTION_KEY
+  local:
+    path: /config/auth.db
+
+identity_providers:
+  oidc:
+    hmac_secret: PLACEHOLDER_HMAC_SECRET
+    jwks:
+      - key: |
+          PLACEHOLDER_RSA_PRIVATE_KEY
+    clients:
+      - client_id: rover-client
+        client_name: ROVER Application
+        client_secret: 'PLACEHOLDER_CLIENT_SECRET_HASH'
+        public: false
+        authorization_policy: one_factor
+        consent_mode: implicit
+        redirect_uris:
+          - https://rover.local/callback
+        scopes:
+          - openid
+          - profile
+          - email
+        grant_types:
+          - authorization_code
+        response_types:
+          - code
+
+access_control:
+  default_policy: bypass
+  rules:
+    - domain: rover.local
+      policy: one_factor

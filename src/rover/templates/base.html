@@ -99,6 +99,18 @@
                 </li>
             </ul>
             <ul>
+                {% if user %}
+                <li>
+                    <span class="secondary" style="font-size: 0.9em; margin-right: 1rem;">
+                        👤 {{ user.name }}
+                    </span>
+                </li>
+                <li>
+                    <a href="/logout" class="secondary outline" role="button" style="padding: 0.25rem 0.5rem; font-size: 0.8em; margin-right: 1rem;">
+                        Logout
+                    </a>
+                </li>
+                {% endif %}
                 <li>
                     <a href="/config" class="secondary" style="display: flex; align-items: center; gap: 0.5rem; text-decoration: none;">
                         <span style="font-size: 1.2em;">⚙️</span> Settings
