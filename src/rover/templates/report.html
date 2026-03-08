@@ -36,9 +36,9 @@
         {% for result in results.Results %}
         {% if result.Vulnerabilities %}
         {% set ns.found_any = true %}
-        <h4>Target: {{ result.Target }} ({{ result.Class }})</h4>
+        <h4 class="target-label">Target: {{ result.Target }} ({{ result.Class }})</h4>
         <figure>
-            <table role="grid">
+            <table role="grid" class="sticky-table">
                 <thead>
                     <tr>
                         <th scope="col">Vulnerability ID</th>
@@ -92,6 +92,35 @@
 </div>
 
 <style>
+    /* ── Sticky target label ── */
+    h4.target-label {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        margin: 0;
+        padding: 0.3rem 0.75rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: var(--pico-background-color);
+        border-bottom: 1px solid var(--pico-muted-border-color);
+        border-top: 1px solid var(--pico-muted-border-color);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--pico-muted-color);
+        letter-spacing: 0.02em;
+    }
+
+    /* ── Sticky table header ── */
+    .sticky-table thead th {
+        position: sticky;
+        top: 2rem; /* sits just below the sticky h4 (~1 line at 0.78rem + padding) */
+        z-index: 10;
+        background: var(--pico-background-color);
+        box-shadow: 0 1px 0 var(--pico-muted-border-color);
+    }
+
+    /* ── Floating top button ── */
     .floating-nav {
         position: fixed;
         bottom: 2rem;
@@ -131,20 +160,14 @@
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach((entry) => {
                     if (entry.isIntersecting) {
-                        // The top anchor IS in view, hide the floating nav
                         floatingNav.classList.add("hidden");
                         floatingNav.setAttribute("aria-hidden", "true");
                     } else {
-                        // The top anchor is OUT of view, show the floating nav
                         floatingNav.classList.remove("hidden");
                         floatingNav.setAttribute("aria-hidden", "false");
                     }
                 });
-            }, {
-                // Trigger as soon as target element leaves viewport boundary
-                root: null,
-                threshold: 0,
-            });
+            }, { root: null, threshold: 0 });
 
             observer.observe(topAnchor);
         }
