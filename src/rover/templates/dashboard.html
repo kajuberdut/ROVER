@@ -1,6 +1,28 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    a.card-link {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        border-radius: var(--pico-border-radius);
+    }
+    a.card-link article {
+        margin-bottom: 0;
+        transition: box-shadow 0.15s, transform 0.1s;
+        cursor: pointer;
+        height: 100%;
+    }
+    a.card-link:hover article {
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
+    }
+    a.card-link:active article {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+</style>
 <section>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
         <hgroup style="margin-bottom: 0;">
@@ -63,14 +85,15 @@
         {% set border_style = "2px solid #388e3c" %}
         {% endif %}
 
+        <a href="/products/{{ prod.id }}" class="card-link">
         <article
-            style="border: {{ border_style }}; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+            style="border: {{ border_style }};">
             <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem;">
                 <h3 style="margin-bottom: 0.25rem;">{{ prod.name }}</h3>
                 <small style="color: grey;">{{ releases|length }} Active Releases</small>
             </header>
 
-            <div style="flex-grow: 1; margin-bottom: 1rem;">
+            <div style="flex-grow: 1;">
                 {% if ns.highest_severity == 'unknown' %}
                 <span style="color: grey;">No assets attached.</span>
                 {% elif ns.is_scanning %}
@@ -96,12 +119,8 @@
                     <span>●</span> Clean (No Vulns Found)</div>
                 {% endif %}
             </div>
-
-            <footer>
-                <a href="/products/{{ prod.id }}" role="button" class="outline"
-                    style="width: 100%; text-align: center;">View Dashboard</a>
-            </footer>
         </article>
+        </a>
         {% else %}
         <article>
             <em>No products or releases found. Create one to get started.</em>

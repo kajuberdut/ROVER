@@ -7,6 +7,28 @@
 {% endblock %}
 
 {% block content %}
+<style>
+    a.card-link {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        border-radius: var(--pico-border-radius);
+    }
+    a.card-link article {
+        margin-bottom: 0;
+        transition: box-shadow 0.15s, transform 0.1s;
+        cursor: pointer;
+        height: 100%;
+    }
+    a.card-link:hover article {
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        transform: translateY(-2px);
+    }
+    a.card-link:active article {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+</style>
 <section>
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
         <hgroup style="margin-bottom: 0;">
@@ -73,8 +95,9 @@
         {% set card_opacity = "0.7" %}
         {% endif %}
 
+        <a href="/releases/{{ release.id }}" class="card-link">
         <article
-            style="border: {{ border_style }}; opacity: {{ card_opacity }}; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
+            style="border: {{ border_style }}; opacity: {{ card_opacity }};">
             <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <h3 style="margin-bottom: 0.25rem;">Release v{{ release.version }}</h3>
@@ -108,14 +131,8 @@
                 <strong style="color: #388e3c;">Clean (No Vulns Found)</strong>
                 {% endif %}
             </div>
-
-            <footer>
-                <div style="display: flex; gap: 0.5rem;">
-                    <a href="/releases/{{ release.id }}" role="button" class="outline"
-                        style="flex-grow: 1; text-align: center;">View Details</a>
-                </div>
-            </footer>
         </article>
+        </a>
         {% else %}
         <article style="grid-column: 1 / -1;">
             <em>No releases found for this product. Click "Create Release" to get started.</em>
