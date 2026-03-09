@@ -1,6 +1,7 @@
 services:
   web:
     build: .
+    user: "${UID:-1000}:${GID:-1000}"
     env_file:
       - path: .env.local
         required: false
