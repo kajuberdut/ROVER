@@ -824,6 +824,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "authlib" },
+    { name = "docker" },
     { name = "falcon" },
     { name = "httpx" },
     { name = "itsdangerous" },
@@ -848,6 +849,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "authlib", specifier = ">=1.6.9" },
+    { name = "docker", specifier = ">=7.0.0" },
     { name = "falcon" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "itsdangerous", specifier = ">=2.2.0" },

@@ -369,6 +369,8 @@ class ScanResource:
 
             # Create a new scan job
             scan_queue.create_job(repo["url"], git_ref, target_type="repo")
+            # Also enqueue a Semgrep SAST scan for every repo (commit-hash cached in worker)
+            scan_queue.create_semgrep_job(repo["url"], git_ref)
         elif scan_type == "image":
             target_name = form.get("target_image_name") or form.get("target_name")
             if target_name:
@@ -401,8 +403,22 @@ class ReportResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, report_id: str
     ) -> None:
         job = scan_queue.get_job(report_id)
+        semgrep_job = None
+        if job and job.get("target_type") == "repo":
+            semgrep_job = scan_queue.get_semgrep_job_for_target(
+                job["target_url"], job.get("git_ref")
+            )
+        back_url = req.get_param("back")
+        back_label = req.get_param("back_label") or "Release"
         template = template_env.get_template("report.html")
-        resp.text = template.render(user=getattr(req.context, "user", None), title=f"Report {report_id}", job=job)
+        resp.text = template.render(
+            user=getattr(req.context, "user", None),
+            title=f"Report {report_id}",
+            job=job,
+            semgrep_job=semgrep_job,
+            back_url=back_url,
+            back_label=back_label,
+        )
         resp.content_type = falcon.MEDIA_HTML
 
 
@@ -537,6 +553,11 @@ class ReleaseScanResource:
                     target_type="repo",
                     git_ref=asset["git_ref"],
                 )
+                # Also enqueue Semgrep (worker will use commit-hash cache if already scanned)
+                scan_queue.create_semgrep_job(
+                    target_url=asset["asset_name"],
+                    git_ref=asset.get("git_ref"),
+                )
             elif asset["asset_type"] == "image":
                 scan_queue.create_job(
                     target_url=asset["asset_name"],
@@ -591,8 +612,9 @@ class ReleaseAssetsTableResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
         assets = scan_queue.get_release_assets_with_latest_scans(release_id)
+        release = scan_queue.get_release(release_id)
         template = template_env.get_template("release_assets_table.html")
-        resp.text = template.render(assets=assets)
+        resp.text = template.render(assets=assets, release=release)
         resp.content_type = falcon.MEDIA_HTML
 
 

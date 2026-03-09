@@ -87,8 +87,12 @@ New users are assigned the `viewer` role by default on first login.
   - Floating combo-button navigation on long reports managed via `IntersectionObserver`.
   - Dynamic remote repository and container image tag querying (`git ls-remote`, `skopeo list-tags`) coupled to a custom PicoCSS segmented button UI.
   - Inline entity mapping workflows with auto-expanding contextual layouts.
-- **Job Queue**: A lightweight `sqlite3` queue (`scan_queue.py`) manages asynchronous scanning jobs without needing heavy external message brokers.
-- **Worker Thread**: `worker.py` runs an `asyncio` loop inside a background Python thread alongside Falcon, gracefully picking up jobs from SQLite.
+- **Job Queue**: A lightweight `sqlite3` queue (`scan_queue.py`) manages asynchronous scanning jobs without needing heavy external message brokers. Two queues are maintained: `scan_jobs` (Trivy) and `semgrep_jobs` (Semgrep).
+- **Worker Thread**: `worker.py` runs an `asyncio` loop inside a background Python thread alongside Falcon, gracefully picking up jobs from both SQLite queues each iteration.
 - **Artifact Bundles**: Users can logically group and track multiple Git Repositories and Docker Images together under Release Packages, rolling up all vulnerability metrics into a unified dashboard view.
-- **Scanner Execution**: The `scanner.py` utility utilizes `testcontainers` to launch ephemeral, isolated `aquasec/trivy:latest` Docker containers. This ensures no host-system dependencies are needed beyond Docker itself.
-  - **Caching**: The application uses a Docker named volume (`trivy-vulnerability-db-cache`) injected securely during scan runtime, caching the heavy 40-200MB vulnerability DB.
+- **Scanner Execution**: The `scanner.py` utility utilizes `testcontainers` to launch ephemeral, isolated Docker containers for scanning.
+  - **Trivy (CVE)**: Runs `aquasec/trivy:latest` for dependency and container image vulnerability scanning. Uses a named Docker volume (`trivy-vulnerability-db-cache`) to cache the vulnerability database between scans.
+  - **Semgrep (SAST)**: Runs `semgrep/semgrep` for static analysis of repository source code (repo assets only). The repository is cloned into an ephemeral named Docker volume via an `alpine/git` container so it is accessible to the sibling Semgrep container launched from the host daemon. The volume is removed after each scan.
+  - **Semgrep Caching**: Semgrep scans are cached by full SHA-1 commit hash. If a completed scan already exists for a given commit, the worker reuses those results without re-running the container — so scheduled re-scans only run Trivy (whose vulnerability DB changes over time) while Semgrep re-runs only when new commits are introduced.
+- **Report Page**: Scan reports display Trivy CVE results in a fixed-layout table. When a Semgrep job also exists for a repo scan, a tab bar appears alongside showing finding counts. The active tab is persisted in the URL hash for bookmarking and page-refresh stability.
+

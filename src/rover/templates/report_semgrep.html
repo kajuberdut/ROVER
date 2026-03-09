@@ -1,0 +1,146 @@
+{% set findings = (semgrep_job.results_json | loadjson).get('results', []) if semgrep_job.results_json else [] %}
+{% set errors  = (semgrep_job.results_json | loadjson).get('errors',  []) if semgrep_job.results_json else [] %}
+
+{% if semgrep_job.status == 'completed' %}
+    {% if findings %}
+    {% set ns = namespace(current_file=None) %}
+    {% for finding in findings %}
+    {% if finding.path != ns.current_file %}
+    {% set ns.current_file = finding.path %}
+    <h4 class="target-label">{{ finding.path }}</h4>
+    <figure>
+        <table role="grid" class="sticky-table">
+            <colgroup>
+                <col class="col-rule">
+                <col class="col-line">
+                <col class="col-severity">
+                <col><!-- Message: takes remaining width -->
+            </colgroup>
+            <thead>
+                <tr>
+                    <th scope="col">Rule</th>
+                    <th scope="col">Line</th>
+                    <th scope="col">Severity</th>
+                    <th scope="col">Message</th>
+                </tr>
+            </thead>
+            <tbody>
+    {% endif %}
+            <tr>
+                <td><code title="{{ finding.check_id }}">{{ finding.check_id.split('.')[-1] }}</code></td>
+                <td>{{ finding.start.line }}</td>
+                <td>
+                    {% set sev = finding.extra.severity | upper %}
+                    {% if sev == 'ERROR' %}
+                    <ins style="color: var(--pico-del-color);">{{ sev }}</ins>
+                    {% elif sev == 'WARNING' %}
+                    <ins style="color: #ff9800;">{{ sev }}</ins>
+                    {% else %}
+                    <span>{{ sev }}</span>
+                    {% endif %}
+                </td>
+                <td class="msg-cell">
+                    {% set msg = finding.extra.message %}
+                    {% if msg | length > 120 %}
+                    <details>
+                        <summary>{{ msg[:120] }}…</summary>
+                        <span class="msg-full">{{ msg }}</span>
+                    </details>
+                    {% else %}
+                    {{ msg }}
+                    {% endif %}
+                </td>
+            </tr>
+    {# Close tbody/table/figure when the next finding is a different file or this is the last one #}
+    {% if loop.last or findings[loop.index].path != ns.current_file %}
+            </tbody>
+        </table>
+    </figure>
+    {% endif %}
+    {% endfor %}
+
+    {% elif errors %}
+    <p>Semgrep completed with errors and no findings.</p>
+    <ul>
+        {% for err in errors %}
+        <li><code>{{ err.type }}</code>: {{ err.message | default('Unknown error') }}</li>
+        {% endfor %}
+    </ul>
+
+    {% else %}
+    <p>✅ No findings from Semgrep SAST scan.</p>
+    {% endif %}
+
+{% elif semgrep_job.status == 'failed' %}
+    <p><strong>Semgrep scan failed:</strong> {{ semgrep_job.error_message }}</p>
+{% elif semgrep_job.status in ('queued', 'running') %}
+    <p>Semgrep scan is currently <mark>{{ semgrep_job.status }}</mark>… check back shortly.</p>
+{% else %}
+    <p>No Semgrep results available.</p>
+{% endif %}
+
+<style>
+    /* ── Fixed-layout table — identical columns across all per-file tables ── */
+    .sticky-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    .sticky-table .col-rule     { width: 20ch; }
+    .sticky-table .col-line     { width: 5ch; }
+    .sticky-table .col-severity { width: 9ch; }
+    /* Message column takes the rest */
+
+    .sticky-table th:nth-child(1),
+    .sticky-table td:nth-child(1) {          /* Rule */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sticky-table th:nth-child(2),
+    .sticky-table td:nth-child(2) {          /* Line */
+        white-space: nowrap;
+        text-align: right;
+    }
+
+    .sticky-table th:nth-child(3),
+    .sticky-table td:nth-child(3) {          /* Severity */
+        white-space: nowrap;
+    }
+
+    /* ── Collapsible message cell ── */
+    td.msg-cell { overflow: hidden; }
+
+    td.msg-cell details {
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    td.msg-cell details summary {
+        cursor: pointer;
+        list-style: none;
+        color: var(--pico-muted-color);
+        font-size: 0.9em;
+    }
+
+    td.msg-cell details summary::-webkit-details-marker { display: none; }
+
+    td.msg-cell details summary::after {
+        content: ' ▸';
+        font-size: 0.75em;
+        opacity: 0.6;
+    }
+
+    td.msg-cell details[open] summary::after { content: ' ▾'; }
+
+    td.msg-cell .msg-full {
+        display: block;
+        margin-top: 0.35rem;
+        color: var(--pico-color);
+        font-size: 0.9em;
+        white-space: pre-wrap;
+    }
+</style>

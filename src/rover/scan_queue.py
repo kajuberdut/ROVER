@@ -114,6 +114,20 @@ def init_db() -> None:
                 ON release_assets(release_id, asset_type, asset_id, IFNULL(git_ref, ''))
             """)
             conn.execute("""
+                CREATE TABLE IF NOT EXISTS semgrep_jobs (
+                    id              TEXT PRIMARY KEY,
+                    target_url      TEXT NOT NULL,
+                    git_ref         TEXT DEFAULT NULL,
+                    resolved_commit TEXT DEFAULT NULL,
+                    status          TEXT NOT NULL,
+                    results_json    TEXT DEFAULT NULL,
+                    resolved_tags   TEXT DEFAULT NULL,
+                    error_message   TEXT DEFAULT NULL,
+                    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            conn.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     sub        TEXT PRIMARY KEY,
                     email      TEXT,
@@ -290,6 +304,105 @@ def get_all_jobs() -> list[dict[str, Any]]:
         cursor.execute("SELECT * FROM scan_jobs ORDER BY created_at DESC")
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+# ── Semgrep job helpers ────────────────────────────────────────────────────────
+
+def create_semgrep_job(target_url: str, git_ref: str | None = None) -> str:
+    job_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "INSERT INTO semgrep_jobs (id, target_url, git_ref, status) VALUES (?, ?, ?, ?)",
+                (job_id, target_url, git_ref, "queued"),
+            )
+    return job_id
+
+
+def get_semgrep_job(job_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.execute("SELECT * FROM semgrep_jobs WHERE id = ?", (job_id,))
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_semgrep_job_for_target(
+    target_url: str, git_ref: str | None
+) -> dict[str, Any] | None:
+    """Return the most recent semgrep job for a (url, ref) pair."""
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT * FROM semgrep_jobs
+            WHERE target_url = ? AND IFNULL(git_ref, '') = ?
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            (target_url, git_ref or ""),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def get_completed_semgrep_job_by_commit(commit_hash: str) -> dict[str, Any] | None:
+    """
+    Cache lookup by full SHA-1 commit hash only.
+    SHA-1 is 160 bits; collision probability is negligible, so no URL check is needed.
+    """
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT * FROM semgrep_jobs
+            WHERE resolved_commit = ? AND status = 'completed'
+            ORDER BY created_at ASC
+            LIMIT 1
+            """,
+            (commit_hash,),
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def update_semgrep_job_status(
+    job_id: str,
+    status: str,
+    results_json: str | None = None,
+    error_message: str | None = None,
+    resolved_commit: str | None = None,
+    resolved_tags: str | None = None,
+) -> None:
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                """
+                UPDATE semgrep_jobs
+                SET status = ?, results_json = ?, error_message = ?,
+                    resolved_commit = ?, resolved_tags = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (status, results_json, error_message, resolved_commit, resolved_tags, job_id),
+            )
+
+
+def claim_next_semgrep_job() -> dict[str, Any] | None:
+    """Atomically claim the next queued semgrep job."""
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, target_url, git_ref FROM semgrep_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if row:
+                job_id = row["id"]
+                conn.execute(
+                    "UPDATE semgrep_jobs SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (job_id,),
+                )
+                return dict(row)
+    return None
 
 
 def claim_next_job() -> dict[str, Any] | None:

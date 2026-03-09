@@ -2,6 +2,10 @@
 
 {% block breadcrumb %}
 <a href="/">Dashboard</a>
+{% if back_url %}
+<span class="breadcrumb-sep">›</span>
+<a href="{{ back_url }}">{{ back_label }}</a>
+{% endif %}
 <span class="breadcrumb-sep">›</span>
 <span>Report {{ job.target_url | truncate(40) if job else report_id }}</span>
 {% endblock %}
@@ -28,6 +32,41 @@
             </hgroup>
         </header>
 
+        {# ── Scan-type tab bar (only shown when a semgrep job exists) ── #}
+        {% if semgrep_job %}
+        <div class="scan-tab-bar" role="tablist">
+            <button id="tab-trivy" class="scan-tab active" role="tab"
+                aria-selected="true" aria-controls="pane-trivy"
+                onclick="showTab('trivy')">
+                🛡 Trivy CVE
+                {% if job.status == 'completed' and job.results_json %}
+                {% set trivy_count = namespace(n=0) %}
+                {% for r in (job.results_json | loadjson).get('Results', []) %}
+                {% set trivy_count.n = trivy_count.n + (r.Vulnerabilities | default([]) | length) %}
+                {% endfor %}
+                {% if trivy_count.n > 0 %}
+                <span class="finding-badge">{{ trivy_count.n }}</span>
+                {% endif %}
+                {% endif %}
+            </button>
+            <button id="tab-semgrep" class="scan-tab" role="tab"
+                aria-selected="false" aria-controls="pane-semgrep"
+                onclick="showTab('semgrep')">
+                🔍 Semgrep SAST
+                {% if semgrep_job.status == 'completed' and semgrep_job.results_json %}
+                {% set sg_count = (semgrep_job.results_json | loadjson).get('results', []) | length %}
+                {% if sg_count > 0 %}
+                <span class="finding-badge">{{ sg_count }}</span>
+                {% endif %}
+                {% elif semgrep_job.status in ('queued', 'running') %}
+                <span class="status-pill running">{{ semgrep_job.status }}</span>
+                {% endif %}
+            </button>
+        </div>
+        {% endif %}
+
+        {# ── Trivy pane ── #}
+        <div id="pane-trivy" class="tab-pane" role="tabpanel">
         {% if job.status == 'completed' and job.results_json %}
         {% set results = (job.results_json | loadjson) %}
 
@@ -38,7 +77,14 @@
         {% set ns.found_any = true %}
         <h4 class="target-label">Target: {{ result.Target }} ({{ result.Class }})</h4>
         <figure>
-            <table role="grid" class="sticky-table">
+            <table role="grid" class="sticky-table trivy-table">
+                <colgroup>
+                    <col style="width:16ch">
+                    <col style="width:22ch">
+                    <col style="width:9ch">
+                    <col style="width:14ch">
+                    <col><!-- Fixed Version: takes remaining -->
+                </colgroup>
                 <thead>
                     <tr>
                         <th scope="col">Vulnerability ID</th>
@@ -51,9 +97,9 @@
                 <tbody>
                     {% for vuln in result.Vulnerabilities %}
                     <tr>
-                        <td><a href="{{ vuln.PrimaryURL }}" target="_blank">{{ vuln.VulnerabilityID }}</a></td>
-                        <td>{{ vuln.PkgName }}</td>
-                        <td>
+                        <td style="white-space:nowrap"><a href="{{ vuln.PrimaryURL }}" target="_blank">{{ vuln.VulnerabilityID }}</a></td>
+                        <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ vuln.PkgName }}">{{ vuln.PkgName }}</td>
+                        <td style="white-space:nowrap">
                             {% if vuln.Severity == 'CRITICAL' %}
                             <ins style="color: var(--pico-del-color);">{{ vuln.Severity }}</ins>
                             {% elif vuln.Severity == 'HIGH' %}
@@ -62,7 +108,7 @@
                             <span>{{ vuln.Severity }}</span>
                             {% endif %}
                         </td>
-                        <td>{{ vuln.InstalledVersion }}</td>
+                        <td style="white-space:nowrap">{{ vuln.InstalledVersion }}</td>
                         <td>{{ vuln.FixedVersion | default('N/A') }}</td>
                     </tr>
                     {% endfor %}
@@ -84,6 +130,15 @@
         {% else %}
         <p>Scan is currently {{ job.status }}...</p>
         {% endif %}
+        </div>{# /pane-trivy #}
+
+        {# ── Semgrep pane ── #}
+        {% if semgrep_job %}
+        <div id="pane-semgrep" class="tab-pane hidden" role="tabpanel">
+            {% include "report_semgrep.html" %}
+        </div>
+        {% endif %}
+
     </article>
 </section>
 
@@ -92,6 +147,86 @@
 </div>
 
 <style>
+    /* ── Trivy table: fixed layout so colgroup widths are respected ── */
+    .trivy-table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    /* ── Scan-type tab bar ── */
+    .scan-tab-bar {
+        display: flex;
+        gap: 0;
+        margin-bottom: 1.25rem;
+        border: var(--pico-border-width) solid var(--pico-primary);
+        border-radius: var(--pico-border-radius);
+        overflow: hidden;
+    }
+
+    .scan-tab {
+        flex: 1;
+        margin: 0;
+        padding: 0.55rem 1rem;
+        border: none;
+        border-radius: 0;
+        border-right: var(--pico-border-width) solid var(--pico-primary);
+        background: transparent;
+        color: var(--pico-primary);
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+    }
+
+    .scan-tab:last-child {
+        border-right: none;
+    }
+
+    .scan-tab.active {
+        background: var(--pico-primary);
+        color: var(--pico-primary-inverse);
+    }
+
+    .scan-tab:hover:not(.active) {
+        background: color-mix(in srgb, var(--pico-primary) 12%, transparent);
+    }
+
+    /* ── Finding count badge ── */
+    .finding-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.4em;
+        height: 1.4em;
+        padding: 0 0.35em;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: var(--pico-del-color);
+        color: #fff;
+        line-height: 1;
+    }
+
+    .scan-tab.active .finding-badge {
+        background: rgba(255,255,255,0.25);
+    }
+
+    /* ── Status pill (queued / running) ── */
+    .status-pill {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 0.1em 0.5em;
+        border-radius: 999px;
+        background: #ff9800;
+        color: #fff;
+    }
+
+    /* ── Tab pane visibility ── */
+    .tab-pane.hidden { display: none; }
+
     /* ── Sticky target label ── */
     h4.target-label {
         position: sticky;
@@ -152,7 +287,28 @@
 </style>
 
 <script>
+    function showTab(name) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+        document.querySelectorAll('.scan-tab').forEach(b => {
+            b.classList.remove('active');
+            b.setAttribute('aria-selected', 'false');
+        });
+        document.getElementById('pane-' + name).classList.remove('hidden');
+        const btn = document.getElementById('tab-' + name);
+        btn.classList.add('active');
+        btn.setAttribute('aria-selected', 'true');
+        // Persist selection in URL hash without adding a history entry
+        history.replaceState(null, '', '#tab-' + name);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
+        // Restore tab from URL hash on load
+        const hash = window.location.hash;
+        if (hash === '#tab-semgrep' && document.getElementById('tab-semgrep')) {
+            showTab('semgrep');
+        }
+
         const topAnchor = document.getElementById("top-anchor");
         const floatingNav = document.getElementById("floating-nav");
 

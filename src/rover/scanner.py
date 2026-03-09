@@ -186,3 +186,133 @@ def run_trivy_scan(
 
         finally:
             container.stop()
+
+
+def run_semgrep_scan(
+    target_url: str, git_ref: str | None = None
+) -> tuple[dict[str, Any], str, str | None]:
+    """
+    Runs a Semgrep SAST scan against a cloned git repository using Testcontainers.
+
+    Because ROVER itself runs inside Docker (accessed via a mounted socket), sibling
+    containers launched from the host daemon cannot see ROVER's local filesystem.
+    We solve this by cloning into a *named Docker volume* — volumes live on the host
+    daemon and are mountable by any container, including the Semgrep sibling.
+
+    Returns (results_dict, resolved_commit_hash, resolved_tags_str).
+    """
+    import uuid as _uuid
+
+    import docker as _docker  # type: ignore
+
+    logger.info(
+        f"Starting Semgrep scan for repo {target_url} (ref {git_ref or 'HEAD'})"
+    )
+
+    docker_client = _docker.from_env()
+    volume_name = f"rover-semgrep-clone-{_uuid.uuid4().hex[:12]}"
+
+    try:
+        # Create an ephemeral named volume on the host daemon
+        docker_client.volumes.create(name=volume_name)
+        logger.info(f"Created Docker volume {volume_name} for semgrep clone")
+
+        # --- Clone into the named volume via a transient alpine/git container ---
+        # alpine/git ENTRYPOINT is `git`, so we pass subcommand args directly (no shell).
+        # Use --branch to check out the desired ref in a single clone step.
+        clone_args = ["clone", target_url, "/src"]
+        if git_ref:
+            clone_args = ["clone", "--branch", git_ref, target_url, "/src"]
+
+        docker_client.containers.run(
+            "alpine/git",
+            command=clone_args,
+            volumes={volume_name: {"bind": "/src", "mode": "rw"}},
+            remove=True,
+            stdout=True,
+            stderr=True,
+        )
+        logger.info(f"Cloned {target_url} (ref={git_ref or 'default'}) into volume {volume_name}")
+
+        # --- Resolve commit hash and tags via another transient container ---
+        commit_hash = "unknown"
+        tags_str = None
+        try:
+            rev = docker_client.containers.run(
+                "alpine/git",
+                command=["-C", "/src", "rev-parse", "HEAD"],
+                volumes={volume_name: {"bind": "/src", "mode": "ro"}},
+                remove=True,
+                stdout=True,
+                stderr=False,
+            )
+            commit_hash = rev.decode("utf-8").strip()
+
+            tag_out = docker_client.containers.run(
+                "alpine/git",
+                command=["-C", "/src", "tag", "--points-at", "HEAD"],
+                volumes={volume_name: {"bind": "/src", "mode": "ro"}},
+                remove=True,
+                stdout=True,
+                stderr=False,
+            )
+            tags = [t.strip() for t in tag_out.decode("utf-8").split("\n") if t.strip()]
+            tags_str = ", ".join(tags) if tags else None
+        except Exception as e:
+            logger.warning(f"Failed to capture git metadata: {e}")
+
+
+        # --- Run Semgrep against the volume ---
+        container = DockerContainer("semgrep/semgrep")
+        container.with_volume_mapping(volume_name, "/src", "ro")
+        # --config auto: auto-detect languages and pull matching rules from semgrep.dev
+        container.with_command("semgrep scan /src --json --no-git-ignore --config auto")
+
+        try:
+            container.start()
+
+            client = container.get_docker_client()
+            result = client.client.containers.get(container.get_wrapped_container().id)
+            exit_code = result.wait()["StatusCode"]
+
+            logs = container.get_logs()
+            stdout = logs[0].decode("utf-8")
+            stderr = logs[1].decode("utf-8")
+
+            logger.info(f"Semgrep stdout (first 200 chars): {stdout[:200]}")
+            logger.info(f"Semgrep stderr: {stderr[:500]}")
+
+            # Semgrep exits with code 1 when findings are found — that is not an error
+            if exit_code not in (0, 1):
+                logger.warning(
+                    f"Semgrep scan exited with code {exit_code}. Stderr: {stderr}"
+                )
+
+            try:
+                json_start = stdout.find("{")
+                json_end = stdout.rfind("}") + 1
+                if json_start >= 0 and json_end > json_start:
+                    scan_results = cast(dict[str, Any], json.loads(stdout[json_start:json_end]))
+                else:
+                    if exit_code not in (0, 1):
+                        raise Exception(f"Semgrep failed with exit code {exit_code}")
+                    scan_results = {"results": [], "errors": []}
+
+                return scan_results, commit_hash, tags_str
+
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse Semgrep JSON output. Error: {e}")
+                logger.error(f"Raw output: {stdout[:500]}")
+                raise Exception("Failed to parse Semgrep report")
+
+        finally:
+            container.stop()
+
+    finally:
+        # Always clean up the ephemeral volume
+        try:
+            vol = docker_client.volumes.get(volume_name)
+            vol.remove(force=True)
+            logger.info(f"Removed Docker volume {volume_name}")
+        except Exception as e:
+            logger.warning(f"Failed to remove volume {volume_name}: {e}")
