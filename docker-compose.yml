@@ -1,6 +1,9 @@
 services:
   web:
     build: .
+    env_file:
+      - path: .env.local
+        required: false
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./src:/app/src

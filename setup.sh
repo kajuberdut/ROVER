@@ -46,6 +46,10 @@ else
 
     info "Generating OIDC client secret ..."
     CLIENT_SECRET_PLAIN=$(openssl rand -hex 24)
+    if ! docker image inspect authelia/authelia:latest &>/dev/null; then
+        warn "Docker image 'authelia/authelia:latest' not found locally — pulling now."
+        warn "This may take several minutes depending on your download speed."
+    fi
     CLIENT_SECRET_HASH=$(docker run --rm authelia/authelia:latest \
         authelia crypto hash generate argon2 --password "$CLIENT_SECRET_PLAIN" 2>/dev/null \
         | grep -o '\$argon2.*')
@@ -69,10 +73,8 @@ content = content.replace("          PLACEHOLDER_RSA_PRIVATE_KEY", key_block)
 open(path, "w").write(content)
 PYEOF
 
-    info "Client secret (plaintext — used in auth.py OIDC_CLIENT_SECRET): ${CLIENT_SECRET_PLAIN}"
-    warn "Store this secret securely. It will not be shown again."
     echo "ROVER_OIDC_CLIENT_SECRET=${CLIENT_SECRET_PLAIN}" >> .env.local
-    info "Also written to .env.local"
+    info "OIDC client secret written to .env.local — docker compose will load it automatically."
 fi
 
 # ── 3. Authelia user database ────────────────────────────────────────────────
@@ -85,6 +87,10 @@ else
     echo ""
 
     info "Hashing password with Argon2 (this may take a moment) ..."
+    if ! docker image inspect authelia/authelia:latest &>/dev/null; then
+        warn "Docker image 'authelia/authelia:latest' not found locally — pulling now."
+        warn "This may take several minutes depending on your download speed."
+    fi
     ADMIN_HASH=$(docker run --rm authelia/authelia:latest \
         authelia crypto hash generate argon2 --password "$ADMIN_PASS" 2>/dev/null \
         | grep -o '\$argon2.*')
@@ -95,7 +101,32 @@ else
     info "authelia/users_database.yml written."
 fi
 
-# ── 4. /etc/hosts reminder ───────────────────────────────────────────────────
+# ── 4. config.toml ───────────────────────────────────────────────────────────
+# Docker will create config.toml as a directory if it doesn't exist before the
+# volume is mounted. Remove it if that happened and create the real file.
+if [[ -d "config.toml" ]]; then
+    warn "config.toml is a directory (created by Docker) — removing and replacing with file."
+    rm -rf "config.toml"
+fi
+if [[ -f "config.toml" ]]; then
+    warn "config.toml already exists — skipping."
+else
+    info "Writing default config.toml ..."
+    cat > config.toml << 'EOF'
+# R.O.V.E.R Configuration File
+# You can edit this manually or via the Web UI settings page.
+
+[scanner]
+# Maximum time in seconds to wait for a scan to complete
+timeout_seconds = 600
+
+[ui]
+# The default tab to open when viewing the dashboard
+default_tab = "repo"
+EOF
+fi
+
+# ── 5. /etc/hosts reminder ───────────────────────────────────────────────────
 if ! grep -q "rover.local" /etc/hosts 2>/dev/null; then
     echo ""
     warn "Add these entries to /etc/hosts to resolve the local domains:"
