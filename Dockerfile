@@ -10,6 +10,7 @@ WORKDIR /app
 
 # Copy dependency files
 ENV UV_COMPILE_BYTECODE=1
+ENV UV_NO_CACHE=1
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies
@@ -24,4 +25,4 @@ COPY README.md ./
 RUN uv sync --frozen --no-dev
 
 # Run the application
-CMD ["uv", "run", "uvicorn", "rover.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/.venv/bin/uvicorn", "rover.app:app", "--host", "0.0.0.0", "--port", "8000"]

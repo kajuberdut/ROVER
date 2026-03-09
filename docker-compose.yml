@@ -2,6 +2,8 @@ services:
   web:
     build: .
     user: "${UID:-1000}:${GID:-1000}"
+    group_add:
+      - "999"
     env_file:
       - path: .env.local
         required: false
