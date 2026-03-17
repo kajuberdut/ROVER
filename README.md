@@ -74,6 +74,15 @@ New users are assigned the `viewer` role by default on first login.
 
 ---
 
+## Disclaimer of Affiliation and Third-Party Trademarks
+
+Trivy and Semgrep are trademarks of their respective owners. Any reference to these tools within the R.O.V.E.R project or by Kajuberdut is strictly for informational and compatibility purposes. 
+
+No association, sponsorship, endorsement, or affiliation exists between R.O.V.E.R (or Kajuberdut) and the owners of these trademarks. The use of these names does not imply any binding agreement or official relationship. 
+
+Users of R.O.V.E.R are solely responsible for reviewing and complying with the respective licenses, terms of service, and usage policies of Trivy, Semgrep, and any other third-party software referenced or utilized by this project.
+
+
 ### Architecture
 
 - **App Setup**: Falcon ASGI application instance with `RequireAuthMiddleware` that enforces OIDC session cookies on all routes.
