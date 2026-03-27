@@ -126,7 +126,10 @@ def run_trivy_scan(
             tags_str = image_target
             commit_hash = "latest"  # Images don't have git commits in the same way
 
-        container = DockerContainer("aquasec/trivy:latest")
+        # Pinned to specific sha256 digest to prevent supply chain attacks on mutable tags
+        container = DockerContainer(
+            "aquasec/trivy@sha256:d9e31ba03445c752ee9cbae9d4074a618ea293811d1b418d5d68fa5226788721"
+        )
 
         # Configure Trivy database cache using an ephemeral named volume
         container.with_env("TRIVY_CACHE_DIR", "/trivy-cache")
@@ -232,7 +235,9 @@ def run_semgrep_scan(
             stdout=True,
             stderr=True,
         )
-        logger.info(f"Cloned {target_url} (ref={git_ref or 'default'}) into volume {volume_name}")
+        logger.info(
+            f"Cloned {target_url} (ref={git_ref or 'default'}) into volume {volume_name}"
+        )
 
         # --- Resolve commit hash and tags via another transient container ---
         commit_hash = "unknown"
@@ -261,9 +266,11 @@ def run_semgrep_scan(
         except Exception as e:
             logger.warning(f"Failed to capture git metadata: {e}")
 
-
         # --- Run Semgrep against the volume ---
-        container = DockerContainer("semgrep/semgrep")
+        # Pinned to specific sha256 digest to prevent supply chain attacks on mutable tags
+        container = DockerContainer(
+            "semgrep/semgrep@sha256:3dab091ee3247fce7e4ed3df9f92b3bd72692c083295f53cec3f135b86404db1"
+        )
         container.with_volume_mapping(volume_name, "/src", "ro")
         # --config auto: auto-detect languages and pull matching rules from semgrep.dev
         container.with_command("semgrep scan /src --json --no-git-ignore --config auto")
@@ -292,7 +299,9 @@ def run_semgrep_scan(
                 json_start = stdout.find("{")
                 json_end = stdout.rfind("}") + 1
                 if json_start >= 0 and json_end > json_start:
-                    scan_results = cast(dict[str, Any], json.loads(stdout[json_start:json_end]))
+                    scan_results = cast(
+                        dict[str, Any], json.loads(stdout[json_start:json_end])
+                    )
                 else:
                     if exit_code not in (0, 1):
                         raise Exception(f"Semgrep failed with exit code {exit_code}")

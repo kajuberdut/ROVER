@@ -82,6 +82,15 @@ No association, sponsorship, endorsement, or affiliation exists between R.O.V.E.
 
 Users of R.O.V.E.R are solely responsible for reviewing and complying with the respective licenses, terms of service, and usage policies of Trivy, Semgrep, and any other third-party software referenced or utilized by this project.
 
+---
+
+### Security & Supply Chain Defense
+
+ROVER is specifically hardened against supply chain attacks, notably avoiding vulnerabilities like the [Trivy supply chain incident](https://www.aquasec.com/blog/trivy-supply-chain-attack-what-you-need-to-know/).
+
+To protect against compromised mutable version tags (e.g., `:latest` or `v0.69.4`), ROVER deliberately pins all ephemeral scanner containers (Trivy and Semgrep) to immutable `sha256` digests. This ensures the Docker daemon strictly validates the cryptographic hash of the image, mathematically preventing the execution of compromised or tampered images if a registry tag is hijacked.
+
+---
 
 ### Architecture
 
