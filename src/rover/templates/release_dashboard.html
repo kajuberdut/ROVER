@@ -9,6 +9,7 @@
 {% endblock %}
 
 {% block content %}
+{% set is_owner = user.role == "admin" or (user.role == "product_owner" and release.product_id in user.product_ids) %}
 <section style="margin-bottom: 1rem;">
     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
         <hgroup style="margin-bottom: 0;">
@@ -22,6 +23,7 @@
             <h3 style="margin-bottom: 0; margin-top: 0.25rem; color: var(--pico-muted-color);">Asset Management</h3>
         </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
+            {% if is_owner %}
             <form action="/releases/{{ release.id }}/eol" method="POST" style="margin-bottom: 0;">
                 {% if release.is_end_of_life %}
                 <input type="hidden" name="action" value="unmark_eol">
@@ -31,12 +33,15 @@
                 <button type="submit" class="outline secondary" style="margin-bottom: 0;">Mark as EOL</button>
                 {% endif %}
             </form>
+            {% endif %}
             {% if not release.is_end_of_life %}
             <form action="/releases/{{ release.id }}/scan" method="POST" style="margin-bottom: 0;">
                 <button type="submit" class="outline" style="margin-bottom: 0;">Scan All Assets</button>
             </form>
+            {% if is_owner %}
             <button type="button" class="outline" onclick="document.getElementById('add-asset-modal').showModal();"
                 style="margin-bottom: 0;">Add Asset</button>
+            {% endif %}
             {% endif %}
         </div>
     </div>

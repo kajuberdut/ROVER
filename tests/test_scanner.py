@@ -213,21 +213,24 @@ def test_run_major_component_scan_cached(mock_get_cached):
 
 # ── Semgrep scanner tests ─────────────────────────────────────────────────────
 
+
 @patch("rover.scanner.subprocess.run")
 def test_run_semgrep_scan_success(mock_run):
     """Semgrep returns JSON with findings; parsed results are returned."""
     mock_run.side_effect = _mock_subprocess_run
-    mock_json = json.dumps({
-        "results": [
-            {
-                "check_id": "python.security.audit.exec-detected",
-                "path": "app/views.py",
-                "start": {"line": 42},
-                "extra": {"severity": "ERROR", "message": "Use of exec() detected"},
-            }
-        ],
-        "errors": [],
-    })
+    mock_json = json.dumps(
+        {
+            "results": [
+                {
+                    "check_id": "python.security.audit.exec-detected",
+                    "path": "app/views.py",
+                    "start": {"line": 42},
+                    "extra": {"severity": "ERROR", "message": "Use of exec() detected"},
+                }
+            ],
+            "errors": [],
+        }
+    )
 
     with patch("rover.scanner.DockerContainer") as MockDockerContainer:
         mock_container = MagicMock()
@@ -235,14 +238,20 @@ def test_run_semgrep_scan_success(mock_run):
 
         mock_client = MagicMock()
         # Semgrep exits 1 when findings are found — not an error
-        mock_client.client.containers.get.return_value.wait.return_value = {"StatusCode": 1}
+        mock_client.client.containers.get.return_value.wait.return_value = {
+            "StatusCode": 1
+        }
         mock_container.get_docker_client.return_value = mock_client
         mock_container.get_logs.return_value = (mock_json.encode("utf-8"), b"")
 
-        results, commit_hash, tags_str = run_semgrep_scan("https://github.com/example/repo")
+        results, commit_hash, tags_str = run_semgrep_scan(
+            "https://github.com/example/repo"
+        )
 
         assert "results" in results
-        assert results["results"][0]["check_id"] == "python.security.audit.exec-detected"
+        assert (
+            results["results"][0]["check_id"] == "python.security.audit.exec-detected"
+        )
         assert commit_hash == "mocked_hash"
         assert tags_str == "v1.0"
         mock_container.start.assert_called_once()
@@ -260,11 +269,15 @@ def test_run_semgrep_scan_no_results(mock_run):
         MockDockerContainer.return_value = mock_container
 
         mock_client = MagicMock()
-        mock_client.client.containers.get.return_value.wait.return_value = {"StatusCode": 0}
+        mock_client.client.containers.get.return_value.wait.return_value = {
+            "StatusCode": 0
+        }
         mock_container.get_docker_client.return_value = mock_client
         mock_container.get_logs.return_value = (mock_json.encode("utf-8"), b"")
 
-        results, commit_hash, tags_str = run_semgrep_scan("https://github.com/example/repo")
+        results, commit_hash, tags_str = run_semgrep_scan(
+            "https://github.com/example/repo"
+        )
 
         assert results == {"results": [], "errors": []}
         assert commit_hash == "mocked_hash"

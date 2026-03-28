@@ -151,6 +151,7 @@ init_db()
 
 # ── User / RBAC helpers ──────────────────────────────────────────────────────
 
+
 def upsert_user(sub: str, email: str | None, name: str | None) -> dict[str, Any]:
     """Register or refresh a user record on login. Returns the full user row."""
     with get_db_connection() as conn:
@@ -186,9 +187,7 @@ def get_user_by_email(email: str) -> dict[str, Any] | None:
 
 def get_all_users() -> list[dict[str, Any]]:
     with get_db_connection() as conn:
-        cursor = conn.execute(
-            "SELECT * FROM users ORDER BY role ASC, name ASC"
-        )
+        cursor = conn.execute("SELECT * FROM users ORDER BY role ASC, name ASC")
         return [dict(row) for row in cursor.fetchall()]
 
 
@@ -198,9 +197,7 @@ def set_user_role(sub: str, role: str) -> None:
         raise ValueError(f"Invalid role: {role!r}")
     with get_db_connection() as conn:
         with conn:
-            conn.execute(
-                "UPDATE users SET role = ? WHERE sub = ?", (role, sub)
-            )
+            conn.execute("UPDATE users SET role = ? WHERE sub = ?", (role, sub))
 
 
 def get_product_owners(product_id: str) -> list[dict[str, Any]]:
@@ -308,6 +305,7 @@ def get_all_jobs() -> list[dict[str, Any]]:
 
 # ── Semgrep job helpers ────────────────────────────────────────────────────────
 
+
 def create_semgrep_job(target_url: str, git_ref: str | None = None) -> str:
     job_id = str(uuid.uuid4())
     with get_db_connection() as conn:
@@ -381,7 +379,14 @@ def update_semgrep_job_status(
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
                 """,
-                (status, results_json, error_message, resolved_commit, resolved_tags, job_id),
+                (
+                    status,
+                    results_json,
+                    error_message,
+                    resolved_commit,
+                    resolved_tags,
+                    job_id,
+                ),
             )
 
 
@@ -663,6 +668,16 @@ def remove_release_asset(release_asset_id: str) -> None:
     with get_db_connection() as conn:
         with conn:
             conn.execute("DELETE FROM release_assets WHERE id = ?", (release_asset_id,))
+
+
+def get_release_asset(release_asset_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM release_assets WHERE id = ?", (release_asset_id,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+    return None
 
 
 def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]]:

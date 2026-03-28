@@ -94,12 +94,15 @@
         {% endif %}
     </td>
     <td>
+        {% set is_owner = user and (user.role == "admin" or (user.role == "product_owner" and release.product_id in user.product_ids)) %}
         <div style="display: flex; gap: 0.5rem; align-items: center;">
+            {% if is_owner %}
             <form action="/releases/assets/{{ asset.release_asset_id }}" method="POST" style="margin-bottom: 0;">
                 <input type="hidden" name="action" value="delete">
                 <button type="submit" class="outline" title="Remove Asset"
                     style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.25rem 0.5rem; margin-bottom: 0;">✕</button>
             </form>
+            {% endif %}
             {% if asset.latest_scan_id %}
             <a href="/reports/{{ asset.latest_scan_id }}?back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}" role="button" class="outline"
                 style="padding: 0.25rem 0.75rem; margin-bottom: 0;">View Report</a>

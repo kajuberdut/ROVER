@@ -26,12 +26,15 @@ OIDC_CLIENT_ID = "rover-client"
 OIDC_CLIENT_SECRET = os.environ.get("ROVER_OIDC_CLIENT_SECRET", "rover-secret")
 
 # Session Configuration
-SESSION_SECRET = os.environ.get("ROVER_SECRET_KEY", "fallback_secret_key_change_in_production")
+SESSION_SECRET = os.environ.get(
+    "ROVER_SECRET_KEY", "fallback_secret_key_change_in_production"
+)
 cookie_serializer = URLSafeSerializer(SESSION_SECRET)
 COOKIE_NAME = "rover_session"
 
 # Cache for JWKS to avoid fetching keys on every request
 _cached_jwks = None
+
 
 def get_jwks():
     global _cached_jwks
@@ -45,12 +48,16 @@ def get_jwks():
             raise
     return _cached_jwks
 
+
 class RequireAuthMiddleware:
     """
     Falcon ASGI Middleware to require authentication on all routes
     except login, callback, and static assets.
     """
-    async def process_request(self, req: falcon.asgi.Request, resp: falcon.asgi.Response) -> None:
+
+    async def process_request(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
         if req.path in ["/login", "/callback"] or req.path.startswith("/static"):
             return
 
@@ -66,39 +73,44 @@ class RequireAuthMiddleware:
             resp.unset_cookie(COOKIE_NAME)
             raise falcon.HTTPFound("/login")
 
+
 # --- Falcon Resources ---
+
 
 class LoginResource:
     async def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
         # Generate random state and nonce to prevent CSRF and replay attacks
         state = str(uuid.uuid4())
         nonce = str(uuid.uuid4())
-        
+
         # We store state and nonce in a temporary cookie so callback can verify them
         temp_session = cookie_serializer.dumps({"state": state, "nonce": nonce})
-        resp.set_cookie("rover_auth_state", temp_session, secure=False, http_only=True, path="/")
-        
+        resp.set_cookie(
+            "rover_auth_state", temp_session, secure=False, http_only=True, path="/"
+        )
+
         params = {
             "client_id": OIDC_CLIENT_ID,
             "redirect_uri": OIDC_REDIRECT_URI,
             "response_type": "code",
             "scope": "openid profile email",
             "state": state,
-            "nonce": nonce
+            "nonce": nonce,
         }
-        
+
         url = f"{OIDC_AUTHORIZATION_ENDPOINT}?{urllib.parse.urlencode(params)}"
         raise falcon.HTTPFound(url)
+
 
 class CallbackResource:
     async def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
         # We need async requests for ASGI. We'll run the blocking requests in a thread.
         import asyncio
-        
+
         code = req.get_param("code")
         state = req.get_param("state")
         error = req.get_param("error")
-        
+
         if error:
             resp.text = f"Authentication Error: {error}"
             resp.status = falcon.HTTP_400
@@ -109,7 +121,7 @@ class CallbackResource:
             resp.text = "Missing authentication state cookie."
             resp.status = falcon.HTTP_400
             return
-            
+
         try:
             state_data = cookie_serializer.loads(state_cookie)
         except BadSignature:
@@ -124,7 +136,7 @@ class CallbackResource:
 
         # Clean up state cookie
         resp.unset_cookie("rover_auth_state")
-        
+
         # Exchange code for token.
         # Authelia requires client credentials via HTTP Basic Auth, not in the body.
         token_data = {
@@ -166,7 +178,7 @@ class CallbackResource:
                     # (localhost:9091) differs from the browser-facing one.
                     # Nonce and aud still protect against replay/misdirection.
                     "aud": {"essential": True, "value": OIDC_CLIENT_ID},
-                }
+                },
             )
             # Verify the claims
             claims.validate()
@@ -214,20 +226,28 @@ class CallbackResource:
 
         # Build local session — include role and owned products for permission checks.
         user_data = {
-            "sub":        db_user["sub"],
-            "email":      db_user["email"],
-            "name":       db_user["name"],
-            "role":       db_user["role"],
+            "sub": db_user["sub"],
+            "email": db_user["email"],
+            "name": db_user["name"],
+            "role": db_user["role"],
             "product_ids": scan_queue.get_user_product_ids(db_user["sub"]),
         }
-        
+
         session_token = cookie_serializer.dumps(user_data)
-        
+
         # Set persistent secure cookie for ROVER
-        resp.set_cookie(COOKIE_NAME, session_token, secure=False, http_only=True, path="/", max_age=86400)
-        
+        resp.set_cookie(
+            COOKIE_NAME,
+            session_token,
+            secure=False,
+            http_only=True,
+            path="/",
+            max_age=86400,
+        )
+
         # Redirect to dashboard
         raise falcon.HTTPFound("/")
+
 
 class LogoutResource:
     async def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):

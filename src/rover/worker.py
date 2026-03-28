@@ -70,19 +70,17 @@ async def process_semgrep_job(
     completed Semgrep job already exists for that exact commit (full SHA-1).
     If a cache hit is found, copy the results directly — no Docker run needed.
     """
-    logger.info(
-        f"Starting semgrep job {job_id} for {target_url} at ref {git_ref}"
-    )
+    logger.info(f"Starting semgrep job {job_id} for {target_url} at ref {git_ref}")
 
     try:
-        from rover import scanner
-
         # Step 1: Resolve the commit hash cheaply via ls-remote if possible,
         # but the canonical approach is to let run_semgrep_scan clone and rev-parse.
         # We delegate entirely to run_semgrep_scan which does clone → rev-parse
         # → container. However, to enable the cache check BEFORE the clone, we
         # use a lightweight git ls-remote to resolve the ref to a commit.
         import subprocess
+
+        from rover import scanner
 
         commit_hash: str | None = None
 
@@ -99,7 +97,9 @@ async def process_semgrep_job(
                 first_line = ls_result.stdout.strip().splitlines()[0]
                 candidate = first_line.split()[0].strip()
                 # Full SHA-1 is 40 hex chars
-                if len(candidate) == 40 and all(c in "0123456789abcdef" for c in candidate):
+                if len(candidate) == 40 and all(
+                    c in "0123456789abcdef" for c in candidate
+                ):
                     commit_hash = candidate
         except Exception as e:
             logger.debug(f"Pre-scan ls-remote failed, will resolve after clone: {e}")
@@ -133,7 +133,9 @@ async def process_semgrep_job(
             resolved_commit=resolved_commit,
             resolved_tags=tags_str,
         )
-        logger.info(f"Semgrep job {job_id} completed (commit {resolved_commit[:7] if resolved_commit else 'unknown'})")
+        logger.info(
+            f"Semgrep job {job_id} completed (commit {resolved_commit[:7] if resolved_commit else 'unknown'})"
+        )
 
     except Exception as e:
         logger.error(f"Semgrep job {job_id} failed: {e}")

@@ -63,14 +63,20 @@ template_env.filters["short_url"] = short_url
 
 
 class ConfigResource:
+    @falcon.before(permissions.require_admin)
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         raw_toml = config.read_raw_config()
         template = template_env.get_template("config.html")
-        resp.text = template.render(user=getattr(req.context, "user", None), title="Configuration", raw_toml=raw_toml)
+        resp.text = template.render(
+            user=getattr(req.context, "user", None),
+            title="Configuration",
+            raw_toml=raw_toml,
+        )
         resp.content_type = falcon.MEDIA_HTML
 
+    @falcon.before(permissions.require_admin)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
@@ -83,11 +89,17 @@ class ConfigResource:
             # Update global settings in memory
             config.settings = config.load_config()
             resp.text = template.render(
-                user=getattr(req.context, "user", None), title="Configuration", raw_toml=saved_toml, success=True
+                user=getattr(req.context, "user", None),
+                title="Configuration",
+                raw_toml=saved_toml,
+                success=True,
             )
         except Exception as e:
             resp.text = template.render(
-                user=getattr(req.context, "user", None), title="Configuration", raw_toml=raw_toml, error=str(e)
+                user=getattr(req.context, "user", None),
+                title="Configuration",
+                raw_toml=raw_toml,
+                error=str(e),
             )
             resp.status = falcon.HTTP_400
         resp.content_type = falcon.MEDIA_HTML
@@ -525,7 +537,7 @@ class ReleaseAssetResource:
 
 
 class ReleaseAssetDetailResource:
-    @falcon.before(permissions.require_product_owner_or_admin_for_release, product_id_param="release_asset_id")
+    @falcon.before(permissions.require_product_owner_or_admin_for_release_asset)
     async def on_post(
         self,
         req: falcon.asgi.Request,
@@ -614,7 +626,9 @@ class ReleaseAssetsTableResource:
         assets = scan_queue.get_release_assets_with_latest_scans(release_id)
         release = scan_queue.get_release(release_id)
         template = template_env.get_template("release_assets_table.html")
-        resp.text = template.render(assets=assets, release=release)
+        resp.text = template.render(
+            user=getattr(req.context, "user", None), assets=assets, release=release
+        )
         resp.content_type = falcon.MEDIA_HTML
 
 
@@ -698,6 +712,7 @@ class AdminUsersResource:
                 scan_queue.remove_product_owner(sub, product_id)
 
         resp.media = {"ok": True}
+
 
 import threading
 

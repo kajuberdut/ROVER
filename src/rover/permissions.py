@@ -23,7 +23,9 @@ def _get_user(req: falcon.asgi.Request) -> dict:
     return user
 
 
-async def require_admin(req: falcon.asgi.Request, resp: falcon.asgi.Response, resource, params) -> None:
+async def require_admin(
+    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource, params
+) -> None:
     """Allow only admins."""
     user = _get_user(req)
     if user.get("role") != "admin":
@@ -49,7 +51,9 @@ async def require_product_owner_or_admin(
         return
 
     if role != "product_owner":
-        raise falcon.HTTPForbidden(description="Product owner or admin access required.")
+        raise falcon.HTTPForbidden(
+            description="Product owner or admin access required."
+        )
 
     # Resolve product_id: prefer URI param, fall back to POST body
     product_id = params.get(product_id_param)
@@ -85,7 +89,9 @@ async def require_product_owner_or_admin_for_release(
         return
 
     if role != "product_owner":
-        raise falcon.HTTPForbidden(description="Product owner or admin access required.")
+        raise falcon.HTTPForbidden(
+            description="Product owner or admin access required."
+        )
 
     release_id = params.get("release_id")
     if not release_id:
@@ -98,4 +104,43 @@ async def require_product_owner_or_admin_for_release(
     if not scan_queue.user_owns_product(user["sub"], release["product_id"]):
         raise falcon.HTTPForbidden(
             description="You do not have owner access to this release's product."
+        )
+
+
+async def require_product_owner_or_admin_for_release_asset(
+    req: falcon.asgi.Request,
+    resp: falcon.asgi.Response,
+    resource,
+    params,
+) -> None:
+    """
+    For release-asset-level operations: look up the parent release's product and
+    check ownership against that.
+    """
+    user = _get_user(req)
+    role = user.get("role", "viewer")
+
+    if role == "admin":
+        return
+
+    if role != "product_owner":
+        raise falcon.HTTPForbidden(
+            description="Product owner or admin access required."
+        )
+
+    release_asset_id = params.get("release_asset_id")
+    if not release_asset_id:
+        return  # Let handler reject with a more specific message
+
+    release_asset = scan_queue.get_release_asset(release_asset_id)
+    if not release_asset:
+        raise falcon.HTTPNotFound()
+
+    release = scan_queue.get_release(release_asset["release_id"])
+    if not release:
+        raise falcon.HTTPNotFound()
+
+    if not scan_queue.user_owns_product(user["sub"], release["product_id"]):
+        raise falcon.HTTPForbidden(
+            description="You do not have owner access to this release asset's product."
         )

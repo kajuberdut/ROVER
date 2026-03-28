@@ -36,8 +36,10 @@
             <h3 style="margin-bottom: 0; margin-top: 0.25rem;">{{ product.description or 'Manage releases and
                 vulnerability posture for this product.' }}</h3>
         </hgroup>
+        {% if user.role == 'admin' or (user.role == 'product_owner' and product.id in user.product_ids) %}
         <button type="button" class="outline" onclick="document.getElementById('add-release-modal').showModal();"
             style="margin-bottom: 0;">Create Release</button>
+        {% endif %}
     </div>
 
     <!-- Active Releases Grid -->
