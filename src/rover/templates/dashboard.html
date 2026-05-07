@@ -90,8 +90,8 @@
         <a href="/products/{{ prod.id }}" class="card-link">
         <article
             style="border: {{ border_style }};">
-            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem;">
-                <h3 style="margin-bottom: 0.25rem;">{{ prod.name }}</h3>
+            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; min-width: 0;">
+                <h3 style="margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ prod.name }}">{{ prod.name }}</h3>
                 <small style="color: grey;">{{ releases|length }} Active Releases</small>
             </header>
 

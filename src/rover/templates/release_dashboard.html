@@ -11,10 +11,10 @@
 {% block content %}
 {% set is_owner = user.role == "admin" or (user.role == "product_owner" and release.product_id in user.product_ids) %}
 <section style="margin-bottom: 1rem;">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <hgroup style="margin-bottom: 0;">
-            <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem;">
-                {{ release.name }} v{{ release.version }}
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
+        <hgroup style="margin-bottom: 0; flex: 1; min-width: 0; overflow-wrap: anywhere;">
+            <h2 style="margin-bottom: 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <span>{{ release.name }} v{{ release.version }}</span>
                 {% if release.is_end_of_life %}
                 <span
                     style="font-size: 0.5em; color: #d32f2f; border: 1px solid #d32f2f; padding: 2px 6px; border-radius: 4px; font-weight: normal;">EOL</span>
@@ -24,6 +24,8 @@
         </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if is_owner %}
+            <button type="button" class="outline" onclick="document.getElementById('delete-release-modal').showModal();"
+                style="margin-bottom: 0; color: #d32f2f; border-color: #d32f2f;">Delete Release</button>
             <form action="/releases/{{ release.id }}/eol" method="POST" style="margin-bottom: 0;">
                 {% if release.is_end_of_life %}
                 <input type="hidden" name="action" value="unmark_eol">
@@ -256,7 +258,135 @@
     </article>
 </dialog>
 
+<dialog id="link-repo-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev"
+                onclick="closeLinkRepoModal();"></button>
+            <strong>Link Source Repository</strong>
+        </header>
+        <form style="margin-bottom: 0;" id="link-repo-form" onsubmit="submitLinkRepo(event)">
+            <fieldset id="link-repo-fieldset">
+                <p style="margin-bottom: 1rem; color: var(--pico-muted-color); font-size: 0.85em;">
+                    Linking <strong id="link-target-image-name"></strong> to a source code repository will automatically trigger a Semgrep SAST scan on that repository, providing full-spectrum analysis for this image artifact.
+                </p>
+                <div id="link-repo-error" role="alert" style="display:none; background: color-mix(in srgb, var(--pico-del-color) 15%, transparent); border: 1px solid var(--pico-del-color); border-radius: var(--pico-border-radius); padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.875em; color: var(--pico-del-color);"></div>
+                <label>GitHub Repository URL
+                    <input type="url" name="source_repo_url" id="link-repo-url" placeholder="https://github.com/organization/repo" required>
+                </label>
+                <label>Git Ref (Optional)
+                    <input type="text" name="source_git_ref" id="link-repo-ref" placeholder="Branch, tag, or exact commit hash (e.g. main)">
+                </label>
+                <button type="submit" id="link-repo-submit" style="margin-top: 1rem; width: 100%;">Link and Scan</button>
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+
+<!-- Toast notification -->
+<div id="link-repo-toast" style="
+    display: none;
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a7f3c;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 2rem;
+    font-size: 0.9em;
+    font-weight: 500;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    z-index: 9999;
+    white-space: nowrap;
+">✓ Scan enqueued — results will appear shortly</div>
+
 <script>
+    let _linkRepoAssetId = null;
+
+    function openLinkRepoModal(assetId, assetName) {
+        _linkRepoAssetId = assetId;
+        document.getElementById('link-target-image-name').textContent = assetName;
+        document.getElementById('link-repo-url').value = '';
+        document.getElementById('link-repo-ref').value = '';
+        document.getElementById('link-repo-error').style.display = 'none';
+        document.getElementById('link-repo-error').textContent = '';
+        const btn = document.getElementById('link-repo-submit');
+        btn.textContent = 'Link and Scan';
+        btn.removeAttribute('aria-busy');
+        btn.disabled = false;
+        document.getElementById('link-repo-fieldset').disabled = false;
+        document.getElementById('link-repo-modal').showModal();
+    }
+
+    function closeLinkRepoModal() {
+        document.getElementById('link-repo-modal').close();
+    }
+
+    async function submitLinkRepo(e) {
+        e.preventDefault();
+        if (!_linkRepoAssetId) return;
+
+        const btn = document.getElementById('link-repo-submit');
+        const fieldset = document.getElementById('link-repo-fieldset');
+        const errorBox = document.getElementById('link-repo-error');
+        const url = document.getElementById('link-repo-url').value;
+        const ref = document.getElementById('link-repo-ref').value;
+
+        // Enter loading state
+        btn.setAttribute('aria-busy', 'true');
+        btn.textContent = 'Linking…';
+        fieldset.disabled = true;
+        errorBox.style.display = 'none';
+
+        try {
+            const params = new URLSearchParams();
+            params.append('source_repo_url', url);
+            if (ref) params.append('source_git_ref', ref);
+
+            const resp = await fetch(`/api/images/${_linkRepoAssetId}/link_repo`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params,
+            });
+
+            const data = await resp.json();
+
+            if (!resp.ok || data.status === 'error') {
+                // Show error inside modal, do not close it
+                errorBox.textContent = '⚠ ' + (data.message || `Server error (${resp.status})`);
+                errorBox.style.display = 'block';
+                btn.removeAttribute('aria-busy');
+                btn.textContent = 'Link and Scan';
+                fieldset.disabled = false;
+                return;
+            }
+
+            // Success — close the modal
+            closeLinkRepoModal();
+
+            // Refresh the assets table so the "Link" warning disappears immediately
+            fetch('/api/releases/{{ release.id }}/assets_table')
+                .then(r => r.text())
+                .then(html => {
+                    const tbody = document.getElementById('assets-table-body');
+                    if (tbody) tbody.innerHTML = html;
+                });
+
+            // Flash a success toast
+            const toast = document.getElementById('link-repo-toast');
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 4000);
+
+        } catch (err) {
+            errorBox.textContent = '⚠ Network error — check your connection and try again.';
+            errorBox.style.display = 'block';
+            btn.removeAttribute('aria-busy');
+            btn.textContent = 'Link and Scan';
+            fieldset.disabled = false;
+        }
+    }
+
     const typeSelect = document.getElementById('modal_asset_type');
     const assetTypeBtns = document.querySelectorAll('.modal-asset-type-btn');
     const repoDiv = document.getElementById('modal_repo_selection');
@@ -582,4 +712,22 @@
     // Initial setup
     updateSelection();
 </script>
+
+<!-- Modal for Deleting Release -->
+<dialog id="delete-release-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('delete-release-modal').close();"></button>
+            <strong style="color: #d32f2f;">Delete Release: {{ release.name }} v{{ release.version }}</strong>
+        </header>
+        <p>This action is <strong>irreversible</strong> and will permanently cascade-delete all mappings and configurations for this release.</p>
+        <p>Please type <code>I understand</code> below to confirm your intent.</p>
+        <form action="/releases/{{ release.id }}/delete" method="POST" style="margin-bottom: 0;">
+            <input type="text" id="confirm-release-delete" placeholder="I understand" required 
+                   oninput="document.getElementById('btn-release-delete').disabled = this.value !== 'I understand';">
+            <input type="submit" id="btn-release-delete" value="Permanently Delete" 
+                   style="background-color: #d32f2f; border-color: #d32f2f; color: white;" disabled>
+        </form>
+    </article>
+</dialog>
 {% endblock %}

@@ -36,6 +36,32 @@ async def process_job(
                 scanner.run_major_component_scan, target_url, git_ref
             )
         else:
+            if target_type == "image":
+                # Check for OCI annotations first
+                from rover.scan_queue import (
+                    add_repository,
+                    create_semgrep_job,
+                    get_image_by_name,
+                    set_image_source,
+                )
+
+                image_record = get_image_by_name(target_url)
+                if image_record and not image_record.get("source_repo_url"):
+                    annotations = await asyncio.to_thread(
+                        scanner.extract_oci_annotations, target_url
+                    )
+                    source = annotations.get("source")
+                    revision = annotations.get("revision")
+
+                    if source:
+                        logger.info(
+                            f"Discovered OCI annotations for {target_url} -> {source} (ref: {revision})"
+                        )
+                        set_image_source(image_record["id"], source, revision)
+                        # Automatically queue a Semgrep scan
+                        add_repository(source)
+                        create_semgrep_job(source, git_ref=revision)
+
             # Run the actual Trivy scan using testcontainers
             # Since this is a blocking I/O operation (Docker), wrap it in to_thread so we don't
             # block the asyncio event loop while the container is running
@@ -87,8 +113,8 @@ async def process_semgrep_job(
         # Try to resolve commit hash without a full clone using ls-remote
         try:
             ref_to_resolve = git_ref or "HEAD"
-            ls_result = subprocess.run(  # noqa: S603, S607
-                ["git", "ls-remote", target_url, ref_to_resolve],
+            ls_result = subprocess.run(  # noqa: S603
+                ["git", "ls-remote", target_url, ref_to_resolve],  # noqa: S607
                 capture_output=True,
                 text=True,
                 timeout=15,

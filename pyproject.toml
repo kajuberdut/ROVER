@@ -10,6 +10,7 @@ dependencies = [
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
     "jinja2",
+    "pyyaml>=6.0.3",
     "requests>=2.32.5",
     "testcontainers>=4.14.1",
     "tomlkit>=0.14.0",

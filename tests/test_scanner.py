@@ -1,5 +1,4 @@
 import json
-from subprocess import CalledProcessError
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -214,10 +213,23 @@ def test_run_major_component_scan_cached(mock_get_cached):
 # ── Semgrep scanner tests ─────────────────────────────────────────────────────
 
 
-@patch("rover.scanner.subprocess.run")
-def test_run_semgrep_scan_success(mock_run):
+@patch("docker.from_env")
+def test_run_semgrep_scan_success(mock_docker_from_env):
     """Semgrep returns JSON with findings; parsed results are returned."""
-    mock_run.side_effect = _mock_subprocess_run
+    mock_client_env = MagicMock()
+    mock_docker_from_env.return_value = mock_client_env
+
+    def mock_containers_run(image, command, **kwargs):
+        if "clone" in command:
+            return b""
+        elif "rev-parse" in command:
+            return b"mocked_hash\n"
+        elif "tag" in command:
+            return b"v1.0\n"
+        return b""
+
+    mock_client_env.containers.run.side_effect = mock_containers_run
+
     mock_json = json.dumps(
         {
             "results": [
@@ -258,10 +270,22 @@ def test_run_semgrep_scan_success(mock_run):
         mock_container.stop.assert_called_once()
 
 
-@patch("rover.scanner.subprocess.run")
-def test_run_semgrep_scan_no_results(mock_run):
+@patch("docker.from_env")
+def test_run_semgrep_scan_no_results(mock_docker_from_env):
     """Semgrep exits 0 with an empty results list."""
-    mock_run.side_effect = _mock_subprocess_run
+    mock_client_env = MagicMock()
+    mock_docker_from_env.return_value = mock_client_env
+
+    def mock_containers_run(image, command, **kwargs):
+        if "clone" in command:
+            return b""
+        elif "rev-parse" in command:
+            return b"mocked_hash\n"
+        elif "tag" in command:
+            return b"v1.0\n"
+        return b""
+
+    mock_client_env.containers.run.side_effect = mock_containers_run
     mock_json = json.dumps({"results": [], "errors": []})
 
     with patch("rover.scanner.DockerContainer") as MockDockerContainer:
@@ -283,16 +307,25 @@ def test_run_semgrep_scan_no_results(mock_run):
         assert commit_hash == "mocked_hash"
 
 
-@patch("rover.scanner.subprocess.run")
-def test_run_semgrep_scan_clone_failure(mock_run):
+@patch("docker.from_env")
+def test_run_semgrep_scan_clone_failure(mock_docker_from_env):
     """Clone failure raises a clear exception before Docker is touched."""
-    mock_run.side_effect = CalledProcessError(
-        128, "git", stderr=b"fatal: repository not found"
+    import docker
+
+    mock_client_env = MagicMock()
+    mock_docker_from_env.return_value = mock_client_env
+
+    mock_client_env.containers.run.side_effect = docker.errors.ContainerError(
+        container=MagicMock(),
+        exit_status=128,
+        command=["clone", "https://github.com/example/nonexistent", "/src"],
+        image="alpine/git",
+        stderr=b"fatal: repository not found",
     )
 
     with patch("rover.scanner.DockerContainer") as MockDockerContainer:
-        with pytest.raises(Exception, match="Failed to clone target repository"):
+        with pytest.raises(docker.errors.ContainerError, match="Command.*clone.*"):
             run_semgrep_scan("https://github.com/example/nonexistent")
 
-        # Docker container should never have been instantiated
+        # Semgrep container should never have been instantiated
         MockDockerContainer.assert_not_called()

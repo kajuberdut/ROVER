@@ -92,6 +92,15 @@ To protect against compromised mutable version tags (e.g., `:latest` or `v0.69.4
 
 ---
 
+### Source Code Discovery & OCI Annotations
+
+When dealing with pre-built container images (e.g., those imported from a Helm Chart), ROVER natively relies on **OCI Image Annotations** to dynamically discover the underlying Git repository for SAST scanning via Semgrep.
+
+Because compiled container images often do not contain raw source code (like Go or Rust application binaries), Semgrep cannot naturally inspect them. To bridge this gap, modern CI/CD builders (like GitHub Actions and BuildKit) use standard annotations—most notably `org.opencontainers.image.source`—to explicitly bake the originating Git repository URL into the image metadata.
+
+By relying on these industry-standard OCI annotations, ROVER can automatically correlate an opaque container image back to its source repository and continuously audit the underlying codebase without requiring manual user mapping.
+---
+
 ### Architecture
 
 - **App Setup**: Falcon ASGI application instance with `RequireAuthMiddleware` that enforces OIDC session cookies on all routes.

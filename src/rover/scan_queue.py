@@ -53,10 +53,13 @@ def init_db() -> None:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            # TODO: Implement a graceful database migration system (e.g. alembic) for future schema changes
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS images (
                     id TEXT PRIMARY KEY,
                     name TEXT UNIQUE NOT NULL,
+                    source_repo_url TEXT DEFAULT NULL,
+                    source_git_ref TEXT DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -498,6 +501,27 @@ def get_image(image_id: str) -> dict[str, Any] | None:
     return None
 
 
+def get_image_by_name(image_name: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM images WHERE name = ?", (image_name,))
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+    return None
+
+
+def set_image_source(
+    image_id: str, source_repo_url: str | None, source_git_ref: str | None = None
+) -> None:
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "UPDATE images SET source_repo_url = ?, source_git_ref = ? WHERE id = ?",
+                (source_repo_url, source_git_ref, image_id),
+            )
+
+
 def add_major_component(name: str, version: str) -> str:
     component_id = str(uuid.uuid4())
     with get_db_connection() as conn:
@@ -641,6 +665,27 @@ def get_release(release_id: str) -> dict[str, Any] | None:
     return None
 
 
+def delete_release(release_id: str) -> None:
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "DELETE FROM release_assets WHERE release_id = ?", (release_id,)
+            )
+            conn.execute("DELETE FROM releases WHERE id = ?", (release_id,))
+
+
+def delete_product(product_id: str) -> None:
+    releases = get_product_releases(product_id)
+    for r in releases:
+        delete_release(r["id"])
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "DELETE FROM product_owners WHERE product_id = ?", (product_id,)
+            )
+            conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
+
+
 def add_release_asset(
     release_id: str, asset_type: str, asset_id: str, git_ref: str | None = None
 ) -> str:
@@ -742,7 +787,9 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         ls.created_at as latest_scan_time,
         ls.results_json,
         ls.resolved_commit,
-        ls.resolved_tags
+        ls.resolved_tags,
+        i.source_repo_url,
+        i.source_git_ref as image_source_git_ref
     FROM release_assets pa
     LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
     LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id

@@ -30,16 +30,22 @@
     }
 </style>
 <section>
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-        <hgroup style="margin-bottom: 0;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <hgroup style="margin-bottom: 0; flex: 1; min-width: 0; overflow-wrap: anywhere;">
             <h2 style="margin-bottom: 0;">{{ product.name }}</h2>
             <h3 style="margin-bottom: 0; margin-top: 0.25rem;">{{ product.description or 'Manage releases and
                 vulnerability posture for this product.' }}</h3>
         </hgroup>
-        {% if user.role == 'admin' or (user.role == 'product_owner' and product.id in user.product_ids) %}
-        <button type="button" class="outline" onclick="document.getElementById('add-release-modal').showModal();"
-            style="margin-bottom: 0;">Create Release</button>
-        {% endif %}
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            {% if user.role == 'admin' %}
+            <button type="button" class="outline" onclick="document.getElementById('delete-product-modal').showModal();"
+                style="margin-bottom: 0; color: #d32f2f; border-color: #d32f2f;">Delete Product</button>
+            {% endif %}
+            {% if user.role == 'admin' or (user.role == 'product_owner' and product.id in user.product_ids) %}
+            <button type="button" class="outline" onclick="document.getElementById('add-release-modal').showModal();"
+                style="margin-bottom: 0;">Create Release</button>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Active Releases Grid -->
@@ -100,13 +106,13 @@
         <a href="/releases/{{ release.id }}" class="card-link">
         <article
             style="border: {{ border_style }}; opacity: {{ card_opacity }};">
-            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <h3 style="margin-bottom: 0.25rem;">Release v{{ release.version }}</h3>
-                    <small style="color: grey;">{{ release.name }}</small>
+            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                <div style="min-width: 0; flex: 1;">
+                    <h3 style="margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Release v{{ release.version }}">Release v{{ release.version }}</h3>
+                    <small style="color: grey; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ release.name }}">{{ release.name }}</small>
                 </div>
                 {% if release.is_end_of_life %}
-                <span style="font-size: 0.7em; color: var(--pico-muted-color); border: 1px solid var(--pico-muted-color); padding: 2px 6px; border-radius: 4px;">EOL</span>
+                <span style="font-size: 0.7em; color: var(--pico-muted-color); border: 1px solid var(--pico-muted-color); padding: 2px 6px; border-radius: 4px; flex-shrink: 0;">EOL</span>
                 {% endif %}
             </header>
 
@@ -151,17 +157,157 @@
                 onclick="document.getElementById('add-release-modal').close();"></button>
             <strong>Create Release</strong>
         </header>
-        <form action="/releases" method="POST" style="margin-bottom: 0;">
-            <fieldset>
-                <input type="hidden" name="product_id" value="{{ product.id }}">
-                <label>Release Name
-                    <input type="text" name="release_name" placeholder="e.g., Stable Build" required>
-                </label>
-                <label>Version
-                    <input type="text" name="release_version" placeholder="e.g., 1.0.0" required>
-                </label>
-                <input type="submit" value="Create Release" style="margin-top: 1rem;">
-            </fieldset>
+
+        <nav>
+            <ul>
+                <li><a href="#" id="tab-manual" onclick="switchReleaseTab('manual'); return false;"><strong>Manual Create</strong></a></li>
+                <li><a href="#" id="tab-helm" class="secondary" onclick="switchReleaseTab('helm'); return false;">Import Helm Chart</a></li>
+            </ul>
+        </nav>
+
+        <div id="form-manual">
+            <form action="/releases" method="POST" style="margin-bottom: 0;">
+                <fieldset>
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <label>Release Name
+                        <input type="text" name="release_name" placeholder="e.g., Stable Build" required>
+                    </label>
+                    <label>Version
+                        <input type="text" name="release_version" placeholder="e.g., 1.0.0" required>
+                    </label>
+                    <input type="submit" value="Create Release" style="margin-top: 1rem;">
+                </fieldset>
+            </form>
+        </div>
+
+        <div id="form-helm" style="display: none;">
+            <form action="/releases/helm" method="POST" style="margin-bottom: 0;" onsubmit="this.querySelector('input[type=submit]').value='Importing...'; this.querySelector('input[type=submit]').setAttribute('aria-busy', 'true');">
+                <fieldset>
+                    <input type="hidden" name="product_id" value="{{ product.id }}">
+                    <label>Helm Repository URL
+                        <div role="group" style="margin-bottom:0;">
+                            <input type="url" name="helm_repo_url" id="helm_repo_url" placeholder="e.g., https://charts.bitnami.com/bitnami" required>
+                            <button type="button" id="btn_fetch_helm_charts" class="outline secondary" style="width:auto; white-space:nowrap;">Fetch Charts</button>
+                        </div>
+                    </label>
+                    <div class="grid" style="margin-top: 1rem;">
+                        <label>Chart Name
+                            <select name="chart_name" id="chart_name" required>
+                                <option value="" disabled selected>Enter URL and fetch...</option>
+                            </select>
+                        </label>
+                        <label>Chart Version
+                            <select name="chart_version" id="chart_version" required>
+                                <option value="" disabled selected>Select chart first...</option>
+                            </select>
+                        </label>
+                    </div>
+                    <small>ROVER will safely render the Helm chart and automatically begin scanning all generated container images.</small>
+                    <input type="submit" value="Import & Scan" style="margin-top: 1rem;">
+                </fieldset>
+            </form>
+        </div>
+    </article>
+</dialog>
+
+<script>
+    function switchReleaseTab(tab) {
+        if (tab === 'manual') {
+            document.getElementById('form-manual').style.display = 'block';
+            document.getElementById('form-helm').style.display = 'none';
+            document.getElementById('tab-manual').innerHTML = '<strong>Manual Create</strong>';
+            document.getElementById('tab-manual').classList.remove('secondary');
+            document.getElementById('tab-helm').innerHTML = 'Import Helm Chart';
+            document.getElementById('tab-helm').classList.add('secondary');
+        } else {
+            document.getElementById('form-manual').style.display = 'none';
+            document.getElementById('form-helm').style.display = 'block';
+            document.getElementById('tab-helm').innerHTML = '<strong>Import Helm Chart</strong>';
+            document.getElementById('tab-helm').classList.remove('secondary');
+            document.getElementById('tab-manual').innerHTML = 'Manual Create';
+            document.getElementById('tab-manual').classList.add('secondary');
+        }
+    }
+
+    let helmDataCache = {};
+    document.getElementById('btn_fetch_helm_charts').addEventListener('click', function() {
+        const urlParams = document.getElementById('helm_repo_url').value;
+        if (!urlParams) {
+            alert('Please enter a Helm Repository URL first.');
+            return;
+        }
+
+        const btn = this;
+        const chartSelect = document.getElementById('chart_name');
+        const versionSelect = document.getElementById('chart_version');
+
+        btn.setAttribute('aria-busy', 'true');
+        chartSelect.innerHTML = '<option value="" disabled selected>Fetching charts...</option>';
+        versionSelect.innerHTML = '<option value="" disabled selected>...</option>';
+
+        fetch(`/api/helm/repo/charts?url=${encodeURIComponent(urlParams)}`)
+            .then(res => res.json())
+            .then(data => {
+                btn.removeAttribute('aria-busy');
+                if (data.error) {
+                    alert('Error fetching charts: ' + data.error);
+                    chartSelect.innerHTML = '<option value="" disabled selected>Error loading charts</option>';
+                    return;
+                }
+
+                const chartNames = Object.keys(data).sort();
+                if (chartNames.length === 0) {
+                    chartSelect.innerHTML = '<option value="" disabled selected>No charts found</option>';
+                    return;
+                }
+
+                helmDataCache = data;
+                chartSelect.innerHTML = '<option value="" disabled selected>Select a chart...</option>';
+                chartNames.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    chartSelect.appendChild(opt);
+                });
+            })
+            .catch(err => {
+                btn.removeAttribute('aria-busy');
+                console.error(err);
+                chartSelect.innerHTML = '<option value="" disabled selected>Error loading charts</option>';
+            });
+    });
+
+    document.getElementById('chart_name').addEventListener('change', function() {
+        const chartName = this.value;
+        const versionSelect = document.getElementById('chart_version');
+        versionSelect.innerHTML = '';
+        
+        if (helmDataCache[chartName]) {
+            // Populate versions natively
+            helmDataCache[chartName].forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = v;
+                versionSelect.appendChild(opt);
+            });
+        }
+    });
+</script>
+
+<!-- Modal for Deleting Product -->
+<dialog id="delete-product-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('delete-product-modal').close();"></button>
+            <strong style="color: #d32f2f;">Delete Product: {{ product.name }}</strong>
+        </header>
+        <p>This action is <strong>irreversible</strong> and will permanently cascade-delete all associated releases, major components, and asset mappings.</p>
+        <p>Please type <code>I understand</code> below to confirm your intent.</p>
+        <form action="/products/{{ product.id }}/delete" method="POST" style="margin-bottom: 0;">
+            <input type="text" id="confirm-product-delete" placeholder="I understand" required 
+                   oninput="document.getElementById('btn-product-delete').disabled = this.value !== 'I understand';">
+            <input type="submit" id="btn-product-delete" value="Permanently Delete" 
+                   style="background-color: #d32f2f; border-color: #d32f2f; color: white;" disabled>
         </form>
     </article>
 </dialog>

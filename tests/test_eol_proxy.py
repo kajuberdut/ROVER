@@ -7,7 +7,6 @@ import pytest
 from falcon import testing
 
 from rover import scan_queue
-from rover.app import app
 
 
 @pytest.fixture
@@ -23,7 +22,12 @@ def client():
         with conn:
             conn.execute("DELETE FROM eol_cache")  # Clear cache before tests
 
-    return testing.TestClient(app)
+    # Remove auth middleware for isolated proxy testing
+    from rover.app import app as real_app
+
+    real_app._middleware = ([], [], [])
+
+    return testing.TestClient(real_app)
 
 
 @patch("rover.eol_proxy.urllib.request.urlopen")

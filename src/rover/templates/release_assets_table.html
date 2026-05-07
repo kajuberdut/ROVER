@@ -37,6 +37,20 @@
             {% endif %}
             <span title="{{ asset.asset_name }}">{{ asset.asset_name | short_url }}</span>
         </div>
+        {% if asset.asset_type == 'image' %}
+            {% if asset.source_repo_url %}
+            <div style="font-size: 0.8em; color: var(--pico-muted-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
+                <span title="Linked to Source Code">🔗</span>
+                <a href="{{ asset.source_repo_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ asset.source_repo_url | short_url }}</a>
+            </div>
+            {% else %}
+            <div style="font-size: 0.8em; color: var(--pico-del-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
+                <span title="Missing Source Code Annotations for Semgrep">⚠️</span>
+                <span>Missing Source Link</span>
+                <button class="outline" style="padding: 0.1rem 0.3rem; font-size: 0.8em; border-color: var(--pico-del-color); color: var(--pico-del-color); margin-bottom: 0; margin-left: 0.5rem; border-radius: 4px;" onclick="openLinkRepoModal('{{ asset.asset_id }}', '{{ asset.asset_name }}')">Link</button>
+            </div>
+            {% endif %}
+        {% endif %}
     </td>
     <td>
         {% if asset.asset_type == 'image' %}
@@ -97,6 +111,11 @@
         {% set is_owner = user and (user.role == "admin" or (user.role == "product_owner" and release.product_id in user.product_ids)) %}
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if is_owner %}
+            {# TODO(ux): This delete button has no confirmation step — assets are removed immediately on click.
+               Options: (1) intercept the form submit with JS and show a confirm dialog before proceeding,
+               or (2) convert to a DELETE fetch call and show a brief "Undo" toast (more complex).
+               Option 1 is recommended: add onclick="return confirm('Remove this asset? This cannot be undone.')"
+               or a custom modal for a more polished feel consistent with the delete-product/release dialogs. #}
             <form action="/releases/assets/{{ asset.release_asset_id }}" method="POST" style="margin-bottom: 0;">
                 <input type="hidden" name="action" value="delete">
                 <button type="submit" class="outline" title="Remove Asset"

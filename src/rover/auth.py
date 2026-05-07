@@ -4,8 +4,8 @@ import urllib.parse
 import uuid
 
 import falcon
-import requests
-from authlib.jose import jwt
+import requests  # type: ignore[import-untyped]
+from authlib.jose import jwt  # type: ignore[import-untyped]
 from itsdangerous import BadSignature, URLSafeSerializer
 
 from rover import scan_queue
@@ -36,13 +36,13 @@ COOKIE_NAME = "rover_session"
 _cached_jwks = None
 
 
-def get_jwks():
+def get_jwks() -> dict[str, object]:
     global _cached_jwks
     if not _cached_jwks:
         try:
             resp = requests.get(OIDC_JWKS_URI, timeout=5)
             resp.raise_for_status()
-            _cached_jwks = resp.json()
+            _cached_jwks = dict(resp.json())
         except Exception as e:
             log.error(f"Failed to fetch JWKS: {e}")
             raise
@@ -78,7 +78,9 @@ class RequireAuthMiddleware:
 
 
 class LoginResource:
-    async def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
         # Generate random state and nonce to prevent CSRF and replay attacks
         state = str(uuid.uuid4())
         nonce = str(uuid.uuid4())
@@ -103,7 +105,9 @@ class LoginResource:
 
 
 class CallbackResource:
-    async def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
         # We need async requests for ASGI. We'll run the blocking requests in a thread.
         import asyncio
 
@@ -250,7 +254,9 @@ class CallbackResource:
 
 
 class LogoutResource:
-    async def on_get(self, req: falcon.asgi.Request, resp: falcon.asgi.Response):
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
         # Unset local session
         resp.unset_cookie(COOKIE_NAME)
         # Redirect to Authelia's logout endpoint

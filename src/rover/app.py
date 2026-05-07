@@ -317,6 +317,41 @@ class ImageRefsResource:
             resp.text = json.dumps({"error": "Invalid JSON response from skopeo"})
 
 
+class ImageLinkRepoResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, image_id: str
+    ) -> None:
+        """Manually link a source code repository to an image."""
+        user = req.context.get("user")
+        if not user or user.get("role") not in ("admin", "product_owner"):
+            raise falcon.HTTPForbidden(
+                title="Forbidden",
+                description="Insufficient permissions to modify image metadata.",
+            )
+
+        form = await req.get_media()
+        source_repo_url = form.get("source_repo_url")
+        source_git_ref = form.get("source_git_ref")
+
+        image = scan_queue.get_image(image_id)
+        if not image:
+            raise falcon.HTTPNotFound(description="Image not found")
+
+        if source_repo_url:
+            scan_queue.set_image_source(image_id, source_repo_url, source_git_ref)
+            scan_queue.add_repository(source_repo_url)
+            scan_queue.create_semgrep_job(
+                source_repo_url, git_ref=source_git_ref or None
+            )
+            resp.media = {
+                "status": "ok",
+                "message": "Repository linked and scan enqueued.",
+            }
+        else:
+            resp.status = falcon.HTTP_400
+            resp.media = {"status": "error", "message": "source_repo_url is required."}
+
+
 class RemoteImageRefsResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
@@ -482,6 +517,15 @@ class ProductDashboardResource:
         resp.content_type = falcon.MEDIA_HTML
 
 
+class ProductDeleteResource:
+    @falcon.before(permissions.require_admin)
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, product_id: str
+    ) -> None:
+        scan_queue.delete_product(product_id)
+        raise falcon.HTTPFound("/")
+
+
 class ReleaseResource:
     @falcon.before(permissions.require_product_owner_or_admin)
     async def on_post(
@@ -495,6 +539,61 @@ class ReleaseResource:
             scan_queue.add_release(product_id, name, version)
         referer = req.get_header("Referer", default="/")
         raise falcon.HTTPFound(referer)
+
+
+class HelmRepoChartsResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        url = req.get_param("url")
+        if not url:
+            resp.media = {"error": "Missing url parameter"}
+            resp.status = falcon.HTTP_400
+            return
+
+        try:
+            import asyncio
+
+            from rover import scanner
+
+            charts = await asyncio.to_thread(scanner.fetch_helm_chart_versions, url)
+            resp.media = charts
+        except Exception as e:
+            resp.media = {"error": str(e)}
+            resp.status = falcon.HTTP_500
+
+
+class ReleaseHelmResource:
+    @falcon.before(permissions.require_product_owner_or_admin)
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        form = await req.get_media()
+        product_id = form.get("product_id")
+        repo_url = form.get("helm_repo_url")
+        chart_name = form.get("chart_name")
+        chart_version = form.get("chart_version")
+
+        if not (product_id and repo_url and chart_name and chart_version):
+            referer = req.get_header("Referer", default="/")
+            raise falcon.HTTPFound(referer)
+
+        release_id = scan_queue.add_release(product_id, chart_name, chart_version)
+
+        try:
+            from rover import scanner
+
+            images = await asyncio.to_thread(
+                scanner.run_helm_ingestion, repo_url, chart_name, chart_version
+            )
+            for img in images:
+                image_id = scan_queue.add_image(img)
+                scan_queue.add_release_asset(release_id, "image", image_id)
+        except Exception:
+            # Provide an error parameter on redirect so the user knows ingestion failed
+            raise falcon.HTTPFound(f"/products/{product_id}?error=helm_ingest_failed")
+
+        raise falcon.HTTPFound(f"/releases/{release_id}")
 
 
 class ReleaseAssetResource:
@@ -660,6 +759,19 @@ class ReleaseEolResource:
         raise falcon.HTTPFound(referer)
 
 
+class ReleaseDeleteResource:
+    @falcon.before(permissions.require_product_owner_or_admin_for_release)
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
+    ) -> None:
+        release = scan_queue.get_release(release_id)
+        if not release:
+            raise falcon.HTTPFound("/?error=release_not_found")
+        product_id = release["product_id"]
+        scan_queue.delete_release(release_id)
+        raise falcon.HTTPFound(f"/products/{product_id}")
+
+
 class AdminUsersResource:
     """Admin-only user management UI."""
 
@@ -753,11 +865,14 @@ app.add_route("/reports/{report_id}", ReportResource())
 app.add_route("/api/queue_table", QueueTableResource())
 app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
 app.add_route("/api/images/{image_id}/refs", ImageRefsResource())
+app.add_route("/api/images/{image_id}/link_repo", ImageLinkRepoResource())
 app.add_route("/api/remote_refs/repo", RemoteRepoRefsResource())
 app.add_route("/api/remote_refs/image", RemoteImageRefsResource())
 app.add_route("/products", ProductResource())
 app.add_route("/products/{product_id}", ProductDashboardResource())
 app.add_route("/releases", ReleaseResource())
+app.add_route("/api/helm/repo/charts", HelmRepoChartsResource())
+app.add_route("/releases/helm", ReleaseHelmResource())
 app.add_route("/releases/{release_id}/assets", ReleaseAssetResource())
 app.add_route("/releases/assets/{release_asset_id}", ReleaseAssetDetailResource())
 app.add_route("/releases/{release_id}/scan", ReleaseScanResource())
@@ -768,4 +883,6 @@ app.add_route(
     ReleaseMajorComponentCardsResource(),
 )
 app.add_route("/releases/{release_id}", ReleaseDashboardResource())
+app.add_route("/products/{product_id}/delete", ProductDeleteResource())
+app.add_route("/releases/{release_id}/delete", ReleaseDeleteResource())
 app.add_route("/admin/users", AdminUsersResource())

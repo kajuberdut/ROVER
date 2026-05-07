@@ -9,6 +9,8 @@ Usage (as a Falcon before-hook):
     async def on_post(self, req, resp, product_id): ...
 """
 
+from typing import Any
+
 import falcon
 
 from rover import scan_queue
@@ -16,15 +18,15 @@ from rover import scan_queue
 VALID_ROLES = ("viewer", "product_owner", "admin")
 
 
-def _get_user(req: falcon.asgi.Request) -> dict:
-    user = getattr(req.context, "user", None)
+def _get_user(req: falcon.asgi.Request) -> dict[str, Any]:
+    user: dict[str, Any] | None = getattr(req.context, "user", None)
     if not user:
         raise falcon.HTTPUnauthorized(description="Authentication required.")
     return user
 
 
 async def require_admin(
-    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource, params
+    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource: Any, params: Any
 ) -> None:
     """Allow only admins."""
     user = _get_user(req)
@@ -35,8 +37,8 @@ async def require_admin(
 async def require_product_owner_or_admin(
     req: falcon.asgi.Request,
     resp: falcon.asgi.Response,
-    resource,
-    params,
+    resource: Any,
+    params: Any,
     product_id_param: str = "product_id",
 ) -> None:
     """
@@ -75,8 +77,8 @@ async def require_product_owner_or_admin(
 async def require_product_owner_or_admin_for_release(
     req: falcon.asgi.Request,
     resp: falcon.asgi.Response,
-    resource,
-    params,
+    resource: Any,
+    params: Any,
 ) -> None:
     """
     For release-level operations: look up the release's parent product and
@@ -110,8 +112,8 @@ async def require_product_owner_or_admin_for_release(
 async def require_product_owner_or_admin_for_release_asset(
     req: falcon.asgi.Request,
     resp: falcon.asgi.Response,
-    resource,
-    params,
+    resource: Any,
+    params: Any,
 ) -> None:
     """
     For release-asset-level operations: look up the parent release's product and

@@ -3,7 +3,9 @@ services:
     build: .
     user: "${UID:-1000}:${GID:-1000}"
     group_add:
-      - "999"
+      # Grant access to /var/run/docker.sock. Run `stat -c %g /var/run/docker.sock`
+      # on the host to find the correct GID, then set DOCKER_GID in .env.local if needed.
+      - "${DOCKER_GID:-962}"
     env_file:
       - path: .env.local
         required: false
