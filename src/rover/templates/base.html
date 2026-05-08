@@ -280,6 +280,50 @@
             dd.hidden = !opening;
             if (btn) btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
         }
+
+        function openGlobalConfirmModal(options) {
+            document.getElementById('global-confirm-title').innerHTML = options.title || 'Confirm Action';
+            document.getElementById('global-confirm-message').innerHTML = options.message || 'This action is irreversible.';
+            document.getElementById('global-confirm-form').action = options.actionUrl;
+            
+            if (options.actionValue) {
+                document.getElementById('global-confirm-action-input').value = options.actionValue;
+            } else {
+                document.getElementById('global-confirm-action-input').value = 'delete';
+            }
+
+            const btn = document.getElementById('global-confirm-btn');
+            btn.value = options.buttonText || 'Confirm';
+            
+            const input = document.getElementById('global-confirm-input');
+            const instruction = document.getElementById('global-confirm-typing-instruction');
+            const expectedDisplay = document.getElementById('global-confirm-expected-text-display');
+
+            if (options.requireTyping) {
+                const expectedText = options.expectedText || 'I understand';
+                instruction.style.display = 'block';
+                expectedDisplay.textContent = expectedText;
+                
+                input.style.display = 'block';
+                input.placeholder = expectedText;
+                input.required = true;
+                input.value = '';
+                
+                btn.disabled = true;
+                
+                input.oninput = function() {
+                    btn.disabled = this.value !== expectedText;
+                };
+            } else {
+                instruction.style.display = 'none';
+                input.style.display = 'none';
+                input.required = false;
+                btn.disabled = false;
+                input.oninput = null;
+            }
+
+            document.getElementById('global-confirm-modal').showModal();
+        }
     </script>
 </head>
 
@@ -345,6 +389,26 @@
                     </label>
                     <input type="submit" value="Create Product" style="margin-top: 1rem;">
                 </fieldset>
+            </form>
+        </article>
+    </dialog>
+
+    <dialog id="global-confirm-modal">
+        <article>
+            <header>
+                <button aria-label="Close" rel="prev"
+                    onclick="document.getElementById('global-confirm-modal').close();"></button>
+                <strong style="color: #d32f2f;" id="global-confirm-title">Confirm Action</strong>
+            </header>
+            <p id="global-confirm-message"></p>
+            <p id="global-confirm-typing-instruction" style="display: none;">
+                Please type <code id="global-confirm-expected-text-display"></code> below to confirm your intent.
+            </p>
+            <form id="global-confirm-form" method="POST" style="margin-bottom: 0;">
+                <input type="hidden" name="action" value="delete" id="global-confirm-action-input">
+                <input type="text" id="global-confirm-input" placeholder="" required style="display: none;">
+                <input type="submit" id="global-confirm-btn" value="Confirm" 
+                       style="background-color: #d32f2f; border-color: #d32f2f; color: white;">
             </form>
         </article>
     </dialog>

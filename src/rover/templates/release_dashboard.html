@@ -24,7 +24,14 @@
         </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if is_owner %}
-            <button type="button" class="outline" onclick="document.getElementById('delete-release-modal').showModal();"
+            <button type="button" class="outline" onclick="openGlobalConfirmModal({
+                title: `Delete Release: {{ release.name }} v{{ release.version }}`,
+                message: `This action is <strong>irreversible</strong> and will permanently cascade-delete all mappings and configurations for this release.`,
+                actionUrl: `/releases/{{ release.id }}/delete`,
+                requireTyping: true,
+                expectedText: `I understand`,
+                buttonText: `Permanently Delete`
+            })"
                 style="margin-bottom: 0; color: #d32f2f; border-color: #d32f2f;">Delete Release</button>
             <form action="/releases/{{ release.id }}/eol" method="POST" style="margin-bottom: 0;">
                 {% if release.is_end_of_life %}
@@ -712,22 +719,4 @@
     // Initial setup
     updateSelection();
 </script>
-
-<!-- Modal for Deleting Release -->
-<dialog id="delete-release-modal">
-    <article>
-        <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('delete-release-modal').close();"></button>
-            <strong style="color: #d32f2f;">Delete Release: {{ release.name }} v{{ release.version }}</strong>
-        </header>
-        <p>This action is <strong>irreversible</strong> and will permanently cascade-delete all mappings and configurations for this release.</p>
-        <p>Please type <code>I understand</code> below to confirm your intent.</p>
-        <form action="/releases/{{ release.id }}/delete" method="POST" style="margin-bottom: 0;">
-            <input type="text" id="confirm-release-delete" placeholder="I understand" required 
-                   oninput="document.getElementById('btn-release-delete').disabled = this.value !== 'I understand';">
-            <input type="submit" id="btn-release-delete" value="Permanently Delete" 
-                   style="background-color: #d32f2f; border-color: #d32f2f; color: white;" disabled>
-        </form>
-    </article>
-</dialog>
 {% endblock %}

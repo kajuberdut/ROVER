@@ -38,7 +38,14 @@
         </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if user.role == 'admin' %}
-            <button type="button" class="outline" onclick="document.getElementById('delete-product-modal').showModal();"
+            <button type="button" class="outline" onclick="openGlobalConfirmModal({
+                title: `Delete Product: {{ product.name }}`,
+                message: `This action is <strong>irreversible</strong> and will permanently cascade-delete all associated releases, major components, and asset mappings.`,
+                actionUrl: `/products/{{ product.id }}/delete`,
+                requireTyping: true,
+                expectedText: `I understand`,
+                buttonText: `Permanently Delete`
+            })"
                 style="margin-bottom: 0; color: #d32f2f; border-color: #d32f2f;">Delete Product</button>
             {% endif %}
             {% if user.role == 'admin' or (user.role == 'product_owner' and product.id in user.product_ids) %}
@@ -294,21 +301,5 @@
     });
 </script>
 
-<!-- Modal for Deleting Product -->
-<dialog id="delete-product-modal">
-    <article>
-        <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('delete-product-modal').close();"></button>
-            <strong style="color: #d32f2f;">Delete Product: {{ product.name }}</strong>
-        </header>
-        <p>This action is <strong>irreversible</strong> and will permanently cascade-delete all associated releases, major components, and asset mappings.</p>
-        <p>Please type <code>I understand</code> below to confirm your intent.</p>
-        <form action="/products/{{ product.id }}/delete" method="POST" style="margin-bottom: 0;">
-            <input type="text" id="confirm-product-delete" placeholder="I understand" required 
-                   oninput="document.getElementById('btn-product-delete').disabled = this.value !== 'I understand';">
-            <input type="submit" id="btn-product-delete" value="Permanently Delete" 
-                   style="background-color: #d32f2f; border-color: #d32f2f; color: white;" disabled>
-        </form>
-    </article>
-</dialog>
+
 {% endblock %}

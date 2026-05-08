@@ -111,16 +111,15 @@
         {% set is_owner = user and (user.role == "admin" or (user.role == "product_owner" and release.product_id in user.product_ids)) %}
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if is_owner %}
-            {# TODO(ux): This delete button has no confirmation step — assets are removed immediately on click.
-               Options: (1) intercept the form submit with JS and show a confirm dialog before proceeding,
-               or (2) convert to a DELETE fetch call and show a brief "Undo" toast (more complex).
-               Option 1 is recommended: add onclick="return confirm('Remove this asset? This cannot be undone.')"
-               or a custom modal for a more polished feel consistent with the delete-product/release dialogs. #}
-            <form action="/releases/assets/{{ asset.release_asset_id }}" method="POST" style="margin-bottom: 0;">
-                <input type="hidden" name="action" value="delete">
-                <button type="submit" class="outline" title="Remove Asset"
-                    style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.25rem 0.5rem; margin-bottom: 0;">✕</button>
-            </form>
+            <button type="button" class="outline" title="Remove Asset"
+                onclick="openGlobalConfirmModal({
+                    title: `Remove Asset: {{ asset.asset_name }}`,
+                    message: `This action is <strong>irreversible</strong> and will permanently remove this asset from the release.`,
+                    actionUrl: `/releases/assets/{{ asset.release_asset_id }}`,
+                    requireTyping: false,
+                    buttonText: `Permanently Remove`
+                })"
+                style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.25rem 0.5rem; margin-bottom: 0;">✕</button>
             {% endif %}
             {% if asset.latest_scan_id %}
             <a href="/reports/{{ asset.latest_scan_id }}?back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}" role="button" class="outline"
