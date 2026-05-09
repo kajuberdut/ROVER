@@ -347,7 +347,7 @@
                     <span class="menu-label">{{ user.email or user.sub }}</span>
                     <div class="menu-divider"></div>
                     <a href="/config">⚙️ Settings</a>
-                    {% if user.role == "admin" %}
+                    {% if user.role == "system_admin" %}
                     <a href="/admin/users">👥 Users</a>
                     {% endif %}
                     <div class="menu-divider"></div>

@@ -63,7 +63,7 @@ template_env.filters["short_url"] = short_url
 
 
 class ConfigResource:
-    @falcon.before(permissions.require_admin)
+    @falcon.before(permissions.require_system_admin)
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
@@ -76,7 +76,7 @@ class ConfigResource:
         )
         resp.content_type = falcon.MEDIA_HTML
 
-    @falcon.before(permissions.require_admin)
+    @falcon.before(permissions.require_system_admin)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
@@ -323,11 +323,18 @@ class ImageLinkRepoResource:
     ) -> None:
         """Manually link a source code repository to an image."""
         user = req.context.get("user")
-        if not user or user.get("role") not in ("admin", "product_owner"):
-            raise falcon.HTTPForbidden(
-                title="Forbidden",
-                description="Insufficient permissions to modify image metadata.",
-            )
+        if not user:
+            raise falcon.HTTPUnauthorized()
+
+        # Allow if system admin, or if they have *any* product role
+        is_system_admin = user.get("role") == "system_admin"
+        if not is_system_admin:
+            user_products = scan_queue.get_user_product_ids(user["sub"])
+            if not user_products:
+                raise falcon.HTTPForbidden(
+                    title="Forbidden",
+                    description="Insufficient permissions to modify image metadata.",
+                )
 
         form = await req.get_media()
         source_repo_url = form.get("source_repo_url")
@@ -388,6 +395,7 @@ class RemoteImageRefsResource:
 
 
 class ScanResource:
+    @falcon.before(permissions.require_product_read)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
@@ -446,6 +454,7 @@ class ScanResource:
 
 
 class ReportResource:
+    @falcon.before(permissions.require_product_read)
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, report_id: str
     ) -> None:
@@ -480,7 +489,7 @@ class QueueTableResource:
 
 
 class ProductResource:
-    @falcon.before(permissions.require_product_owner_or_admin)
+    @falcon.before(permissions.require_product_admin)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
@@ -489,10 +498,6 @@ class ProductResource:
         description = form.get("product_description", "")
         if name:
             product_id = scan_queue.add_product(name, description)
-            # Auto-assign ownership if the creator is a product_owner (not admin)
-            user = getattr(req.context, "user", None)
-            if user and user.get("role") == "product_owner":
-                scan_queue.add_product_owner(user["sub"], product_id)
         referer = req.get_header("Referer", default="/")
         raise falcon.HTTPFound(referer)
 
@@ -506,9 +511,15 @@ class ProductDashboardResource:
             raise falcon.HTTPFound("/?error=product_not_found")
 
         releases = scan_queue.get_product_releases(product_id)
+        product_role = None
+        user = getattr(req.context, "user", None)
+        if user:
+            product_role = scan_queue.get_user_product_role(user["sub"], product_id)
+
         template = template_env.get_template("product_dashboard.html")
         resp.text = template.render(
-            user=getattr(req.context, "user", None),
+            user=user,
+            product_role=product_role,
             title=f"Product: {product['name']}",
             product=product,
             releases=releases,
@@ -518,7 +529,7 @@ class ProductDashboardResource:
 
 
 class ProductDeleteResource:
-    @falcon.before(permissions.require_admin)
+    @falcon.before(permissions.require_system_admin)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, product_id: str
     ) -> None:
@@ -527,7 +538,7 @@ class ProductDeleteResource:
 
 
 class ReleaseResource:
-    @falcon.before(permissions.require_product_owner_or_admin)
+    @falcon.before(permissions.require_product_read_write)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
@@ -564,7 +575,7 @@ class HelmRepoChartsResource:
 
 
 class ReleaseHelmResource:
-    @falcon.before(permissions.require_product_owner_or_admin)
+    @falcon.before(permissions.require_product_read_write)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
@@ -597,7 +608,7 @@ class ReleaseHelmResource:
 
 
 class ReleaseAssetResource:
-    @falcon.before(permissions.require_product_owner_or_admin_for_release)
+    @falcon.before(permissions.require_product_read_write)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
@@ -636,7 +647,7 @@ class ReleaseAssetResource:
 
 
 class ReleaseAssetDetailResource:
-    @falcon.before(permissions.require_product_owner_or_admin_for_release_asset)
+    @falcon.before(permissions.require_product_read_write)
     async def on_post(
         self,
         req: falcon.asgi.Request,
@@ -704,9 +715,15 @@ class ReleaseDashboardResource:
         images = scan_queue.get_all_images()
         major_components = scan_queue.get_all_major_components()
 
+        product_role = None
+        user = getattr(req.context, "user", None)
+        if user:
+            product_role = scan_queue.get_user_product_role(user["sub"], release["product_id"])
+
         template = template_env.get_template("release_dashboard.html")
         resp.text = template.render(
-            user=getattr(req.context, "user", None),
+            user=user,
+            product_role=product_role,
             title=f"Release: {release['name']} {release['version']}",
             release=release,
             assets=assets,
@@ -745,7 +762,7 @@ class ReleaseMajorComponentCardsResource:
 
 
 class ReleaseEolResource:
-    @falcon.before(permissions.require_product_owner_or_admin_for_release)
+    @falcon.before(permissions.require_product_admin)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
@@ -760,7 +777,7 @@ class ReleaseEolResource:
 
 
 class ReleaseDeleteResource:
-    @falcon.before(permissions.require_product_owner_or_admin_for_release)
+    @falcon.before(permissions.require_product_admin)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:
@@ -775,29 +792,24 @@ class ReleaseDeleteResource:
 class AdminUsersResource:
     """Admin-only user management UI."""
 
-    @falcon.before(permissions.require_admin)
+    @falcon.before(permissions.require_system_admin)
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         users = scan_queue.get_all_users()
-        all_products = scan_queue.get_all_products()
-        # Attach owned product IDs to each user for the template
-        for u in users:
-            u["product_ids"] = scan_queue.get_user_product_ids(u["sub"])
         template = template_env.get_template("admin_users.html")
         resp.text = template.render(
             user=getattr(req.context, "user", None),
             title="User Management",
             users=users,
-            all_products=all_products,
         )
         resp.content_type = falcon.MEDIA_HTML
 
-    @falcon.before(permissions.require_admin)
+    @falcon.before(permissions.require_system_admin)
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
-        """Handle role changes and product ownership updates."""
+        """Handle role changes."""
         form = await req.get_media()
         action = form.get("action")
         sub = form.get("sub")
@@ -810,20 +822,52 @@ class AdminUsersResource:
         if action == "set_role":
             role = form.get("role")
             scan_queue.set_user_role(sub, role)
-        elif action == "add_owner":
-            product_id = form.get("product_id")
-            if product_id:
-                # Ensure the user is at least product_owner
-                target = scan_queue.get_user(sub)
-                if target and target["role"] == "viewer":
-                    scan_queue.set_user_role(sub, "product_owner")
-                scan_queue.add_product_owner(sub, product_id)
-        elif action == "remove_owner":
-            product_id = form.get("product_id")
-            if product_id:
-                scan_queue.remove_product_owner(sub, product_id)
 
         resp.media = {"ok": True}
+
+
+class ProductPermissionsResource:
+    @falcon.before(permissions.require_product_admin)
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, product_id: str
+    ) -> None:
+        product = scan_queue.get_product(product_id)
+        if not product:
+            raise falcon.HTTPFound("/?error=product_not_found")
+        
+        all_users = scan_queue.get_all_users()
+        product_users = scan_queue.get_product_users(product_id)
+        
+        user_roles = {u["sub"]: u["product_role"] for u in product_users}
+        for u in all_users:
+            u["product_role"] = user_roles.get(u["sub"], "none")
+
+        template = template_env.get_template("product_permissions.html")
+        resp.text = template.render(
+            user=getattr(req.context, "user", None),
+            title=f"Permissions: {product['name']}",
+            product=product,
+            all_users=all_users,
+        )
+        resp.content_type = falcon.MEDIA_HTML
+
+    @falcon.before(permissions.require_product_admin)
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, product_id: str
+    ) -> None:
+        form = await req.get_media()
+        sub = form.get("sub")
+        role = form.get("role")
+        
+        if not sub or not role:
+            raise falcon.HTTPBadRequest()
+            
+        if role == "none":
+            scan_queue.remove_product_user(sub, product_id)
+        else:
+            scan_queue.set_product_user_role(sub, product_id, role)
+            
+        resp.media = {"status": "ok"}
 
 
 import threading
@@ -885,4 +929,5 @@ app.add_route(
 app.add_route("/releases/{release_id}", ReleaseDashboardResource())
 app.add_route("/products/{product_id}/delete", ProductDeleteResource())
 app.add_route("/releases/{release_id}/delete", ReleaseDeleteResource())
+app.add_route("/products/{product_id}/permissions", ProductPermissionsResource())
 app.add_route("/admin/users", AdminUsersResource())

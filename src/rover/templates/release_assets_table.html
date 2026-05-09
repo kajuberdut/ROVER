@@ -108,9 +108,9 @@
         {% endif %}
     </td>
     <td>
-        {% set is_owner = user and (user.role == "admin" or (user.role == "product_owner" and release.product_id in user.product_ids)) %}
+        {% set is_read_write = user and (user.role == "system_admin" or product_role in ["admin", "read_write"]) %}
         <div style="display: flex; gap: 0.5rem; align-items: center;">
-            {% if is_owner %}
+            {% if is_read_write %}
             <button type="button" class="outline" title="Remove Asset"
                 onclick="openGlobalConfirmModal({
                     title: `Remove Asset: {{ asset.asset_name }}`,

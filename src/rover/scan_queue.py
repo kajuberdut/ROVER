@@ -141,9 +141,10 @@ def init_db() -> None:
                 )
             """)
             conn.execute("""
-                CREATE TABLE IF NOT EXISTS product_owners (
+                CREATE TABLE IF NOT EXISTS product_users (
                     user_sub   TEXT NOT NULL REFERENCES users(sub) ON DELETE CASCADE,
                     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                    role       TEXT NOT NULL,
                     PRIMARY KEY (user_sub, product_id)
                 )
             """)
@@ -195,59 +196,66 @@ def get_all_users() -> list[dict[str, Any]]:
 
 
 def set_user_role(sub: str, role: str) -> None:
-    """Set a user's global role. Role must be viewer | product_owner | admin."""
-    if role not in ("viewer", "product_owner", "admin"):
+    """Set a user's global role. Role must be viewer | system_admin."""
+    if role not in ("viewer", "system_admin"):
         raise ValueError(f"Invalid role: {role!r}")
     with get_db_connection() as conn:
         with conn:
             conn.execute("UPDATE users SET role = ? WHERE sub = ?", (role, sub))
 
 
-def get_product_owners(product_id: str) -> list[dict[str, Any]]:
+def get_product_users(product_id: str) -> list[dict[str, Any]]:
     with get_db_connection() as conn:
         cursor = conn.execute(
             """
-            SELECT u.* FROM users u
-            JOIN product_owners po ON po.user_sub = u.sub
-            WHERE po.product_id = ?
+            SELECT u.*, pu.role as product_role FROM users u
+            JOIN product_users pu ON pu.user_sub = u.sub
+            WHERE pu.product_id = ?
             """,
             (product_id,),
         )
         return [dict(row) for row in cursor.fetchall()]
 
 
-def user_owns_product(sub: str, product_id: str) -> bool:
+def get_user_product_role(sub: str, product_id: str) -> str | None:
     with get_db_connection() as conn:
         cursor = conn.execute(
-            "SELECT 1 FROM product_owners WHERE user_sub = ? AND product_id = ?",
+            "SELECT role FROM product_users WHERE user_sub = ? AND product_id = ?",
             (sub, product_id),
         )
-        return cursor.fetchone() is not None
+        row = cursor.fetchone()
+        return row["role"] if row else None
 
 
-def add_product_owner(sub: str, product_id: str) -> None:
+def set_product_user_role(sub: str, product_id: str, role: str) -> None:
+    if role not in ("admin", "read_write", "read"):
+        raise ValueError(f"Invalid product role: {role!r}")
     with get_db_connection() as conn:
         with conn:
             conn.execute(
-                "INSERT OR IGNORE INTO product_owners (user_sub, product_id) VALUES (?, ?)",
-                (sub, product_id),
+                """
+                INSERT INTO product_users (user_sub, product_id, role)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_sub, product_id) DO UPDATE SET role=excluded.role
+                """,
+                (sub, product_id, role),
             )
 
 
-def remove_product_owner(sub: str, product_id: str) -> None:
+def remove_product_user(sub: str, product_id: str) -> None:
     with get_db_connection() as conn:
         with conn:
             conn.execute(
-                "DELETE FROM product_owners WHERE user_sub = ? AND product_id = ?",
+                "DELETE FROM product_users WHERE user_sub = ? AND product_id = ?",
                 (sub, product_id),
             )
 
 
 def get_user_product_ids(sub: str) -> list[str]:
-    """Returns all product IDs owned by a given user."""
+    """Returns all product IDs where the user has a role."""
     with get_db_connection() as conn:
         cursor = conn.execute(
-            "SELECT product_id FROM product_owners WHERE user_sub = ?", (sub,)
+            "SELECT product_id FROM product_users WHERE user_sub = ?", (sub,)
         )
         return [row["product_id"] for row in cursor.fetchall()]
 
@@ -681,7 +689,7 @@ def delete_product(product_id: str) -> None:
     with get_db_connection() as conn:
         with conn:
             conn.execute(
-                "DELETE FROM product_owners WHERE product_id = ?", (product_id,)
+                "DELETE FROM product_users WHERE product_id = ?", (product_id,)
             )
             conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
 

@@ -30,7 +30,7 @@
             <h3 style="color: var(--pico-muted-color);">Monitor your active releases and their vulnerability posture.
             </h3>
         </hgroup>
-        {% if user.role in ['admin', 'product_owner'] %}
+        {% if user.role == 'system_admin' %}
         <button type="button" class="outline" onclick="document.getElementById('add-product-modal').showModal();"
             style="margin-bottom: 0;">Create Product</button>
         {% endif %}

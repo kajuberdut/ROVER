@@ -9,7 +9,9 @@
 {% endblock %}
 
 {% block content %}
-{% set is_owner = user.role == "admin" or (user.role == "product_owner" and release.product_id in user.product_ids) %}
+{% set is_admin = user.role == "system_admin" or product_role == "admin" %}
+{% set is_read_write = is_admin or product_role == "read_write" %}
+{% set is_read = is_read_write or product_role == "read" %}
 <section style="margin-bottom: 1rem;">
     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
         <hgroup style="margin-bottom: 0; flex: 1; min-width: 0; overflow-wrap: anywhere;">
@@ -23,7 +25,7 @@
             <h3 style="margin-bottom: 0; margin-top: 0.25rem; color: var(--pico-muted-color);">Asset Management</h3>
         </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
-            {% if is_owner %}
+            {% if is_admin %}
             <button type="button" class="outline" onclick="openGlobalConfirmModal({
                 title: `Delete Release: {{ release.name }} v{{ release.version }}`,
                 message: `This action is <strong>irreversible</strong> and will permanently cascade-delete all mappings and configurations for this release.`,
@@ -44,10 +46,12 @@
             </form>
             {% endif %}
             {% if not release.is_end_of_life %}
+            {% if is_read %}
             <form action="/releases/{{ release.id }}/scan" method="POST" style="margin-bottom: 0;">
                 <button type="submit" class="outline" style="margin-bottom: 0;">Scan All Assets</button>
             </form>
-            {% if is_owner %}
+            {% endif %}
+            {% if is_read_write %}
             <button type="button" class="outline" onclick="document.getElementById('add-asset-modal').showModal();"
                 style="margin-bottom: 0;">Add Asset</button>
             {% endif %}

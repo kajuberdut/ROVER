@@ -59,5 +59,5 @@ if [[ -z "$MATCH" ]]; then
     exit 1
 fi
 
-sqlite3 "$DB_PATH" "UPDATE users SET role = 'admin' WHERE sub = '${MATCH}';"
-info "User with sub '${MATCH}' has been promoted to admin."
+sqlite3 "$DB_PATH" "UPDATE users SET role = 'system_admin' WHERE sub = '${MATCH}';"
+info "User with sub '${MATCH}' has been promoted to system_admin."

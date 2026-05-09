@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<a href="/products/{{ product.id }}">{{ product.name }}</a>
+<span class="breadcrumb-sep">›</span>
+<span>Permissions</span>
+{% endblock %}
+
+{% block content %}
+<hgroup>
+    <h2>🛡️ Product Permissions: {{ product.name }}</h2>
+    <p>Manage access control for this specific product.</p>
+</hgroup>
+
+<table>
+    <thead>
+        <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th>Global Role</th>
+            <th>Product Role</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for u in all_users %}
+        <tr>
+            <td>{{ u.name or "—" }}</td>
+            <td><small>{{ u.email or "—" }}</small></td>
+            <td>
+                {% if u.role == 'system_admin' %}
+                <kbd style="background:var(--pico-primary); border-color:var(--pico-primary);">System Admin</kbd>
+                {% else %}
+                <small class="secondary">Viewer</small>
+                {% endif %}
+            </td>
+            <td>
+                {% if u.role == 'system_admin' %}
+                <span class="secondary" style="font-style: italic;">System Admin</span>
+                {% else %}
+                <select id="role-select-{{ loop.index }}"
+                    onchange="setProductRole('{{ u.sub }}', this.value)"
+                    {% if u.product_role == 'admin' and user.role != 'system_admin' %}disabled title="Only System Admins can modify an Admin's role"{% endif %}
+                    {% if user.sub == u.sub %}disabled title="Cannot change your own role"{% endif %}>
+                    <option value="none"       {% if u.product_role == "none" %}selected{% endif %}>None</option>
+                    <option value="read"       {% if u.product_role == "read" %}selected{% endif %}>Read</option>
+                    <option value="read_write" {% if u.product_role == "read_write" %}selected{% endif %}>Read/Write</option>
+                    <option value="admin"      {% if u.product_role == "admin" %}selected{% endif %}>Admin</option>
+                </select>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+    async function setProductRole(sub, role) {
+        const resp = await fetch('/products/{{ product.id }}/permissions', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({sub, role}).toString()
+        });
+        if (!resp.ok) {
+            alert('Action failed. Please try again.');
+            window.location.reload();
+        }
+    }
+</script>
+{% endblock %}

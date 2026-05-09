@@ -37,7 +37,7 @@
                 vulnerability posture for this product.' }}</h3>
         </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
-            {% if user.role == 'admin' %}
+            {% if user.role == 'system_admin' %}
             <button type="button" class="outline" onclick="openGlobalConfirmModal({
                 title: `Delete Product: {{ product.name }}`,
                 message: `This action is <strong>irreversible</strong> and will permanently cascade-delete all associated releases, major components, and asset mappings.`,
@@ -48,7 +48,10 @@
             })"
                 style="margin-bottom: 0; color: #d32f2f; border-color: #d32f2f;">Delete Product</button>
             {% endif %}
-            {% if user.role == 'admin' or (user.role == 'product_owner' and product.id in user.product_ids) %}
+            {% if user.role == 'system_admin' or product_role == 'admin' %}
+            <a href="/products/{{ product.id }}/permissions" role="button" class="outline" style="margin-bottom: 0;">Permissions</a>
+            {% endif %}
+            {% if user.role == 'system_admin' or product_role in ['admin', 'read_write'] %}
             <button type="button" class="outline" onclick="document.getElementById('add-release-modal').showModal();"
                 style="margin-bottom: 0;">Create Release</button>
             {% endif %}
