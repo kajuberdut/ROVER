@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block breadcrumb %}
+<a href="/" class="breadcrumb-back">Dashboard</a>
+<span class="breadcrumb-sep">/</span>
+<span>API Tokens</span>
+{% endblock %}
+
+{% block content %}
+<section>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h1 style="margin-bottom: 0.2rem;">API Tokens</h1>
+            <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
+                Manage personal access tokens for API integrations.
+            </p>
+        </div>
+        <button onclick="document.getElementById('create-token-modal').showModal()" class="outline" style="width: auto; margin-bottom: 0;">
+            + Generate New Token
+        </button>
+    </div>
+
+    {% if new_token %}
+    <article style="background: var(--pico-ins-color); color: white; border-color: var(--pico-ins-color);">
+        <header style="background: transparent; color: inherit; padding-bottom: 0; border-bottom: none;">
+            <strong>Token Generated Successfully</strong>
+        </header>
+        <p style="margin-bottom: 1rem;">
+            Please copy your new API token now. You won't be able to see it again!
+        </p>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <input type="text" value="{{ new_token }}" readonly style="margin-bottom: 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.3); color: white;" id="new-token-input">
+            <button onclick="copyToken()" class="outline contrast" style="margin-bottom: 0; border-color: white; color: white;">
+                Copy
+            </button>
+        </div>
+    </article>
+    <script>
+        function copyToken() {
+            var copyText = document.getElementById("new-token-input");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999); /* For mobile devices */
+            navigator.clipboard.writeText(copyText.value);
+            alert("Copied to clipboard!");
+        }
+    </script>
+    {% endif %}
+
+    <figure>
+        <table role="grid">
+            <thead>
+                <tr>
+                    <th>Token Name</th>
+                    <th>Permissions</th>
+                    <th>Created</th>
+                    <th>Last Used</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for token in tokens %}
+                <tr>
+                    <td><strong>{{ token.name }}</strong></td>
+                    <td>
+                        <span class="role-badge" style="{% if token.permission == 'read' %}background: #e3f2fd; color: #1565c0;{% else %}background: #fbe9e7; color: #d84315;{% endif %}">
+                            {{ token.permission | title }}
+                        </span>
+                    </td>
+                    <td><small>{{ token.created_at | humanize_time }}</small></td>
+                    <td><small>{{ token.last_used_at | humanize_time if token.last_used_at else 'Never' }}</small></td>
+                    <td style="text-align: right;">
+                        <button class="outline" style="color: var(--pico-del-color); border-color: var(--pico-del-color); padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;"
+                                onclick="openGlobalConfirmModal({
+                                    title: 'Revoke Token',
+                                    message: 'Are you sure you want to revoke the token <strong>{{ token.name }}</strong>? Any integrations using it will immediately fail.',
+                                    actionUrl: '/settings/tokens/{{ token.id }}/revoke',
+                                    buttonText: 'Revoke',
+                                    requireTyping: true,
+                                    expectedText: '{{ token.name }}'
+                                })">
+                            Revoke
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--pico-muted-color);">
+                        No API tokens generated yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+</section>
+
+<!-- Create Token Modal -->
+<dialog id="create-token-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('create-token-modal').close();"></button>
+            <strong>Generate New API Token</strong>
+        </header>
+        <form action="/settings/tokens/create" method="POST" style="margin-bottom: 0;">
+            <fieldset>
+                <label>Token Name
+                    <input type="text" name="token_name" placeholder="e.g., CI/CD Pipeline" required>
+                    <small>A descriptive name to help you identify this token's usage.</small>
+                </label>
+                <label>Permissions
+                    <select name="token_permission" required>
+                        <option value="read" selected>Read Only</option>
+                        <option value="write">Read &amp; Write</option>
+                    </select>
+                    <small>Tokens strictly adhere to your account's product permissions. A Read Only token will restrict you to viewing data, regardless of your actual account permissions.</small>
+                </label>
+                <input type="submit" value="Generate Token" style="margin-top: 1rem;">
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+{% endblock %}

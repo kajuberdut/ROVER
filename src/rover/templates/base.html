@@ -347,6 +347,7 @@
                     <span class="menu-label">{{ user.email or user.sub }}</span>
                     <div class="menu-divider"></div>
                     <a href="/config">⚙️ Settings</a>
+                    <a href="/settings/tokens">🔑 API Tokens</a>
                     {% if user.role == "system_admin" %}
                     <a href="/admin/users">👥 Users</a>
                     {% endif %}

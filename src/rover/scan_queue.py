@@ -1,4 +1,6 @@
+import hashlib
 import os
+import secrets
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -146,6 +148,17 @@ def init_db() -> None:
                     product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
                     role       TEXT NOT NULL,
                     PRIMARY KEY (user_sub, product_id)
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS api_tokens (
+                    id TEXT PRIMARY KEY,
+                    user_sub TEXT NOT NULL REFERENCES users(sub) ON DELETE CASCADE,
+                    name TEXT NOT NULL,
+                    token_hash TEXT NOT NULL UNIQUE,
+                    permission TEXT NOT NULL CHECK(permission IN ('read', 'write')),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_used_at TIMESTAMP
                 )
             """)
 
@@ -815,3 +828,76 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         cursor.execute(query, (release_id,))
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
+
+
+# ── API Token Helpers ────────────────────────────────────────────────────────
+
+
+def create_api_token(user_sub: str, name: str, permission: str) -> tuple[str, str]:
+    """Generates a new API token, stores its hash, and returns (cleartext_token, token_id)."""
+    if permission not in ("read", "write"):
+        raise ValueError("Invalid permission. Must be 'read' or 'write'.")
+    
+    # Prefix helps identify token type easily
+    prefix = "rover_r_" if permission == "read" else "rover_w_"
+    cleartext_token = prefix + secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(cleartext_token.encode("utf-8")).hexdigest()
+    token_id = str(uuid.uuid4())
+    
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                """
+                INSERT INTO api_tokens (id, user_sub, name, token_hash, permission)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (token_id, user_sub, name, token_hash, permission),
+            )
+    return cleartext_token, token_id
+
+
+def get_user_api_tokens(user_sub: str) -> list[dict[str, Any]]:
+    """Retrieves all API tokens for a user (without hashes)."""
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            """
+            SELECT id, user_sub, name, permission, created_at, last_used_at
+            FROM api_tokens
+            WHERE user_sub = ?
+            ORDER BY created_at DESC
+            """,
+            (user_sub,),
+        )
+        return [dict(row) for row in cursor.fetchall()]
+
+
+def revoke_api_token(token_id: str, user_sub: str) -> None:
+    """Deletes an API token belonging to the given user."""
+    with get_db_connection() as conn:
+        with conn:
+            conn.execute(
+                "DELETE FROM api_tokens WHERE id = ? AND user_sub = ?",
+                (token_id, user_sub),
+            )
+
+
+def verify_api_token(token_string: str) -> dict[str, Any] | None:
+    """Verifies a token, updates last_used_at, and returns the token metadata."""
+    if not (token_string.startswith("ro_") or token_string.startswith("rover_r_") or token_string.startswith("rover_w_")):
+        return None
+        
+    token_hash = hashlib.sha256(token_string.encode("utf-8")).hexdigest()
+    
+    with get_db_connection() as conn:
+        with conn:
+            cursor = conn.execute(
+                "SELECT * FROM api_tokens WHERE token_hash = ?", (token_hash,)
+            )
+            row = cursor.fetchone()
+            if row:
+                conn.execute(
+                    "UPDATE api_tokens SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?",
+                    (row["id"],),
+                )
+                return dict(row)
+    return None

@@ -61,6 +61,26 @@ class RequireAuthMiddleware:
         if req.path in ["/login", "/callback"] or req.path.startswith("/static"):
             return
 
+        # Check for API token first
+        auth_header = req.get_header("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ", 1)[1]
+            token_data = scan_queue.verify_api_token(token)
+            if token_data:
+                db_user = scan_queue.get_user(token_data["user_sub"])
+                if db_user:
+                    req.context.user = {
+                        "sub": db_user["sub"],
+                        "email": db_user["email"],
+                        "name": db_user["name"],
+                        "role": db_user["role"],
+                        "product_ids": scan_queue.get_user_product_ids(db_user["sub"]),
+                        "api_token_permission": token_data["permission"],
+                    }
+                    return
+            # If token is provided but invalid, reject immediately
+            raise falcon.HTTPUnauthorized(description="Invalid API token")
+
         session_cookie = req.cookies.get(COOKIE_NAME)
         if not session_cookie:
             raise falcon.HTTPFound("/login")

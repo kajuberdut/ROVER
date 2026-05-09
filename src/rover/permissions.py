@@ -23,6 +23,10 @@ def _get_user(req: falcon.asgi.Request) -> dict[str, Any]:
     user: dict[str, Any] | None = getattr(req.context, "user", None)
     if not user:
         raise falcon.HTTPUnauthorized(description="Authentication required.")
+        
+    if user.get("api_token_permission") == "read" and req.method not in ("GET", "HEAD", "OPTIONS"):
+        raise falcon.HTTPForbidden(description="API token has read-only permission.")
+        
     return user
 
 
