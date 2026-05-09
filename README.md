@@ -4,6 +4,8 @@
 
 A lightweight, Falcon-backed security dashboard for aggregating and reporting multi-repository vulnerability scans across release tags.
 
+![ROVER Import Helm Feature](docs/images/readme/01-import-helm.png)
+
 ## Getting Started
 
 ROVER is Docker-first. All services (the web application, Authelia identity provider, and Nginx reverse proxy) are orchestrated with Docker Compose. The Docker daemon is a hard dependency — it is used both to run the stack and to execute ephemeral Trivy vulnerability scan containers.
