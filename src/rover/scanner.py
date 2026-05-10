@@ -54,16 +54,13 @@ def run_major_component_scan(
         raise Exception("Failed to retrieve EOL data from endoflife.date API")
 
 
-def extract_oci_annotations(image_name: str) -> dict[str, str | None]:
+def resolve_image_hash(image_name: str) -> str | None:
     """
-    Uses skopeo inspect to pull OCI annotations like source and revision.
-    Returns a dictionary of found annotations.
+    Uses skopeo inspect to pull the image digest (e.g., sha256:...).
+    Returns the digest string or None if it fails.
     """
-    logger.info(f"Extracting OCI annotations for image {image_name}")
+    logger.info(f"Resolving image hash for {image_name}")
     try:
-        # TODO(auth): For private registries, pass `--creds user:token` to skopeo
-        # or mount a Docker credential store / authfile via `--authfile <path>`.
-        # Credentials could be stored per-image in the database and injected here.
         url = f"docker://{image_name}"
         res = subprocess.run(  # noqa: S603, S607
             ["skopeo", "inspect", url],
@@ -73,22 +70,17 @@ def extract_oci_annotations(image_name: str) -> dict[str, str | None]:
             check=True,
         )
         data = json.loads(res.stdout)
-        labels = data.get("Labels") or {}
-
-        return {
-            "source": labels.get("org.opencontainers.image.source"),
-            "revision": labels.get("org.opencontainers.image.revision"),
-        }
+        return data.get("Digest")
     except subprocess.TimeoutExpired:
-        logger.warning(f"Timeout extracting OCI annotations for {image_name}")
+        logger.warning(f"Timeout resolving image hash for {image_name}")
     except subprocess.CalledProcessError as e:
         logger.warning(
-            f"Failed to extract OCI annotations for {image_name}: {e.stderr}"
+            f"Failed to resolve image hash for {image_name}: {e.stderr}"
         )
     except Exception as e:
         logger.warning(f"Error parsing Skopeo output for {image_name}: {e}")
 
-    return {"source": None, "revision": None}
+    return None
 
 
 def run_trivy_scan(

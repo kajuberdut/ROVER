@@ -60,8 +60,7 @@ def init_db() -> None:
                 CREATE TABLE IF NOT EXISTS images (
                     id TEXT PRIMARY KEY,
                     name TEXT UNIQUE NOT NULL,
-                    source_repo_url TEXT DEFAULT NULL,
-                    source_git_ref TEXT DEFAULT NULL,
+                    image_hash TEXT DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -169,6 +168,8 @@ def init_db() -> None:
                     metadata_json TEXT DEFAULT '{}',
                     image_tags TEXT DEFAULT '[]',
                     ci_job_url TEXT DEFAULT NULL,
+                    created_by_user_sub TEXT DEFAULT NULL,
+                    created_by_token_id TEXT DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -543,14 +544,12 @@ def get_image_by_name(image_name: str) -> dict[str, Any] | None:
     return None
 
 
-def set_image_source(
-    image_id: str, source_repo_url: str | None, source_git_ref: str | None = None
-) -> None:
+def update_image_hash(image_id: str, image_hash: str) -> None:
     with get_db_connection() as conn:
         with conn:
             conn.execute(
-                "UPDATE images SET source_repo_url = ?, source_git_ref = ? WHERE id = ?",
-                (source_repo_url, source_git_ref, image_id),
+                "UPDATE images SET image_hash = ? WHERE id = ?",
+                (image_hash, image_id),
             )
 
 
@@ -820,11 +819,12 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         ls.results_json,
         ls.resolved_commit,
         ls.resolved_tags,
-        i.source_repo_url,
-        i.source_git_ref as image_source_git_ref
+        cim.repo_uri as source_repo_url,
+        cim.commit_hash as image_source_git_ref
     FROM release_assets pa
     LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
     LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
+    LEFT JOIN ci_image_metadata cim ON pa.asset_type = 'image' AND i.image_hash = cim.image_hash
     LEFT JOIN major_components e ON pa.asset_type = 'major_component' AND pa.asset_id = e.id
     LEFT JOIN LatestScans ls ON 
         (ls.rn = 1) AND 
@@ -924,9 +924,11 @@ def add_ci_image_metadata(
     commit_hash: str,
     metadata_dict: dict[str, Any],
     image_tags: list[str] = None,
-    ci_job_url: str = None
+    ci_job_url: str = None,
+    user_sub: str = None,
+    token_id: str = None
 ) -> bool:
-    """Inserts CI image metadata into the database. Returns True on success, False if hash exists."""
+    """Inserts CI image metadata into the database. Returns True on success, False if hash exists and conflicts."""
     metadata_json = json.dumps(metadata_dict)
     tags_json = json.dumps(image_tags or [])
     
@@ -936,10 +938,10 @@ def add_ci_image_metadata(
                 conn.execute(
                     """
                     INSERT INTO ci_image_metadata 
-                    (image_hash, repo_uri, commit_hash, metadata_json, image_tags, ci_job_url)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (image_hash, repo_uri, commit_hash, metadata_json, image_tags, ci_job_url, created_by_user_sub, created_by_token_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (image_hash, repo_uri, commit_hash, metadata_json, tags_json, ci_job_url),
+                    (image_hash, repo_uri, commit_hash, metadata_json, tags_json, ci_job_url, user_sub, token_id),
                 )
         return True
     except sqlite3.IntegrityError:
@@ -954,10 +956,23 @@ def add_ci_image_metadata(
                     conn.execute(
                         """
                         UPDATE ci_image_metadata 
-                        SET metadata_json = ?, image_tags = ?, ci_job_url = ?
+                        SET metadata_json = ?, image_tags = ?, ci_job_url = ?, created_by_user_sub = ?, created_by_token_id = ?
                         WHERE image_hash = ?
                         """,
-                        (metadata_json, tags_json, ci_job_url, image_hash)
+                        (metadata_json, tags_json, ci_job_url, user_sub, token_id, image_hash)
                     )
                 return True
         return False
+
+
+def get_ci_image_metadata(image_hash: str) -> dict[str, Any] | None:
+    """Retrieves CI metadata for a given image hash."""
+    with get_db_connection() as conn:
+        cursor = conn.execute(
+            "SELECT * FROM ci_image_metadata WHERE image_hash = ?",
+            (image_hash,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return dict(row)
+    return None

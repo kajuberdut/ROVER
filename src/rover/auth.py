@@ -76,6 +76,7 @@ class RequireAuthMiddleware:
                         "role": db_user["role"],
                         "product_ids": scan_queue.get_user_product_ids(db_user["sub"]),
                         "api_token_permission": token_data["permission"],
+                        "api_token_id": token_data["id"],
                     }
                     return
             # If token is provided but invalid, reject immediately

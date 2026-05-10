@@ -37,30 +37,37 @@ async def process_job(
             )
         else:
             if target_type == "image":
-                # Check for OCI annotations first
                 from rover.scan_queue import (
                     add_repository,
                     create_semgrep_job,
                     get_image_by_name,
-                    set_image_source,
+                    get_ci_image_metadata,
+                    update_image_hash,
                 )
 
                 image_record = get_image_by_name(target_url)
-                if image_record and not image_record.get("source_repo_url"):
-                    annotations = await asyncio.to_thread(
-                        scanner.extract_oci_annotations, target_url
-                    )
-                    source = annotations.get("source")
-                    revision = annotations.get("revision")
-
-                    if source:
-                        logger.info(
-                            f"Discovered OCI annotations for {target_url} -> {source} (ref: {revision})"
+                if image_record:
+                    image_hash = image_record.get("image_hash")
+                    if not image_hash:
+                        image_hash = await asyncio.to_thread(
+                            scanner.resolve_image_hash, target_url
                         )
-                        set_image_source(image_record["id"], source, revision)
-                        # Automatically queue a Semgrep scan
-                        add_repository(source)
-                        create_semgrep_job(source, git_ref=revision)
+                        if image_hash:
+                            update_image_hash(image_record["id"], image_hash)
+                            logger.info(f"Resolved image hash for {target_url}: {image_hash}")
+                    
+                    if image_hash:
+                        # Check CI metadata to see if we should run Semgrep
+                        ci_metadata = get_ci_image_metadata(image_hash)
+                        if ci_metadata and ci_metadata.get("repo_uri"):
+                            source = ci_metadata["repo_uri"]
+                            revision = ci_metadata.get("commit_hash")
+                            logger.info(
+                                f"Found CI metadata for {target_url} -> {source} (ref: {revision})"
+                            )
+                            # Automatically queue a Semgrep scan
+                            add_repository(source)
+                            create_semgrep_job(source, git_ref=revision)
 
             # Run the actual Trivy scan using testcontainers
             # Since this is a blocking I/O operation (Docker), wrap it in to_thread so we don't

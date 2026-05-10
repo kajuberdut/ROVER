@@ -345,7 +345,24 @@ class ImageLinkRepoResource:
             raise falcon.HTTPNotFound(description="Image not found")
 
         if source_repo_url:
-            scan_queue.set_image_source(image_id, source_repo_url, source_git_ref)
+            image_hash = image.get("image_hash")
+            if not image_hash:
+                import asyncio
+                from rover import scanner
+                image_hash = await asyncio.to_thread(scanner.resolve_image_hash, image["name"])
+                if image_hash:
+                    scan_queue.update_image_hash(image_id, image_hash)
+                else:
+                    raise falcon.HTTPInternalServerError(description="Could not resolve image hash for this image.")
+                    
+            scan_queue.add_ci_image_metadata(
+                image_hash=image_hash,
+                repo_uri=source_repo_url,
+                commit_hash=source_git_ref or "",
+                metadata_dict={"source": "manual_link"},
+                user_sub=user["sub"]
+            )
+
             scan_queue.add_repository(source_repo_url)
             scan_queue.create_semgrep_job(
                 source_repo_url, git_ref=source_git_ref or None
@@ -966,7 +983,9 @@ class CiImageMetadataResource:
             commit_hash=commit_hash,
             metadata_dict=metadata,
             image_tags=image_tags,
-            ci_job_url=ci_job_url
+            ci_job_url=ci_job_url,
+            user_sub=req.context.user.get("sub"),
+            token_id=req.context.user.get("api_token_id")
         )
 
         if not success:
