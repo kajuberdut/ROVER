@@ -161,6 +161,17 @@ def init_db() -> None:
                     last_used_at TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS ci_image_metadata (
+                    image_hash TEXT PRIMARY KEY,
+                    repo_uri TEXT NOT NULL,
+                    commit_hash TEXT NOT NULL,
+                    metadata_json TEXT DEFAULT '{}',
+                    image_tags TEXT DEFAULT '[]',
+                    ci_job_url TEXT DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
 
 init_db()
@@ -901,3 +912,52 @@ def verify_api_token(token_string: str) -> dict[str, Any] | None:
                 )
                 return dict(row)
     return None
+
+
+# ── CI Pipeline Helpers ──────────────────────────────────────────────────────
+
+import json
+
+def add_ci_image_metadata(
+    image_hash: str,
+    repo_uri: str,
+    commit_hash: str,
+    metadata_dict: dict[str, Any],
+    image_tags: list[str] = None,
+    ci_job_url: str = None
+) -> bool:
+    """Inserts CI image metadata into the database. Returns True on success, False if hash exists."""
+    metadata_json = json.dumps(metadata_dict)
+    tags_json = json.dumps(image_tags or [])
+    
+    try:
+        with get_db_connection() as conn:
+            with conn:
+                conn.execute(
+                    """
+                    INSERT INTO ci_image_metadata 
+                    (image_hash, repo_uri, commit_hash, metadata_json, image_tags, ci_job_url)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (image_hash, repo_uri, commit_hash, metadata_json, tags_json, ci_job_url),
+                )
+        return True
+    except sqlite3.IntegrityError:
+        with get_db_connection() as conn:
+            cursor = conn.execute(
+                "SELECT repo_uri, commit_hash FROM ci_image_metadata WHERE image_hash = ?",
+                (image_hash,)
+            )
+            existing = cursor.fetchone()
+            if existing and existing["repo_uri"] == repo_uri and existing["commit_hash"] == commit_hash:
+                with conn:
+                    conn.execute(
+                        """
+                        UPDATE ci_image_metadata 
+                        SET metadata_json = ?, image_tags = ?, ci_job_url = ?
+                        WHERE image_hash = ?
+                        """,
+                        (metadata_json, tags_json, ci_job_url, image_hash)
+                    )
+                return True
+        return False

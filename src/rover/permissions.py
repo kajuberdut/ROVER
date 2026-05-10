@@ -108,3 +108,17 @@ async def require_product_read(
     req: falcon.asgi.Request, resp: falcon.asgi.Response, resource: Any, params: Any
 ) -> None:
     _check_product_role(req, params, {"admin", "read_write", "read"})
+
+
+async def require_api_write_token(
+    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource: Any, params: Any
+) -> None:
+    """Explicitly require authentication via an API token that has write permissions."""
+    user = _get_user(req)
+    
+    # Check if this user was authenticated via an API token
+    if "api_token_permission" not in user:
+        raise falcon.HTTPForbidden(description="This endpoint requires a valid API token.")
+        
+    if user["api_token_permission"] != "write":
+        raise falcon.HTTPForbidden(description="This endpoint requires an API token with write permissions.")
