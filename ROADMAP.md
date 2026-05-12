@@ -506,31 +506,30 @@ Each scanner lives in its own module under `rover/plugins/` (e.g. `trivy.py`, `s
 
 ---
 
-### A2 · Route Decomposition (app.py)
+### A2 · Route Decomposition (app.py) ✅
 
-**Current state:** `app.py` is 1,065 lines containing ~25 Falcon resource classes, Jinja2 configuration, utility filters, business logic, and `subprocess` calls. Everything from user permission checks to Helm ingestion to queue management flows through this single file.
-
-**Target state:** Split into a `rover/routes/` package. Each module handles one logical domain:
+**Delivered.** `app.py` has been split into `src/rover/routes/`. `app.py` is now 27 lines.
 
 ```
 rover/
   routes/
-    __init__.py       # assembles the Falcon app, registers all routes
-    products.py       # ProductResource, ProductDashboardResource, ProductDeleteResource
-    releases.py       # ReleaseResource, ReleaseDashboardResource, ReleaseScanResource, …
-    assets.py         # ReleaseAssetResource, ReleaseAssetDetailResource, …
-    reports.py        # ReportResource, QueueTableResource
-    admin.py          # UserAdminResource, ConfigResource
-    api.py            # All /api/v1/… JSON endpoints (Milestone 9.2, 15)
+    __init__.py       # create_app() — the only place add_route() is called
+    _env.py           # Jinja2 environment, humanize_time, short_url filters
+    dashboard.py      # DashboardResource, QueueTableResource
+    products.py       # ProductResource, ProductDashboardResource, ProductDeleteResource, ProductPermissionsResource
+    releases.py       # ReleaseResource, ReleaseDashboardResource, ReleaseScanResource, ReleaseEolResource, ReleaseDeleteResource
+    assets.py         # RepositoryResource, ImageResource, MajorComponentResource, ReleaseAsset*, HTMX partials
+    reports.py        # ScanResource, ReportResource
+    admin.py          # ConfigResource, AdminUsersResource
+    api.py            # CiImageMetadataResource — seed for /api/v1/… endpoints (Milestones 9.2, 15)
     helm.py           # HelmRepoChartsResource, ReleaseHelmResource
-    refs.py           # RepoRefsResource, ImageRefsResource, RemoteRepoRefsResource, …
+    refs.py           # RepoRefsResource, ImageRefsResource, RemoteRepo/ImageRefsResource, ImageLinkRepoResource
+    settings.py       # ApiTokenPageResource, ApiTokenCreateResource, ApiTokenRevokeResource
 ```
 
-`app.py` becomes a thin assembler: create the Falcon app, register middleware, import and mount all route packages.
-
-**Benefits:**
-- Files remain under ~200 lines — readable in one sitting
-- New API endpoints (Milestones 9, 15) have a clear, dedicated home
+**Benefits delivered:**
+- Files remain under ~200 lines — readable in one sitting (`refs.py` is 251 due to unavoidable subprocess boilerplate)
+- New API endpoints (Milestones 9, 15) have a clear, dedicated home in `api.py`
 - Parallel contributors can work in different route modules without constant merge conflicts
 
 ---
