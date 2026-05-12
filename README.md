@@ -4,6 +4,8 @@
 
 A lightweight, Falcon-backed security dashboard for aggregating and reporting multi-repository vulnerability scans across release tags.
 
+Planned features are tracked in [ROADMAP.md](ROADMAP.md).
+
 ![ROVER Import Helm Feature](docs/images/readme/01-import-helm.png)
 
 ## Getting Started
@@ -76,21 +78,23 @@ New users are assigned the `viewer` role by default on first login.
 
 ---
 
-## Disclaimer of Affiliation and Third-Party Trademarks
+## Should I Use ROVER?
 
-Trivy and Semgrep are trademarks of their respective owners. Any reference to these tools within the R.O.V.E.R project or by Kajuberdut is strictly for informational and compatibility purposes. 
+ROVER is a good fit if your team self-hosts tooling, tracks multiple products and releases, and wants a single place to own vulnerability data without per-seat licensing costs.
 
-No association, sponsorship, endorsement, or affiliation exists between R.O.V.E.R (or Kajuberdut) and the owners of these trademarks. The use of these names does not imply any binding agreement or official relationship. 
+It may not be the right fit if you need a managed service, an SLA, or features like runtime threat detection and cloud posture management.
 
-Users of R.O.V.E.R are solely responsible for reviewing and complying with the respective licenses, terms of service, and usage policies of Trivy, Semgrep, and any other third-party software referenced or utilized by this project.
+See [VALUE.md](VALUE.md) for a full breakdown of strengths, tradeoffs, and a comparison table against commercial alternatives.
 
 ---
 
-### Security & Supply Chain Defense
+## Disclaimer of Affiliation and Third-Party Trademarks
 
-ROVER is specifically hardened against supply chain attacks, notably avoiding vulnerabilities like the [Trivy supply chain incident](https://www.aquasec.com/blog/trivy-supply-chain-attack-what-you-need-to-know/).
+Trivy, Semgrep, and Snyk are trademarks of their respective owners. Any reference to these tools within the R.O.V.E.R project or by Kajuberdut is strictly for informational and compatibility purposes. 
 
-To protect against compromised mutable version tags (e.g., `:latest` or `v0.69.4`), ROVER deliberately pins all ephemeral scanner containers (Trivy and Semgrep) to immutable `sha256` digests. This ensures the Docker daemon strictly validates the cryptographic hash of the image, mathematically preventing the execution of compromised or tampered images if a registry tag is hijacked.
+No association, sponsorship, endorsement, or affiliation exists between R.O.V.E.R (or Kajuberdut) and the owners of these trademarks. The use of these names does not imply any binding agreement or official relationship. 
+
+Users of R.O.V.E.R are solely responsible for reviewing and complying with the respective licenses, terms of service, and usage policies of Trivy, Semgrep, Snyk, and any other third-party software referenced or utilized by this project.
 
 ---
 

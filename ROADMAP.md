@@ -4,6 +4,8 @@
 
 This roadmap covers the planned feature set for R.O.V.E.R (Release Oriented Vulnerability Evaluation & Reporting). Features are grouped into thematic milestones. Items marked with a dependency note cannot be started until their prerequisite milestone is complete.
 
+Milestones 1–9 cover the originally scoped feature set. Milestones 10–13 are **MVP gaps** — features that are difficult to omit if ROVER is to be used as a day-to-day operational tool. Milestones 14–16 are **high-value additions** planned for later versions.
+
 ---
 
 ## Milestone 1 — Credential Management
@@ -214,25 +216,246 @@ A single structured JSON document per release that consolidates:
 
 ---
 
+## Milestone 10 — Vulnerability Triage & Finding Status
+
+Allow teams to record a disposition for individual findings so that known, accepted, or in-progress issues do not permanently pollute the dashboard.
+
+### 10.1 · Finding Status Model
+
+- Each finding (CVE ID or SAST rule match) can be assigned one of the following statuses:
+  - `open` (default)
+  - `in_remediation` — fix is in progress
+  - `accepted_risk` — risk is acknowledged and accepted
+  - `false_positive` — finding does not apply
+  - `wont_fix` — will not be addressed
+- Status is set per-finding, per-release (a CVE may be `accepted_risk` in one release and `open` in another)
+- Status changes are recorded with the acting user and a required free-text rationale
+- Accepted-risk and false-positive statuses support an optional expiry date; expired acceptances revert to `open` and re-trigger notifications
+
+**Dependencies:** None  
+**Enables:** 11 (policy evaluation should exclude triaged findings), 6.2 ("new vulnerability" notifications should ignore triaged findings)
+
+### 10.2 · Triage UI
+
+- Inline status control on the report page per finding row
+- Triage history panel showing the audit trail of status changes for a finding
+- Bulk triage: select multiple findings and apply a status in one action
+- Report page filters: hide/show findings by status
+
+**Dependencies:** 10.1
+
+---
+
+## Milestone 11 — Pass/Fail Policy Rules
+
+Define per-product or per-release security gates that give ROVER teeth in a release workflow.
+
+### 11.1 · Policy Definition
+
+- Policies are defined at the product level (applies to all releases) with optional per-release overrides
+- Policy rules are threshold-based by severity and scanner, for example:
+  - `CRITICAL count == 0` (block on any critical)
+  - `HIGH count <= 5`
+  - `SAST HIGH count == 0`
+- Only findings in `open` or `in_remediation` status count toward thresholds (triaged findings are excluded)
+- Multiple rules are ANDed — all must pass for the release to be considered green
+
+**Dependencies:** 10.1 (triage status affects pass/fail evaluation)
+
+### 11.2 · Policy Evaluation & Status Display
+
+- Policy is evaluated after each scan completes and the result stored (`pass` / `fail` / `no_policy`)
+- Release dashboard shows a prominent pass/fail badge per release
+- Cross-product health dashboard (Milestone 12) uses this status as its primary signal
+- JSON report (Milestone 9) includes `"policy_status"` and the failing rule(s)
+
+**Dependencies:** 11.1, 9.1 (for report inclusion)
+
+---
+
+## Milestone 12 — Cross-Product Health Dashboard
+
+A top-level status board giving an at-a-glance view of security posture across all products.
+
+### 12.1 · Health Overview Page
+
+- New `/dashboard` landing page (replaces or augments the current product list)
+- Each product shown as a card with:
+  - Latest release name and scan date
+  - Policy status badge (✅ Pass / ❌ Fail / ⚠️ No Policy)
+  - Severity pill counts (Critical / High / Medium / Low) for the latest release
+  - Trend indicator: arrow up/down based on finding count change since the prior scan
+- Cards are sortable by policy status and severity counts
+- Clicking a card navigates to the existing product dashboard
+
+**Dependencies:** 11.2 (policy badges), 14 (trend arrows, but trend arrows can be added once 14 is done)
+
+### 12.2 · Summary Metrics Bar
+
+- Aggregate counts across all products: total open criticals, total products failing policy, total products with no recent scan (stale > 7 days)
+- Intended as a quick executive summary row at the top of the overview page
+
+**Dependencies:** 12.1
+
+---
+
+## Milestone 13 — Outbound Webhooks
+
+Deliver notifications to Slack, Microsoft Teams, PagerDuty, or any generic HTTP endpoint in addition to email.
+
+### 13.1 · Webhook Profile Configuration
+
+- Admin UI to define named webhook profiles (URL, HTTP method, optional secret for HMAC signature, payload template)
+- Payload is a JSON body; a default template is provided that mirrors the email notification content
+- Webhook URL stored in the Credential Vault (type: `webhook_url`)
+
+**Dependencies:** 1.1
+
+### 13.2 · Webhook Delivery
+
+- Webhook profiles are assignable per-product alongside (or instead of) SMTP notification rules
+- Worker POSTs the payload after each scan using `urllib.request` from the standard library (no additional HTTP dependency)
+- Failed deliveries (non-2xx response or timeout) are logged; same single-attempt policy as email
+- Pre-built payload templates for Slack Block Kit and Teams Adaptive Cards provided out of the box
+
+**Dependencies:** 13.1, 6.2 (shares the same notification rule trigger logic)
+
+---
+
+## Milestone 14 — Vulnerability Trend Charts
+
+Visualize how a release's security posture changes over time across successive scans.
+
+### 14.1 · Scan History Storage
+
+- Ensure that per-scan severity summary counts are persisted in a `scan_history` table keyed by (release, asset, scan_date)
+- Historical records are retained even after a newer scan completes (current behaviour may overwrite; this milestone formalises the retention model)
+
+**Dependencies:** None
+
+### 14.2 · Trend Charts UI
+
+- Line chart on the release dashboard showing Critical / High / Medium / Low counts over time per asset
+- Rendered with a lightweight, dependency-free SVG or Canvas chart (no charting library required for a simple line chart)
+- Hover tooltip shows scan date and exact counts
+- Time range selector: last 7 scans / last 30 days / all time
+
+**Dependencies:** 14.1
+
+---
+
+## Milestone 15 — CI/CD Integration API
+
+Enable pipelines to use ROVER as a hard security gate: trigger a scan, poll for completion, and receive a pass/fail verdict.
+
+### 15.1 · Scan Trigger Endpoint
+
+- `POST /api/v1/releases/{release_id}/scan` — enqueues a full scan for all assets in the release
+- Returns `{ "job_id": "...", "status": "queued" }` immediately
+- Authenticated via session cookie or API token (same mechanism as Milestone 9.2)
+
+**Dependencies:** 9.2 (API token auth infrastructure)
+
+### 15.2 · Job Status Endpoint
+
+- `GET /api/v1/jobs/{job_id}/status` — returns current job status (`queued`, `running`, `complete`, `failed`)
+- When complete, includes the policy evaluation result from Milestone 11 so a pipeline can branch on pass/fail without a second request
+- Clients poll this endpoint; no webhook/push model is required at this tier
+
+**Dependencies:** 15.1, 11.2 (policy result in response)
+
+### 15.3 · CLI Helper (Optional)
+
+- A thin shell script or Python CLI (`rover-scan`) that wraps the two endpoints above with a polling loop and exits non-zero on policy failure
+- Designed for easy drop-in to GitHub Actions, GitLab CI, and Jenkins pipelines
+- Documented with copy-paste pipeline snippets in `docs/ci-integration.md`
+
+**Dependencies:** 15.2
+
+---
+
+## Milestone 16 — License Compliance
+
+Surface OSS license information already present in Trivy scan output and flag licenses that conflict with the product's usage context.
+
+### 16.1 · License Data Extraction
+
+- Trivy's `--format json` output already includes per-package license identifiers (SPDX); parse and persist these into a `license_findings` table alongside CVE findings
+- No additional scanner or container is required
+
+**Dependencies:** None (data is already produced by the existing Trivy scan)
+
+### 16.2 · License Policy Configuration
+
+- Admin UI to define a license allowlist and denylist (e.g., deny `GPL-3.0`, `AGPL-3.0`; warn on `LGPL-2.1`; allow everything else)
+- Policies are global with optional per-product overrides
+
+### 16.3 · License Report View
+
+- New **Licenses** tab on the report page listing each package, its detected license, and its policy disposition (allowed / warned / denied)
+- License violations count toward pass/fail policy evaluation (Milestone 11) if configured to do so
+- License summary included in the JSON report (Milestone 9) under each asset entry
+
+**Dependencies:** 16.1, 16.2, 11.1 (for policy integration)
+
+---
+
+## Milestone 17 — Audit Log
+
+Provide a tamper-evident record of all security-relevant actions taken within ROVER for compliance evidence.
+
+### 17.1 · Audit Event Recording
+
+- Append-only `audit_log` table: `(id, timestamp, actor_user, action, entity_type, entity_id, detail_json)`
+- Events recorded include:
+  - Scan triggered / completed / failed
+  - Finding status changed (triage actions)
+  - Policy created / modified / deleted
+  - Credential created / replaced / deleted
+  - User role changed
+  - Notification rule changed
+  - Release created / deleted
+- Table is append-only by convention; no UI or API delete operation is exposed
+
+**Dependencies:** None
+
+### 17.2 · Audit Log UI
+
+- Admin-only `/admin/audit` page listing recent events with filtering by actor, action type, and date range
+- Included in the JSON report (Milestone 9) as a `"audit_trail"` array scoped to the release (events touching that release's entities)
+
+**Dependencies:** 17.1
+
+---
+
 ## Dependency Map
 
 ```mermaid
 graph TD
-    M1["Milestone 1\nCredential Management"]
-    M2["Milestone 2\nSnyk Integration"]
-    M3["Milestone 3\nPrivate Git Repos"]
-    M4["Milestone 4\nPrivate Registries"]
-    M5["Milestone 5\nSemgrep Pro"]
-    M6["Milestone 6\nNotifications"]
-    M7["Milestone 7\nScheduled Scans"]
-    M8["Milestone 8\nHelm Polling"]
-    M9["Milestone 9\nRelease Reports & API"]
+    M1["M1 · Credential Management"]
+    M2["M2 · Snyk Integration"]
+    M3["M3 · Private Git Repos"]
+    M4["M4 · Private Registries"]
+    M5["M5 · Semgrep Pro"]
+    M6["M6 · Notifications"]
+    M7["M7 · Scheduled Scans"]
+    M8["M8 · Helm Polling"]
+    M9["M9 · Release Reports & API"]
+    M10["M10 · Vulnerability Triage"]
+    M11["M11 · Pass/Fail Policy"]
+    M12["M12 · Health Dashboard"]
+    M13["M13 · Outbound Webhooks"]
+    M14["M14 · Trend Charts"]
+    M15["M15 · CI/CD API"]
+    M16["M16 · License Compliance"]
+    M17["M17 · Audit Log"]
 
     M1 --> M2
     M1 --> M3
     M1 --> M4
     M1 --> M5
     M1 --> M6
+    M1 --> M13
     M7 --> M8
     M3 --> M8
     M4 --> M8
@@ -240,7 +463,170 @@ graph TD
     M3 --> M9
     M4 --> M9
     M5 --> M9
+    M10 --> M11
+    M11 --> M12
+    M14 --> M12
+    M9 --> M15
+    M11 --> M15
+    M6 --> M13
+    M11 --> M16
+    M9 --> M17
 ```
+
+---
+
+## Architecture
+
+This section documents intended architectural direction for the ROVER codebase. These are not feature milestones but engineering standards: the patterns and structural changes that keep the codebase readable, maintainable, and safe to extend as the feature surface grows.
+
+---
+
+### A1 · Scanner Plugin Interface
+
+**Current state:** `scanner.py` contains four unrelated free functions — `run_trivy_scan`, `run_semgrep_scan`, `run_major_component_scan`, and the Helm family — with no shared contract. `worker.py` dispatches to them via hardcoded `if target_type == "..."` branches. Adding Snyk (Milestones 2.2 and 2.3) will require editing both files in tandem and growing the dispatch tree further.
+
+**Target state:** Define a `ScannerPlugin` Protocol in a new `rover/plugins/base.py`:
+
+```python
+class ScannerPlugin(Protocol):
+    name: str                          # e.g. "trivy", "semgrep", "snyk_oss"
+    supported_asset_types: set[str]    # e.g. {"repo", "image"}
+
+    def can_handle(self, job: ScanJob) -> bool: ...
+    def run(self, job: ScanJob) -> ScanResult: ...
+    def cache_key(self, job: ScanJob) -> str | None: ...
+```
+
+Each scanner lives in its own module under `rover/plugins/` (e.g. `trivy.py`, `semgrep.py`, `snyk.py`). A plugin registry is populated at startup; `worker.py` iterates the registry to find the right plugin for each job rather than branching on strings.
+
+**Benefits:**
+- Adding Snyk or any future scanner requires creating one new file and registering it — no changes to `worker.py`
+- Each plugin is independently testable with a mock `ScanJob`
+- Scanner-specific auth injection (Milestone 1) is encapsulated in the plugin, not scattered across `worker.py`
+
+---
+
+### A2 · Route Decomposition (app.py)
+
+**Current state:** `app.py` is 1,065 lines containing ~25 Falcon resource classes, Jinja2 configuration, utility filters, business logic, and `subprocess` calls. Everything from user permission checks to Helm ingestion to queue management flows through this single file.
+
+**Target state:** Split into a `rover/routes/` package. Each module handles one logical domain:
+
+```
+rover/
+  routes/
+    __init__.py       # assembles the Falcon app, registers all routes
+    products.py       # ProductResource, ProductDashboardResource, ProductDeleteResource
+    releases.py       # ReleaseResource, ReleaseDashboardResource, ReleaseScanResource, …
+    assets.py         # ReleaseAssetResource, ReleaseAssetDetailResource, …
+    reports.py        # ReportResource, QueueTableResource
+    admin.py          # UserAdminResource, ConfigResource
+    api.py            # All /api/v1/… JSON endpoints (Milestone 9.2, 15)
+    helm.py           # HelmRepoChartsResource, ReleaseHelmResource
+    refs.py           # RepoRefsResource, ImageRefsResource, RemoteRepoRefsResource, …
+```
+
+`app.py` becomes a thin assembler: create the Falcon app, register middleware, import and mount all route packages.
+
+**Benefits:**
+- Files remain under ~200 lines — readable in one sitting
+- New API endpoints (Milestones 9, 15) have a clear, dedicated home
+- Parallel contributors can work in different route modules without constant merge conflicts
+
+---
+
+### A3 · Database Layer Decomposition (scan_queue.py)
+
+**Current state:** `scan_queue.py` is 979 lines. It contains: the DB schema (`init_db`), the connection context manager, job queue logic, RBAC helpers, API token helpers, product/release/asset CRUD, image/repo/component CRUD, EOL cache, and CI metadata. A single import of `scan_queue` grants access to everything.
+
+**Target state:** Split into a `rover/db/` package by responsibility:
+
+```
+rover/
+  db/
+    __init__.py       # re-exports the connection helper and init_db
+    connection.py     # get_db_connection, DB_PATH constant
+    schema.py         # init_db() — schema creation only; apply_migrations()
+    jobs.py           # scan_jobs and semgrep_jobs queue helpers
+    products.py       # products, releases, release_assets CRUD
+    assets.py         # repositories, images, major_components CRUD
+    users.py          # users, product_users RBAC helpers
+    tokens.py         # api_tokens helpers
+    ci_metadata.py    # ci_image_metadata helpers
+    eol_cache.py      # eol_cache helpers
+```
+
+**Benefits:**
+- Each file is focused and short; finding the function you need is trivial
+- DB logic can be unit-tested in isolation from HTTP handling
+- Prepares for a formal migration system (see A4) by isolating schema from data access
+
+---
+
+### A4 · Schema Migrations
+
+**Current state:** `init_db()` uses `CREATE TABLE IF NOT EXISTS` exclusively. This is safe for first-run but provides no path for adding or altering columns in production databases. There is already a `TODO` comment in `scan_queue.py` acknowledging this gap.
+
+**Target state:** Adopt a lightweight, stdlib-only migration runner:
+
+- Migrations are versioned SQL scripts in `rover/db/migrations/` (e.g. `0001_initial.sql`, `0002_add_audit_log.sql`)
+- A `migrations` table tracks applied versions
+- `apply_migrations()` runs at startup, applying any scripts not yet recorded — idempotent and safe to call on every boot
+- No external dependency required (pure `sqlite3`)
+
+This is a prerequisite for any milestone that adds new tables (Milestones 10, 11, 14, 16, 17 all require schema changes) and removes the risk of silent data corruption from missing columns in production.
+
+**Benefits:**
+- Schema changes are version-controlled, reviewable, and reversible
+- Production upgrades are automated and auditable
+- Eliminates the current pattern of bolting new columns onto `init_db()` and hoping they apply
+
+---
+
+### A5 · Typed Domain Models
+
+**Current state:** All database results are returned as `dict[str, Any]`. Callers access fields with string keys (e.g. `job["target_url"]`, `asset["asset_type"]`). There is no enforcement that a required field exists, no IDE autocomplete, and `mypy` cannot catch field-name typos.
+
+**Target state:** Define stdlib `dataclasses` for the core domain objects:
+
+```python
+@dataclass
+class ScanJob:
+    id: str
+    target_url: str
+    target_type: str
+    status: str
+    git_ref: str | None
+    results_json: str | None
+    resolved_commit: str | None
+    created_at: str
+    # …
+```
+
+DB query functions return typed objects instead of raw dicts. The Plugin interface (A1) operates on `ScanJob` and `ScanResult` dataclasses, not bare dicts.
+
+**Benefits:**
+- `mypy` catches field-name errors at type-check time rather than at runtime
+- IDE provides full autocomplete on domain objects
+- Plugin and route code is self-documenting — the type signature tells you exactly what data is available
+- Zero new dependencies (stdlib `dataclasses` only)
+
+---
+
+### A6 · Structured Logging
+
+**Current state:** Logging uses f-strings with inconsistent fields. There is no request ID, no structured context, and log lines from `worker.py`, `scanner.py`, and `app.py` are difficult to correlate in a log aggregator.
+
+**Target state:** Adopt a structured logging approach using the stdlib `logging` module with a JSON formatter:
+
+- A `JsonFormatter` (stdlib-only, ~20 lines) emits each log record as a single JSON object with standard fields: `timestamp`, `level`, `logger`, `message`, plus optional context keys (`job_id`, `asset_type`, `target_url`, `user_sub`)
+- Scanners and workers inject contextual fields via `logging.LoggerAdapter` or `extra={}` kwargs — no change to the logging call sites beyond adding `extra` dicts
+- Request handlers log a structured `access` record with `method`, `path`, `status`, and `duration_ms`
+
+**Benefits:**
+- Log lines are machine-parseable by Loki, Datadog, CloudWatch, or a simple `jq` pipeline without fragile regex
+- `job_id` appears on every log line emitted during a scan, making it trivial to pull the full trace for a failed job
+- No external dependency
 
 ---
 
