@@ -40,7 +40,14 @@ def get_jwks() -> dict[str, object]:
     global _cached_jwks
     if not _cached_jwks:
         try:
-            resp = requests.get(OIDC_JWKS_URI, timeout=5)
+            resp = requests.get(
+                OIDC_JWKS_URI,
+                timeout=5,
+                headers={
+                    "X-Forwarded-Proto": "https",
+                    "X-Forwarded-Host": "auth.rover.local",
+                },
+            )
             resp.raise_for_status()
             _cached_jwks = dict(resp.json())
         except Exception as e:
@@ -176,6 +183,10 @@ class CallbackResource:
                 OIDC_TOKEN_ENDPOINT,
                 data=token_data,
                 auth=(OIDC_CLIENT_ID, OIDC_CLIENT_SECRET),
+                headers={
+                    "X-Forwarded-Proto": "https",
+                    "X-Forwarded-Host": "auth.rover.local",
+                },
                 timeout=5,
             )
             token_resp.raise_for_status()
@@ -229,7 +240,11 @@ class CallbackResource:
                 ui_resp = await asyncio.to_thread(
                     requests.get,
                     "http://authelia:9091/api/oidc/userinfo",
-                    headers={"Authorization": f"Bearer {access_token}"},
+                    headers={
+                        "Authorization": f"Bearer {access_token}",
+                        "X-Forwarded-Proto": "https",
+                        "X-Forwarded-Host": "auth.rover.local",
+                    },
                     timeout=5,
                 )
                 if ui_resp.ok:
@@ -281,5 +296,5 @@ class LogoutResource:
         # Unset local session
         resp.unset_cookie(COOKIE_NAME)
         # Redirect to Authelia's logout endpoint
-        url = "https://auth.rover.local/logout"
+        url = "https://auth.rover.local/logout?rd=https://rover.local"
         raise falcon.HTTPFound(url)
