@@ -1,0 +1,60 @@
+/* ROVER Custom Theme for Authelia */
+:root {
+    --pico-primary: #1095c1;
+    --pico-primary-hover: #08769b;
+    --pico-font-family: system-ui, -apple-system, "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif";
+    --pico-background: #ffffff;
+    --pico-color: #415462;
+    --pico-border-radius: 0.25rem;
+}
+
+body {
+    font-family: var(--pico-font-family) !important;
+    background-color: var(--pico-background) !important;
+    color: var(--pico-color) !important;
+}
+
+/* Override Material UI buttons to look like Pico */
+.MuiButton-containedPrimary,
+button[class*="MuiButton-containedPrimary"] {
+    background-color: var(--pico-primary) !important;
+    border-radius: var(--pico-border-radius) !important;
+    box-shadow: none !important;
+    text-transform: none !important;
+    font-weight: 600 !important;
+    font-family: var(--pico-font-family) !important;
+}
+
+.MuiButton-containedPrimary:hover,
+button[class*="MuiButton-containedPrimary"]:hover {
+    background-color: var(--pico-primary-hover) !important;
+    box-shadow: none !important;
+}
+
+/* Authelia specific elements */
+.MuiTypography-root,
+.MuiInputBase-input {
+    font-family: var(--pico-font-family) !important;
+}
+
+/* Links */
+a.MuiTypography-colorPrimary,
+.MuiLink-root {
+    color: var(--pico-primary) !important;
+    text-decoration: none !important;
+}
+
+a.MuiTypography-colorPrimary:hover,
+.MuiLink-root:hover {
+    color: var(--pico-primary-hover) !important;
+    text-decoration: underline !important;
+}
+
+/* Input fields */
+.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: var(--pico-primary) !important;
+}
+
+.MuiInputLabel-root.Mui-focused {
+    color: var(--pico-primary) !important;
+}
