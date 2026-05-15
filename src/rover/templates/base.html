@@ -167,17 +167,28 @@
         /* Role badge */
         .role-badge {
             font-size: 0.65rem;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            padding: 0.1rem 0.4rem;
+            padding: 0.15rem 0.5rem;
             border-radius: 999px;
             background: var(--pico-secondary-background);
-            color: var(--pico-muted-color);
+            color: var(--pico-color);
+            border: 1px solid var(--pico-muted-border-color);
         }
 
-        .role-badge.admin   { background: #1a237e22; color: #1a237e; }
-        .role-badge.product_owner { background: #1b5e2022; color: #1b5e20; }
+        .role-badge.admin,
+        .role-badge.system_admin {
+            background: var(--pico-primary);
+            color: var(--pico-primary-inverse);
+            border-color: var(--pico-primary);
+        }
+
+        .role-badge.product_owner {
+            background: var(--pico-secondary-background);
+            color: var(--pico-primary);
+            border-color: var(--pico-primary);
+        }
 
         /* ── Breadcrumb row ── */
         .breadcrumb-row {
