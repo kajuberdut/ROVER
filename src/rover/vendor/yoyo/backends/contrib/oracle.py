@@ -18,8 +18,7 @@ from yoyo.backends.base import DatabaseBackend
 class OracleBackend(DatabaseBackend):
     driver_module = "cx_Oracle"
     list_tables_sql = (
-        "SELECT table_name FROM all_tables "
-        "WHERE owner=user and :database=:database"
+        "SELECT table_name FROM all_tables WHERE owner=user and :database=:database"
     )
 
     def begin(self):

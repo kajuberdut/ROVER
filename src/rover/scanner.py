@@ -74,9 +74,7 @@ def resolve_image_hash(image_name: str) -> str | None:
     except subprocess.TimeoutExpired:
         logger.warning(f"Timeout resolving image hash for {image_name}")
     except subprocess.CalledProcessError as e:
-        logger.warning(
-            f"Failed to resolve image hash for {image_name}: {e.stderr}"
-        )
+        logger.warning(f"Failed to resolve image hash for {image_name}: {e.stderr}")
     except Exception as e:
         logger.warning(f"Error parsing Skopeo output for {image_name}: {e}")
 

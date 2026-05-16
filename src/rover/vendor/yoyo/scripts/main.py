@@ -12,24 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from getpass import getpass
 import argparse
 import configparser
 import logging
 import os
 import sys
 import typing as t
+from getpass import getpass
 
-from yoyo import connections
-from yoyo import default_migration_table
-from yoyo import logger
-from yoyo import utils
-from yoyo.config import CONFIG_FILENAME
-from yoyo.config import find_config
-from yoyo.config import read_config
-from yoyo.config import save_config
-from yoyo.config import config_changed
-from yoyo.config import update_argparser_defaults
+from yoyo import connections, default_migration_table, logger, utils
+from yoyo.config import (
+    CONFIG_FILENAME,
+    config_changed,
+    find_config,
+    read_config,
+    save_config,
+    update_argparser_defaults,
+)
 
 verbosity_levels = {
     0: logging.ERROR,
@@ -125,7 +124,7 @@ def make_argparser():
         dest="batch_mode",
         action="store_true",
         default=(not sys.stdout.isatty()),
-        help="Run in batch mode" ". Turns off all user prompts",
+        help="Run in batch mode. Turns off all user prompts",
     )
 
     global_parser.add_argument(
@@ -140,9 +139,7 @@ def make_argparser():
 
     subparsers = argparser.add_subparsers(help="Commands help")
 
-    from . import migrate
-    from . import newmigration
-    from . import init
+    from . import init, migrate, newmigration
 
     init.install_argparsers(global_parser, subparsers)
     migrate.install_argparsers(global_parser, subparsers)
@@ -199,7 +196,7 @@ def upgrade_legacy_config(args, config, sources):
         transfer_setting(
             "migration_table",
             "migration_table",
-            lambda v: (default_migration_table if v == "None" else v),
+            lambda v: default_migration_table if v == "None" else v,
         )
 
         config_path = args.config or CONFIG_FILENAME

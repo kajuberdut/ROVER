@@ -23,10 +23,14 @@ def _get_user(req: falcon.asgi.Request) -> dict[str, Any]:
     user: dict[str, Any] | None = getattr(req.context, "user", None)
     if not user:
         raise falcon.HTTPUnauthorized(description="Authentication required.")
-        
-    if user.get("api_token_permission") == "read" and req.method not in ("GET", "HEAD", "OPTIONS"):
+
+    if user.get("api_token_permission") == "read" and req.method not in (
+        "GET",
+        "HEAD",
+        "OPTIONS",
+    ):
         raise falcon.HTTPForbidden(description="API token has read-only permission.")
-        
+
     return user
 
 
@@ -45,7 +49,7 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
     if not product_id:
         body = getattr(req.context, "_body", None) or {}
         product_id = body.get("product_id")
-        
+
     if product_id:
         return product_id
 
@@ -54,7 +58,7 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
     if not release_id:
         body = getattr(req.context, "_body", None) or {}
         release_id = body.get("release_id")
-        
+
     if release_id:
         release = scan_queue.get_release(release_id)
         if release:
@@ -65,7 +69,7 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
     if not release_asset_id:
         body = getattr(req.context, "_body", None) or {}
         release_asset_id = body.get("release_asset_id")
-        
+
     if release_asset_id:
         release_asset = scan_queue.get_release_asset(release_asset_id)
         if release_asset:
@@ -76,7 +80,9 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
     return None
 
 
-def _check_product_role(req: falcon.asgi.Request, params: Any, allowed_roles: set[str]) -> None:
+def _check_product_role(
+    req: falcon.asgi.Request, params: Any, allowed_roles: set[str]
+) -> None:
     user = _get_user(req)
     if user.get("role") == "system_admin":
         return
@@ -115,10 +121,14 @@ async def require_api_write_token(
 ) -> None:
     """Explicitly require authentication via an API token that has write permissions."""
     user = _get_user(req)
-    
+
     # Check if this user was authenticated via an API token
     if "api_token_permission" not in user:
-        raise falcon.HTTPForbidden(description="This endpoint requires a valid API token.")
-        
+        raise falcon.HTTPForbidden(
+            description="This endpoint requires a valid API token."
+        )
+
     if user["api_token_permission"] != "write":
-        raise falcon.HTTPForbidden(description="This endpoint requires an API token with write permissions.")
+        raise falcon.HTTPForbidden(
+            description="This endpoint requires an API token with write permissions."
+        )

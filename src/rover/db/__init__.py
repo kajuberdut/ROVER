@@ -1,9 +1,8 @@
-from .connection import get_db_connection, engine
-
+from .assets import *
+from .ci_metadata import *
+from .connection import engine, get_db_connection
+from .eol_cache import *
 from .jobs import *
 from .products import *
-from .assets import *
-from .users import *
 from .tokens import *
-from .ci_metadata import *
-from .eol_cache import *
+from .users import *

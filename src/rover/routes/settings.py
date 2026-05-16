@@ -22,7 +22,9 @@ def _check_can_manage_tokens(req: falcon.asgi.Request) -> None:
         role = scan_queue.get_user_product_role(user["sub"], pid)
         if role == "admin":
             return
-    raise falcon.HTTPForbidden(description="Only admins and system admins can manage API tokens.")
+    raise falcon.HTTPForbidden(
+        description="Only admins and system admins can manage API tokens."
+    )
 
 
 class ApiTokenPageResource:

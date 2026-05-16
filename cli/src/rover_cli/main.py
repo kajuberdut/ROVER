@@ -10,7 +10,10 @@ def handle_publish_metadata(args):
     """Handles the publish-metadata command."""
     token = args.token or os.environ.get("ROVER_API_TOKEN")
     if not token:
-        print("Error: ROVER_API_TOKEN environment variable or --token flag is required.", file=sys.stderr)
+        print(
+            "Error: ROVER_API_TOKEN environment variable or --token flag is required.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     url = args.url or os.environ.get("ROVER_URL", "http://localhost:8000")
@@ -39,7 +42,7 @@ def handle_publish_metadata(args):
         payload["ci_job_url"] = args.job_url
 
     data = json.dumps(payload).encode("utf-8")
-    
+
     req = urllib.request.Request(
         endpoint,
         data=data,
@@ -76,16 +79,28 @@ def main():
         help="ROVER API Token (defaults to ROVER_API_TOKEN env var)",
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, help="Available commands"
+    )
 
     # publish-metadata command
-    publish_parser = subparsers.add_parser("publish-metadata", help="Publish CI image metadata to ROVER")
-    publish_parser.add_argument("--hash", required=True, help="The image hash (e.g., sha256:...)")
-    publish_parser.add_argument("--repo", required=True, help="The source repository URI")
+    publish_parser = subparsers.add_parser(
+        "publish-metadata", help="Publish CI image metadata to ROVER"
+    )
+    publish_parser.add_argument(
+        "--hash", required=True, help="The image hash (e.g., sha256:...)"
+    )
+    publish_parser.add_argument(
+        "--repo", required=True, help="The source repository URI"
+    )
     publish_parser.add_argument("--commit", required=True, help="The git commit hash")
-    publish_parser.add_argument("--job-url", help="The URL to the CI job that built this image")
+    publish_parser.add_argument(
+        "--job-url", help="The URL to the CI job that built this image"
+    )
     publish_parser.add_argument("--tags", help="Comma-separated list of image tags")
-    publish_parser.add_argument("--metadata", help="Additional metadata as a JSON string")
+    publish_parser.add_argument(
+        "--metadata", help="Additional metadata as a JSON string"
+    )
 
     args = parser.parse_args()
 

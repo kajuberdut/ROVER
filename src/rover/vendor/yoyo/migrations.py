@@ -12,31 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from collections import Counter
-from collections import OrderedDict
-from collections import abc
-from contextlib import ExitStack
-from copy import copy
-from glob import glob
-from importlib import resources
-from itertools import chain
-from itertools import count
-from itertools import zip_longest
-from logging import getLogger
 import atexit
-import typing as t
 import hashlib
 import importlib.util
+import inspect
 import os
 import pathlib
 import re
 import sys
-import inspect
-import types
 import textwrap
+import types
+import typing as t
+from collections import Counter, OrderedDict, abc
+from contextlib import ExitStack
+from copy import copy
+from glob import glob
+from importlib import resources
+from itertools import chain, count, zip_longest
+from logging import getLogger
 
 import sqlparse
-
 from yoyo import exceptions
 from yoyo.utils import plural
 
@@ -721,8 +716,8 @@ def heads(migration_list):
 
 
 def topological_sort(migrations: t.Iterable[Migration]) -> t.Iterable[Migration]:
-    from yoyo.topologicalsort import topological_sort as topological_sort_impl
     from yoyo.topologicalsort import CycleError
+    from yoyo.topologicalsort import topological_sort as topological_sort_impl
 
     migration_list = list(migrations)
     all_migrations = set(migration_list)

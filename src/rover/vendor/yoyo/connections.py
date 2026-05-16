@@ -13,16 +13,10 @@
 # limitations under the License.
 
 from collections import namedtuple
-from urllib.parse import parse_qsl
-from urllib.parse import quote
-from urllib.parse import unquote
-from urllib.parse import urlencode
-from urllib.parse import urlsplit
-from urllib.parse import urlunsplit
+from urllib.parse import parse_qsl, quote, unquote, urlencode, urlsplit, urlunsplit
 
 from yoyo.backends import get_backend_class
 from yoyo.migrations import default_migration_table
-
 
 _DatabaseURI = namedtuple(
     "_DatabaseURI", "scheme username password hostname port database args"

@@ -13,8 +13,7 @@
 # limitations under the License.
 
 import time
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
 
 from yoyo import exceptions
 from yoyo.backends.core.postgresql import PostgresqlBackend

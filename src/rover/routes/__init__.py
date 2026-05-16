@@ -111,7 +111,9 @@ def create_app() -> falcon.asgi.App:
     app.add_route("/releases/{release_id}", ReleaseDashboardResource())
 
     # Release asset HTMX partials
-    app.add_route("/api/releases/{release_id}/assets_table", ReleaseAssetsTableResource())
+    app.add_route(
+        "/api/releases/{release_id}/assets_table", ReleaseAssetsTableResource()
+    )
     app.add_route(
         "/api/releases/{release_id}/major_component_cards",
         ReleaseMajorComponentCardsResource(),

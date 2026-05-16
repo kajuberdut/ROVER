@@ -2,12 +2,9 @@
 Migrate yoyo's internal table structure
 """
 
-from datetime import datetime
-from datetime import timezone
+from datetime import datetime, timezone
 
-from . import v1
-from . import v2
-
+from . import v1, v2
 
 #: Mapping of {schema version number: module}
 schema_versions = {0: None, 1: v1, 2: v2}
@@ -50,9 +47,7 @@ def get_current_version(backend):
     if version_table not in tables:
         return 1
     qi = backend.quote_identifier
-    cursor = backend.execute(
-        f"SELECT max({qi('version')}) FROM {qi(version_table)}"
-    )
+    cursor = backend.execute(f"SELECT max({qi('version')}) FROM {qi(version_table)}")
     version = cursor.fetchone()[0]
     assert version in schema_versions
     return version

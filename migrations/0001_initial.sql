@@ -1,6 +1,5 @@
 -- ROVER Initial Schema Migration
 -- Generated from src/rover/db/schema.py
--- Phase 3: PostgreSQL migration baseline
 
 CREATE TABLE IF NOT EXISTS scan_jobs (
     id VARCHAR PRIMARY KEY,

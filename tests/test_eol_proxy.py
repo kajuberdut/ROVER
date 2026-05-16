@@ -1,35 +1,34 @@
-import os
 from unittest.mock import MagicMock, patch
 
 import falcon
-import platformdirs
 import pytest
 from falcon import testing
+from sqlalchemy import create_engine
+from testcontainers.postgres import PostgresContainer
 
 from rover import scan_queue
 
-
-from testcontainers.postgres import PostgresContainer
-from sqlalchemy import create_engine
 
 @pytest.fixture(scope="session")
 def postgres_db():
     with PostgresContainer("postgres:17-alpine") as postgres:
         yield postgres
 
+
 @pytest.fixture
 def client(postgres_db):
     from rover.db import connection, schema
-    
+
     # Override the application engine to use our test container
     connection.engine = create_engine(postgres_db.get_connection_url(driver="psycopg"))
-    
+
     # Initialize the schema
     schema.metadata.create_all(connection.engine)
 
     # We must yield the client, then cleanup if necessary, but the key is we MUST clear the cache BEFORE each test
     with scan_queue.get_db_connection() as conn:
         from sqlalchemy import text
+
         conn.execute(text("DELETE FROM eol_cache"))  # Clear cache before tests
 
     # Remove auth middleware for isolated proxy testing

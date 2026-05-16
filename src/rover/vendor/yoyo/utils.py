@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from itertools import count
-from collections import abc
 import configparser
 import os
 import random
 import re
 import string
 import sys
-import unicodedata
 import typing as t
+import unicodedata
+from collections import abc
+from itertools import count
 
 from yoyo.config import CONFIG_EDITOR_KEY
 
@@ -128,9 +128,7 @@ def get_random_string(length, chars=(string.ascii_letters + string.digits)):
 
 
 def change_param_style(
-    target_style: str,
-    sql: str,
-    bind_parameters: t.Optional[abc.Mapping[str, t.Any]]
+    target_style: str, sql: str, bind_parameters: t.Optional[abc.Mapping[str, t.Any]]
 ) -> tuple[str, t.Union[abc.Mapping[str, t.Any], abc.Sequence[str]]]:
     """
     :param target_style: A DBAPI paramstyle value (eg 'qmark', 'format', etc)
@@ -173,9 +171,7 @@ def change_param_style(
         # or ':' (an SQL cast, eg '::INT')
         r"(?<![:\\])"
         # one of the given bind_parameters
-        r":("
-        + "|".join(re.escape(k) for k in bind_parameters)
-        + r")"
+        r":(" + "|".join(re.escape(k) for k in bind_parameters) + r")"
         # followed by a non-word char, or end of string
         r"(?=\W|$)"
     )

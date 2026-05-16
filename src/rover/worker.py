@@ -40,8 +40,8 @@ async def process_job(
                 from rover.scan_queue import (
                     add_repository,
                     create_semgrep_job,
-                    get_image_by_name,
                     get_ci_image_metadata,
+                    get_image_by_name,
                     update_image_hash,
                 )
 
@@ -54,8 +54,10 @@ async def process_job(
                         )
                         if image_hash:
                             update_image_hash(image_record["id"], image_hash)
-                            logger.info(f"Resolved image hash for {target_url}: {image_hash}")
-                    
+                            logger.info(
+                                f"Resolved image hash for {target_url}: {image_hash}"
+                            )
+
                     if image_hash:
                         # Check CI metadata to see if we should run Semgrep
                         ci_metadata = get_ci_image_metadata(image_hash)

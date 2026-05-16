@@ -13,21 +13,20 @@
 # limitations under the License.
 
 import argparse
-import sys
 import re
+import sys
 import warnings
 
 import tabulate
-
 from yoyo import (
-    read_migrations,
-    default_migration_table,
     ancestors,
+    default_migration_table,
     descendants,
+    read_migrations,
+    utils,
 )
 from yoyo.migrations import topological_sort
 from yoyo.scripts.main import InvalidArgument, get_backend
-from yoyo import utils
 
 
 def install_argparsers(global_parser, subparsers):
@@ -56,7 +55,7 @@ def install_argparsers(global_parser, subparsers):
         dest="migration_table",
         action="store",
         default=default_migration_table,
-        help="Name of table to use for storing " "migration metadata",
+        help="Name of table to use for storing migration metadata",
     )
 
     # Options related to filtering the list of migrations
@@ -182,8 +181,7 @@ def migrations_to_revision(migrations, revision, direction):
         raise InvalidArgument("'{}' doesn't match any revisions.".format(revision))
     if len(targets) > 1:
         raise InvalidArgument(
-            "'{}' matches multiple revisions. "
-            "Please specify one of {}.".format(
+            "'{}' matches multiple revisions. Please specify one of {}.".format(
                 revision, ", ".join(m.id for m in targets)
             )
         )

@@ -49,10 +49,10 @@ class RepoRefsResource:
                 ref = parts[1]
 
                 if ref.startswith("refs/heads/"):
-                    branches.append(ref[len("refs/heads/"):])
+                    branches.append(ref[len("refs/heads/") :])
                 elif ref.startswith("refs/tags/"):
                     # Remove the ^{} suffix from dereferenced tags
-                    clean_tag = ref[len("refs/tags/"):]
+                    clean_tag = ref[len("refs/tags/") :]
                     if clean_tag.endswith("^{}"):
                         clean_tag = clean_tag[:-3]
                     if clean_tag not in tags:
@@ -99,9 +99,9 @@ class RemoteRepoRefsResource:
                 ref = parts[1]
 
                 if ref.startswith("refs/heads/"):
-                    branches.append(ref[len("refs/heads/"):])
+                    branches.append(ref[len("refs/heads/") :])
                 elif ref.startswith("refs/tags/"):
-                    clean_tag = ref[len("refs/tags/"):]
+                    clean_tag = ref[len("refs/tags/") :]
                     if clean_tag.endswith("^{}"):
                         clean_tag = clean_tag[:-3]
                     if clean_tag not in tags:
@@ -187,7 +187,9 @@ class ImageLinkRepoResource:
         if source_repo_url:
             image_hash = image.get("image_hash")
             if not image_hash:
-                image_hash = await asyncio.to_thread(scanner.resolve_image_hash, image["name"])
+                image_hash = await asyncio.to_thread(
+                    scanner.resolve_image_hash, image["name"]
+                )
                 if image_hash:
                     scan_queue.update_image_hash(image_id, image_hash)
                 else:

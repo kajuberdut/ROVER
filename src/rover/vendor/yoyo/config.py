@@ -15,14 +15,15 @@
 """
 Handle config file and argument parsing
 """
-from collections import deque
-from configparser import ConfigParser
-from pathlib import Path
+
 import configparser
 import functools
 import itertools
 import os
 import typing as t
+from collections import deque
+from configparser import ConfigParser
+from pathlib import Path
 
 CONFIG_FILENAME = "yoyo.ini"
 CONFIG_EDITOR_KEY = "editor"

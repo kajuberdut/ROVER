@@ -30,8 +30,7 @@ class PostgresqlBackend(DatabaseBackend):
     driver_module = "psycopg2"
     schema = None
     list_tables_sql = (
-        "SELECT table_name FROM information_schema.tables "
-        "WHERE table_schema = :schema"
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = :schema"
     )
 
     @property

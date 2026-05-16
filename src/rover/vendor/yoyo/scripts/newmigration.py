@@ -12,26 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import date
-from textwrap import dedent
-from tempfile import NamedTemporaryFile
 import configparser
 import glob
-import logging
 import io
+import logging
 import re
 import shlex
 import subprocess
 import sys
 import traceback
+from datetime import date
+from os import path, rename, stat, unlink
+from tempfile import NamedTemporaryFile
+from textwrap import dedent
 
-from yoyo import default_migration_table
+from yoyo import default_migration_table, utils
 from yoyo.config import CONFIG_NEW_MIGRATION_COMMAND_KEY
-from yoyo.migrations import read_migrations, heads, Migration
-from yoyo import utils
-from .main import InvalidArgument
+from yoyo.migrations import Migration, heads, read_migrations
 
-from os import path, stat, unlink, rename
+from .main import InvalidArgument
 
 logger = logging.getLogger("yoyo.migrations")
 
@@ -75,7 +74,7 @@ def install_argparsers(global_parser, subparsers):
         dest="migration_table",
         action="store",
         default=default_migration_table,
-        help="Name of table to use for storing " "migration metadata",
+        help="Name of table to use for storing migration metadata",
     )
     parser_new.add_argument(
         "sources", nargs="*", help="Source directory of migration scripts"

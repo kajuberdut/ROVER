@@ -13,12 +13,12 @@
 # limitations under the License.
 
 from collections import abc
-from datetime import datetime
-from datetime import timezone
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from importlib import import_module
 from itertools import count
 from logging import getLogger
+
 try:
     from importlib.metadata import entry_points
 except ImportError:
@@ -32,9 +32,7 @@ import time
 import typing as t
 import uuid
 
-from yoyo import exceptions
-from yoyo import internalmigrations
-from yoyo import utils
+from yoyo import exceptions, internalmigrations, utils
 from yoyo.migrations import topological_sort
 
 logger = getLogger("yoyo.migrations")
@@ -173,9 +171,9 @@ class DatabaseBackend:
     def init_database(self):
         self.create_lock_table()
         self.has_transactional_ddl = self._check_transactional_ddl()
-        self._transactional_ddl_cache[
-            pickle.dumps(self.uri)
-        ] = self.has_transactional_ddl
+        self._transactional_ddl_cache[pickle.dumps(self.uri)] = (
+            self.has_transactional_ddl
+        )
 
     def _load_driver_module(self):
         """
@@ -361,7 +359,7 @@ class DatabaseBackend:
                     self.execute(
                         f"""
                         INSERT INTO {self.lock_table_quoted}
-                        ({qi('locked')}, {qi('ctime')}, {qi('pid')})
+                        ({qi("locked")}, {qi("ctime")}, {qi("pid")})
                         VALUES (1, :when, :pid)
                         """,
                         {
@@ -591,11 +589,13 @@ class DatabaseBackend:
 
 
 def get_backend_class(name):
-    if name in ('postgresql', 'postgres'):
+    if name in ("postgresql", "postgres"):
         from yoyo.backends.core.postgresql import PostgresqlBackend
+
         return PostgresqlBackend
-    if name == 'postgresql+psycopg':
+    if name == "postgresql+psycopg":
         from yoyo.backends.core.postgresql import PostgresqlPsycopgBackend
+
         return PostgresqlPsycopgBackend
     backend_eps = entry_points(group="yoyo.backends")
     return backend_eps[name].load()

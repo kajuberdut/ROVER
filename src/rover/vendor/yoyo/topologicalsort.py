@@ -1,12 +1,6 @@
-from typing import Set
-from typing import Dict
-from typing import Mapping
-from typing import TypeVar
-from typing import Iterable
-from typing import Collection
 from collections import defaultdict
-from heapq import heappop
-from heapq import heappush
+from heapq import heappop, heappush
+from typing import Collection, Dict, Iterable, Mapping, Set, TypeVar
 
 
 class CycleError(ValueError):

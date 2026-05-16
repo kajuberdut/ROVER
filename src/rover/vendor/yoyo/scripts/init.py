@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pathlib
 import logging
+import pathlib
 import sys
 
 from yoyo.config import CONFIG_FILENAME

@@ -44,7 +44,9 @@ class ReleaseDashboardResource:
         product_role = None
         user = getattr(req.context, "user", None)
         if user:
-            product_role = scan_queue.get_user_product_role(user["sub"], release["product_id"])
+            product_role = scan_queue.get_user_product_role(
+                user["sub"], release["product_id"]
+            )
 
         template = template_env.get_template("release_dashboard.html")
         resp.text = template.render(

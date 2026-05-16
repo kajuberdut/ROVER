@@ -28,13 +28,15 @@ __all__ = [
 ]
 
 from yoyo.connections import get_backend
-from yoyo.migrations import ancestors
-from yoyo.migrations import default_migration_table
-from yoyo.migrations import descendants
-from yoyo.migrations import group
-from yoyo.migrations import logger
-from yoyo.migrations import read_migrations
-from yoyo.migrations import step
-from yoyo.migrations import transaction
+from yoyo.migrations import (
+    ancestors,
+    default_migration_table,
+    descendants,
+    group,
+    logger,
+    read_migrations,
+    step,
+    transaction,
+)
 
 __version__ = "9.0.0"
