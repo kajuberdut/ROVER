@@ -19,8 +19,8 @@ def client():
 
     # We must yield the client, then cleanup if necessary, but the key is we MUST clear the cache BEFORE each test
     with scan_queue.get_db_connection() as conn:
-        with conn:
-            conn.execute("DELETE FROM eol_cache")  # Clear cache before tests
+        from sqlalchemy import text
+        conn.execute(text("DELETE FROM eol_cache"))  # Clear cache before tests
 
     # Remove auth middleware for isolated proxy testing
     from rover.app import app as real_app
