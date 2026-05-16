@@ -154,7 +154,7 @@ def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]
         (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name WHEN pa.asset_type = 'major_component' THEN e.name END) AND
         (ls.target_type = pa.asset_type) AND
         (COALESCE(ls.git_ref, '') = COALESCE(pa.git_ref, ''))
-    WHERE pk.product_id = :product_id AND pk.is_end_of_life = 0
+    WHERE pk.product_id = :product_id AND pk.is_end_of_life = false
     """)
     with get_db_connection() as conn:
         rows = conn.execute(query, {"product_id": product_id}).fetchall()
