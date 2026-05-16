@@ -14,13 +14,13 @@ This document tracks the step-by-step progress for replacing the ROVER database 
 ## Phase 2: PostgreSQL 17 Transition
 **Goal**: Swap the underlying database engine from SQLite to PostgreSQL 17.
 
-- [ ] Add `psycopg[binary]` (or `psycopg2-binary`) to `pyproject.toml`.
-- [ ] Update `docker-compose.yml` to add a `db` service running `postgres:17`.
-- [ ] Configure `web` service to depend on `db` and accept a `DATABASE_URL` environment variable.
-- [ ] Update the SQLAlchemy engine initialization to connect to Postgres instead of SQLite.
-- [ ] Remove SQLite-specific pragmas.
-- [ ] Fix any SQL dialect incompatibilities that SQLAlchemy didn't automatically abstract.
-- [ ] Run test suite and verify application functionality against Postgres.
+- [x] Add `psycopg[binary]` (or `psycopg2-binary`) to `pyproject.toml`.
+- [x] Update `docker-compose.yml` to add a `db` service running `postgres:17`.
+- [x] Configure `web` service to depend on `db` and accept a `DATABASE_URL` environment variable.
+- [x] Update the SQLAlchemy engine initialization to connect to Postgres instead of SQLite.
+- [x] Remove SQLite-specific pragmas.
+- [x] Fix any SQL dialect incompatibilities that SQLAlchemy didn't automatically abstract.
+- [x] Run test suite and verify application functionality against Postgres.
 
 ## Phase 3: Vendor Yoyo Migrations & Containerize
 **Goal**: Implement a formal schema migration system using a vendored version of `yoyo-migrations`, executed via a dedicated container.

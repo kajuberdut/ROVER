@@ -70,7 +70,7 @@ releases = Table(
     Column('product_id', String),
     Column('name', String, nullable=False),
     Column('version', String, nullable=False),
-    Column('is_end_of_life', Boolean, server_default=text('0')),
+    Column('is_end_of_life', Boolean, server_default=text('false')),
     Column('created_at', TIMESTAMP, server_default=func.current_timestamp()),
     Index('sqlite_autoindex_releases_1', 'name', 'version', unique=True)
 )

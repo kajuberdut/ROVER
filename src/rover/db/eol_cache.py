@@ -6,13 +6,15 @@ from sqlalchemy.exc import IntegrityError
 from rover.db.connection import get_db_connection
 from rover.db.schema import eol_cache
 
+import datetime
+
 def get_cached_eol_data(name: str, version: str) -> str | None:
     with get_db_connection() as conn:
-        # Using SQLite syntax for Phase 1. 
+        threshold = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=28)
         row = conn.execute(
             select(eol_cache.c.response_json)
             .where(eol_cache.c.name == name, eol_cache.c.version == version)
-            .where(eol_cache.c.cached_at >= text("datetime('now', '-28 days')"))
+            .where(eol_cache.c.cached_at >= threshold)
         ).fetchone()
         return str(row[0]) if row else None
 
