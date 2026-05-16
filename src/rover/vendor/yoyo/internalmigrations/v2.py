@@ -10,55 +10,75 @@ from yoyo.migrations import get_migration_hash
 
 
 def upgrade(backend):
-    qi = backend.quote_identifier
+    """
+    Upgrade the internal yoyo schema to version 2.
+
+    On a **fresh database** (no prior _yoyo_migration table) this simply
+    creates the v2 tables from scratch.
+
+    When upgrading from a v1 database (old _yoyo_migration table already
+    exists), it migrates the existing rows into the new schema before
+    replacing the table.
+    """
+    tables = set(backend.list_tables())
+    old_migration_table_exists = backend.migration_table in tables
+
     create_log_table(backend)
     create_version_table(backend)
-    cursor = backend.execute(
-        f"SELECT {qi('id')}, {qi('ctime')} FROM {backend.migration_table_quoted}"
-    )
-    migration_id = ""
-    created_at = datetime(1970, 1, 1)
-    for migration_id, created_at in iter(cursor.fetchone, None):  # type: ignore
-        migration_hash = get_migration_hash(migration_id)
-        log_data = dict(
-            backend.get_log_data(),
-            operation="apply",
-            comment=(
-                "this log entry created automatically by an internal schema upgrade"
-            ),
-            created_at_utc=created_at,
-            migration_hash=migration_hash,
-            migration_id=migration_id,
+
+    if old_migration_table_exists:
+        # v1 → v2: copy rows from the old table into the log, then rebuild.
+        qi = backend.quote_identifier
+        cursor = backend.execute(
+            f"SELECT {qi('id')}, {qi('ctime')} FROM {backend.migration_table_quoted}"
         )
+        migration_id = ""
+        created_at = datetime(1970, 1, 1)
+        for migration_id, created_at in iter(cursor.fetchone, None):  # type: ignore
+            migration_hash = get_migration_hash(migration_id)
+            log_data = dict(
+                backend.get_log_data(),
+                operation="apply",
+                comment=(
+                    "this log entry created automatically by an internal schema upgrade"
+                ),
+                created_at_utc=created_at,
+                migration_hash=migration_hash,
+                migration_id=migration_id,
+            )
+            qi = backend.quote_identifier
+            backend.execute(
+                f"""
+                INSERT INTO {backend.log_table_quoted} (
+                    {qi("id")},
+                    {qi("migration_hash")},
+                    {qi("migration_id")},
+                    {qi("operation")},
+                    {qi("created_at_utc")},
+                    {qi("username")},
+                    {qi("hostname")},
+                    {qi("comment")}
+                ) VALUES (
+                    :id, :migration_hash, :migration_id, 'apply', :created_at_utc,
+                    :username, :hostname, :comment
+                )
+                """,
+                log_data,
+            )
+
+        backend.execute("DROP TABLE {0.migration_table_quoted}".format(backend))
+        create_migration_table(backend)
         qi = backend.quote_identifier
         backend.execute(
             f"""
-            INSERT INTO {backend.log_table_quoted} (
-                {qi("id")},
-                {qi("migration_hash")},
-                {qi("migration_id")},
-                {qi("operation")},
-                {qi("created_at_utc")},
-                {qi("username")},
-                {qi("hostname")},
-                {qi("comment")}
-            ) VALUES (
-                :id, :migration_hash, :migration_id, 'apply', :created_at_utc,
-                :username, :hostname, :comment
-            )
-            """,
-            log_data,
+            INSERT INTO {backend.migration_table_quoted}
+            SELECT {qi("migration_hash")}, {qi("migration_id")}, {qi("created_at_utc")}
+            FROM {backend.log_table_quoted}
+            """
         )
-
-    backend.execute("DROP TABLE {0.migration_table_quoted}".format(backend))
-    create_migration_table(backend)
-    backend.execute(
-        f"""
-        INSERT INTO {backend.migration_table_quoted}
-        SELECT {qi("migration_hash")}, {qi("migration_id")}, {qi("created_at_utc")}
-        FROM {backend.log_table_quoted}
-        """
-    )
+    else:
+        # Fresh database: create the v2 migration table directly.
+        create_migration_table(backend)
 
 
 def create_migration_table(backend):
