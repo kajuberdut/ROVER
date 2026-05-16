@@ -1,5 +1,5 @@
 from .connection import get_db_connection, engine
-from .schema import init_db
+
 from .jobs import *
 from .products import *
 from .assets import *

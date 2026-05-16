@@ -17,6 +17,18 @@ services:
     expose:
       - "5432"
 
+  migrator:
+    image: rover-web
+    container_name: rover-migrator
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://rover:${POSTGRES_PASSWORD:-rover_password}@db:5432/rover
+    command: >
+      sh -c "uv pip install -r src/rover/vendor/yoyo/requirements.txt && 
+             PYTHONPATH=src/rover/vendor /app/.venv/bin/python -m yoyo apply --database $$DATABASE_URL ./migrations --batch"
+
   web:
     build: .
     user: "${UID:-1000}:${GID:-1000}"
@@ -30,8 +42,8 @@ services:
       - path: .env.local
         required: false
     depends_on:
-      db:
-        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./src:/app/src

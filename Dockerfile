@@ -19,6 +19,7 @@ RUN uv sync --frozen --no-install-project --no-dev
 # Copy application code
 COPY src ./src
 COPY tests ./tests
+COPY migrations ./migrations
 COPY README.md ./
 
 # Sync project

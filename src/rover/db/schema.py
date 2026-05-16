@@ -52,8 +52,7 @@ eol_cache = Table(
     Column('name', String, nullable=False),
     Column('version', String, nullable=False),
     Column('response_json', String, nullable=False),
-    Column('cached_at', TIMESTAMP, server_default=func.current_timestamp()),
-    Index('sqlite_autoindex_eol_cache_1', 'name', 'version', unique=True)
+    Column('cached_at', TIMESTAMP, server_default=func.current_timestamp())
 )
 
 products = Table(
@@ -71,8 +70,7 @@ releases = Table(
     Column('name', String, nullable=False),
     Column('version', String, nullable=False),
     Column('is_end_of_life', Boolean, server_default=text('false')),
-    Column('created_at', TIMESTAMP, server_default=func.current_timestamp()),
-    Index('sqlite_autoindex_releases_1', 'name', 'version', unique=True)
+    Column('created_at', TIMESTAMP, server_default=func.current_timestamp())
 )
 
 release_assets = Table(
@@ -143,6 +141,4 @@ ci_image_metadata = Table(
     Column('created_at', TIMESTAMP, server_default=func.current_timestamp())
 )
 
-def init_db() -> None:
-    from rover.db.connection import engine
-    metadata.create_all(engine)
+

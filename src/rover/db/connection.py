@@ -6,20 +6,11 @@ from sqlalchemy.event import listen
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", 
-    f"sqlite:///{os.path.join(os.path.dirname(os.path.dirname(__file__)), 'jobs.db')}"
+    "postgresql+psycopg://rover:rover_password@db:5432/rover"
 )
 
 # Initialize engine. Can be overridden in tests.
 engine = create_engine(DATABASE_URL)
-
-if DATABASE_URL.startswith("sqlite"):
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL;")
-        cursor.execute("PRAGMA synchronous=NORMAL;")
-        cursor.close()
-
-    listen(engine, 'connect', set_sqlite_pragma)
 
 @contextmanager
 def get_db_connection() -> Generator[Connection, None, None]:

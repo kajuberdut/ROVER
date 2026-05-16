@@ -562,9 +562,9 @@ rover/
 
 ---
 
-### A4 · Schema Migrations
+### ~~A4 · Schema Migrations~~ (Completed)
 
-**Current state:** `init_db()` uses `CREATE TABLE IF NOT EXISTS` exclusively. This is safe for first-run but provides no path for adding or altering columns in production databases. There is already a `TODO` comment in `scan_queue.py` acknowledging this gap.
+**Current state:** We have fully containerized schema migrations utilizing a vendored version of `yoyo-migrations` running inside a dedicated initialization container against our Postgres backend.
 
 **Target state:** Adopt a lightweight, stdlib-only migration runner:
 
