@@ -627,6 +627,18 @@ DB query functions return typed objects instead of raw dicts. The Plugin interfa
 - `job_id` appears on every log line emitted during a scan, making it trivial to pull the full trace for a failed job
 - No external dependency
 
+### A7 · Concurrent Job Execution (worker.py)
+
+**Current state:** The background worker (`worker.py`) polls the job queues and executes jobs sequentially using `await process_job(...)`. Because scanners like Semgrep block the thread for several minutes on large codebases, the worker loop cannot pull the next job (like a fast API fetch for a major component EOL date) until the long scan finishes.
+
+**Target state:** Dispatch background tasks concurrently so they don't block each other:
+- Use `asyncio.create_task` or an `asyncio.Queue` consumer model in `worker.py` so multiple `to_thread` Docker calls can run simultaneously.
+- Alternatively, if workload increases, consider integrating a robust task queue like Celery or ARQ, though `asyncio` concurrency is sufficient for a lighter footprint.
+
+**Benefits:**
+- Fast tasks (EOL fetches) no longer wait in line behind 10-minute repository scans.
+- Better utilization of host resources since Docker scans are largely I/O bound from ROVER's perspective.
+
 ---
 
 ## Open Questions
