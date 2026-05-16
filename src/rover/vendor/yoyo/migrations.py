@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import atexit
 import hashlib
-import importlib.util
-import inspect
 import os
 import pathlib
 import re
@@ -24,10 +21,8 @@ import textwrap
 import types
 import typing as t
 from collections import Counter, OrderedDict, abc
-from contextlib import ExitStack
 from copy import copy
 from glob import glob
-from importlib import resources
 from itertools import chain, count, zip_longest
 from logging import getLogger
 
@@ -40,17 +35,19 @@ default_migration_table = "_yoyo_migration"
 
 hash_function = hashlib.sha256
 
+# Prefix used by the (now removed) newmigration tool for temp files.
+# Retained here so that any leftover temp files are excluded from discovery.
+_NEWMIGRATION_TEMPFILE_PREFIX = "_tmp_yoyonew"
+
 
 def _is_migration_file(path: pathlib.Path):
     """
-    Return True if the given path matches a migration file pattern
+    Return True if path is a SQL migration file (not a temp file).
     """
-    from yoyo.scripts import newmigration
-
     return (
         path.is_file()
-        and path.suffix in {".py", ".sql"}
-        and not path.name.startswith(newmigration.tempfile_prefix)
+        and path.suffix == ".sql"
+        and not path.name.startswith(_NEWMIGRATION_TEMPFILE_PREFIX)
     )
 
 
@@ -169,58 +166,32 @@ class Migration(object):
         with open(self.path, "r") as f:
             self.source = f.read()
 
-        if self.is_raw_sql():
-            self.module = types.ModuleType(self.path)
-        else:
-            spec = importlib.util.spec_from_file_location(self.path, self.path)
-            assert spec is not None
-            self.module = importlib.util.module_from_spec(spec)
+        self.module = types.ModuleType(self.path)
+        directives, leading_comment, statements = read_sql_migration(self.path)
+        _, _, rollback_statements = read_sql_migration(
+            os.path.splitext(self.path)[0] + ".rollback.sql"
+        )
+        rollback_statements.reverse()
+        statements_with_rollback = zip_longest(
+            statements, rollback_statements, fillvalue=None
+        )
 
-        self.module.step = collector.add_step  # type: ignore
-        self.module.group = collector.add_step_group  # type: ignore
-        self.module.transaction = collector.add_step_group  # type: ignore
-        self.module.__yoyo_collector__ = collector  # type: ignore
-        if self.is_raw_sql():
-            directives, leading_comment, statements = read_sql_migration(self.path)
-            _, _, rollback_statements = read_sql_migration(
-                os.path.splitext(self.path)[0] + ".rollback.sql"
-            )
-            rollback_statements.reverse()
-            statements_with_rollback = zip_longest(
-                statements, rollback_statements, fillvalue=None
-            )
+        for s, r in statements_with_rollback:
+            collector.add_step(s, r)
+        self.module.__doc__ = leading_comment
+        setattr(
+            self.module,
+            "__transactional__",
+            {"true": True, "false": False}[
+                directives.get("transactional", "true").lower()
+            ],
+        )
+        setattr(
+            self.module,
+            "__depends__",
+            {d for d in directives.get("depends", "").split() if d},
+        )
 
-            for s, r in statements_with_rollback:
-                collector.add_step(s, r)
-            self.module.__doc__ = leading_comment
-            setattr(
-                self.module,
-                "__transactional__",
-                {"true": True, "false": False}[
-                    directives.get("transactional", "true").lower()
-                ],
-            )
-            setattr(
-                self.module,
-                "__depends__",
-                {d for d in directives.get("depends", "").split() if d},
-            )
-
-        else:
-            try:
-                if spec and spec.loader:
-                    spec.loader.exec_module(self.module)
-                else:
-                    logger.exception(
-                        "Could not import migration from %r: "
-                        "ModuleSpec has no loader attached",
-                        self.path,
-                    )
-                    raise exceptions.BadMigration(self.path)
-
-            except Exception as e:
-                logger.exception("Could not import migration from %r: %r", self.path, e)
-                raise exceptions.BadMigration(self.path, e)
         depends = getattr(self.module, "__depends__", [])
         if isinstance(depends, (str, bytes)):
             depends = [depends]
@@ -444,32 +415,14 @@ class StepGroup(MigrationStep):
 
 
 def _expand_sources(sources) -> t.Iterable[t.Tuple[str, t.List[str]]]:
-    package_match = re.compile(r"^package:([^\s\/:]+):(.*)$").match
-
-    filecontext = ExitStack()
-    atexit.register(filecontext.close)
-
+    """
+    Expand a list of directory path sources into (source, [paths]) tuples.
+    Only plain directory paths are supported; ``package:`` URIs are not.
+    """
     for source in sources:
-        mo = package_match(source)
-        if mo:
-            package_name = mo.group(1)
-            resource_dir = mo.group(2)
-            try:
-                pkg_files = resources.files(package_name).joinpath(resource_dir)
-                if pkg_files.is_dir():
-                    all_files = (
-                        filecontext.enter_context(resources.as_file(traversable))
-                        for traversable in pkg_files.iterdir()
-                        if traversable.is_file()
-                    )
-                    paths = [str(f) for f in sorted(all_files) if _is_migration_file(f)]
-                    yield (source, paths)
-            except FileNotFoundError:
-                continue
-        else:
-            for directory in map(pathlib.Path, glob(source)):
-                paths = [str(f) for f in directory.iterdir() if _is_migration_file(f)]
-                yield (str(directory), sorted(paths))
+        for directory in map(pathlib.Path, glob(source)):
+            paths = [str(f) for f in directory.iterdir() if _is_migration_file(f)]
+            yield (str(directory), sorted(paths))
 
 
 def read_migrations(*sources):
@@ -575,10 +528,9 @@ class MigrationList(abc.MutableSequence):
 
 class StepCollector(object):
     """
-    Provide the ``step`` and ``transaction`` functions used in migration
-    scripts.
+    Collect and assemble migration steps from SQL migration files.
 
-    Each call to step/transaction updates the StepCollector's ``steps`` list.
+    Each call to add_step updates the StepCollector's ``steps`` list.
     """
 
     def __init__(self, migration):
@@ -588,9 +540,8 @@ class StepCollector(object):
 
     def add_step(self, apply, rollback=None, ignore_errors=None):
         """
-        Wrap the given apply and rollback code in a transaction, and add it
-        to the list of steps.
-        Return the transaction-wrapped step.
+        Wrap the given apply and rollback SQL in a transaction wrapper and add
+        it to the list of steps. Returns a callable that creates the step.
         """
 
         def do_add(use_transactions):
@@ -633,32 +584,6 @@ class StepCollector(object):
 
     def create_steps(self, use_transactions):
         return [create_step(use_transactions) for create_step in self.steps]
-
-
-def _get_collector():
-    frame = inspect.currentframe()
-    try:
-        while frame is not None:
-            if "__yoyo_collector__" in frame.f_globals:
-                return frame.f_globals["__yoyo_collector__"]
-            frame = frame.f_back
-    except KeyError:
-        raise AssertionError(
-            "Expected to be called in the context of a migration module import"
-        )
-
-
-def step(*args, **kwargs):
-    return _get_collector().add_step(*args, **kwargs)
-
-
-def group(*args, **kwargs):
-    return _get_collector().add_step_group(*args, **kwargs)
-
-
-#: Alias for compatibility purposes.
-#: This no longer affects transaction handling.
-transaction = group
 
 
 def ancestors(migration, population):

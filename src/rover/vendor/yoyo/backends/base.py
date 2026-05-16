@@ -12,25 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import getpass
+import os
+import socket
+import time
+import typing as t
+import uuid
 from collections import abc
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from importlib import import_module
 from itertools import count
 from logging import getLogger
-
-try:
-    from importlib.metadata import entry_points
-except ImportError:
-    from importlib_metadata import entry_points
-
-import getpass
-import os
-import pickle
-import socket
-import time
-import typing as t
-import uuid
 
 from yoyo import exceptions, internalmigrations, utils
 from yoyo.migrations import topological_sort
@@ -156,7 +149,8 @@ class DatabaseBackend:
     _is_locked = False
     _in_transaction = False
     _internal_schema_updated = False
-    _transactional_ddl_cache: dict[bytes, bool] = {}
+    # Cache whether the DB supports transactional DDL, keyed by URI string.
+    _transactional_ddl_cache: dict[str, bool] = {}
 
     def __init__(self, dburi, migration_table):
         self.uri = dburi
@@ -165,15 +159,13 @@ class DatabaseBackend:
         self.init_connection(self._connection)
         self.migration_table = migration_table
         self.has_transactional_ddl = self._transactional_ddl_cache.get(
-            pickle.dumps(self.uri), True
+            str(self.uri), True
         )
 
     def init_database(self):
         self.create_lock_table()
         self.has_transactional_ddl = self._check_transactional_ddl()
-        self._transactional_ddl_cache[pickle.dumps(self.uri)] = (
-            self.has_transactional_ddl
-        )
+        self._transactional_ddl_cache[str(self.uri)] = self.has_transactional_ddl
 
     def _load_driver_module(self):
         """
@@ -589,16 +581,19 @@ class DatabaseBackend:
 
 
 def get_backend_class(name):
-    if name in ("postgresql", "postgres"):
-        from yoyo.backends.core.postgresql import PostgresqlBackend
+    """
+    Return the backend class for the given scheme name.
 
-        return PostgresqlBackend
-    if name == "postgresql+psycopg":
+    Only PostgreSQL (via psycopg3) is supported. Both ``postgresql://`` and
+    ``postgresql+psycopg://`` schemes resolve to ``PostgresqlPsycopgBackend``.
+    """
+    if name in ("postgresql", "postgres", "postgresql+psycopg"):
         from yoyo.backends.core.postgresql import PostgresqlPsycopgBackend
 
         return PostgresqlPsycopgBackend
-    backend_eps = entry_points(group="yoyo.backends")
-    return backend_eps[name].load()
+    raise KeyError(
+        f"Unsupported database backend: {name!r}. Only PostgreSQL (psycopg3) is supported."
+    )
 
 
 def get_dbapi_module(name):

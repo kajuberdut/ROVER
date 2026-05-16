@@ -4,11 +4,15 @@ Migrate yoyo's internal table structure
 
 from datetime import datetime, timezone
 
-from . import v1, v2
+from . import v2
 
 #: Mapping of {schema version number: module}
-schema_versions = {0: None, 1: v1, 2: v2}
-
+#: Version 0: no migration table exists yet.
+#: Version 1: migration table exists, no version table (yoyo < 6.0). Treated
+#:            as an upgrade-from-nothing path; v1 module removed since the
+#:            database is always fresh.
+#: Version 2: current schema (yoyo >= 6.0).
+schema_versions = {0: None, 1: None, 2: v2}
 
 #: First schema version that supports the yoyo_versions table
 USE_VERSION_TABLE_FROM = 2
@@ -31,7 +35,9 @@ def upgrade(backend, version=None):
     with backend.transaction():
         while current_version < desired_version:
             next_version = current_version + 1
-            schema_versions[next_version].upgrade(backend)  # type: ignore
+            module = schema_versions[next_version]
+            if module is not None:
+                module.upgrade(backend)
             current_version = next_version
             mark_schema_version(backend, current_version)
 

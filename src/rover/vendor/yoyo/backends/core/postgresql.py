@@ -18,16 +18,15 @@ from contextlib import contextmanager
 from yoyo.backends.base import DatabaseBackend
 
 
-class PostgresqlBackend(DatabaseBackend):
+class PostgresqlPsycopgBackend(DatabaseBackend):
     """
-    Backend for PostgreSQL and PostgreSQL compatible databases.
+    Backend for PostgreSQL using psycopg 3.
 
-    This backend uses psycopg2. See
-    :class:`yoyo.backends.core.postgresql.PostgresqlPsycopgBackend`
-    if you need psycopg3.
+    This is the only supported backend for ROVER. The database URL must use
+    the ``postgresql+psycopg://`` or ``postgresql://`` scheme.
     """
 
-    driver_module = "psycopg2"
+    driver_module = "psycopg"
     schema = None
     list_tables_sql = (
         "SELECT table_name FROM information_schema.tables WHERE table_schema = :schema"
@@ -35,19 +34,12 @@ class PostgresqlBackend(DatabaseBackend):
 
     @property
     def TRANSACTION_STATUS_IDLE(self):
-        from psycopg2.extensions import TRANSACTION_STATUS_IDLE
+        from psycopg.pq import TransactionStatus
 
-        return TRANSACTION_STATUS_IDLE
+        return TransactionStatus.IDLE
 
     def connect(self, dburi):
         kwargs = {"dbname": dburi.database, "autocommit": True}
-
-        # Default to autocommit mode: without this psycopg sends a BEGIN before
-        # every query, causing a warning when we then explicitly start a
-        # transaction. This warning becomes an error in CockroachDB. See
-        # https://todo.sr.ht/~olly/yoyo/71
-        kwargs["autocommit"] = True
-
         kwargs.update(dburi.args)
         if dburi.username is not None:
             kwargs["user"] = dburi.username
@@ -65,7 +57,7 @@ class PostgresqlBackend(DatabaseBackend):
 
     @contextmanager
     def disable_transactions(self):
-        with super(PostgresqlBackend, self).disable_transactions():
+        with super(PostgresqlPsycopgBackend, self).disable_transactions():
             saved = self.connection.autocommit
             self.connection.autocommit = True
             yield
@@ -78,7 +70,7 @@ class PostgresqlBackend(DatabaseBackend):
 
     def list_tables(self, **kwargs):
         current_schema = self.execute("SELECT current_schema").fetchone()[0]
-        return super(PostgresqlBackend, self).list_tables(
+        return super(PostgresqlPsycopgBackend, self).list_tables(
             schema=current_schema, **kwargs
         )
 
@@ -100,17 +92,3 @@ class PostgresqlBackend(DatabaseBackend):
                 "PostgreSQL-compatible databases"
             )
         return super().begin()
-
-
-class PostgresqlPsycopgBackend(PostgresqlBackend):
-    """
-    Like PostgresqlBackend, but using the newer Psycopg 3.
-    """
-
-    driver_module = "psycopg"
-
-    @property
-    def TRANSACTION_STATUS_IDLE(self):
-        from psycopg.pq import TransactionStatus
-
-        return TransactionStatus.IDLE

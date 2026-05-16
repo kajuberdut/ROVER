@@ -11,20 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# TODO: Review vendored yoyo codebase for security and maintenance
-
 
 __all__ = [
     "ancestors",
     "default_migration_table",
     "descendants",
     "get_backend",
-    "group",
     "logger",
     "read_migrations",
-    "step",
-    "transaction",
 ]
 
 from yoyo.connections import get_backend
@@ -32,11 +26,8 @@ from yoyo.migrations import (
     ancestors,
     default_migration_table,
     descendants,
-    group,
     logger,
     read_migrations,
-    step,
-    transaction,
 )
 
 __version__ = "9.0.0"
