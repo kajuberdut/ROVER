@@ -1,16 +1,5 @@
-# Copyright 2015 Oliver Cope
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Originally yoyo-migrations by Oliver Cope (Apache License 2.0).
+# Modified for ROVER as the shipship migration sub-module.
 
 import hashlib
 import os
@@ -27,17 +16,18 @@ from itertools import chain, count, zip_longest
 from logging import getLogger
 
 import sqlparse
-from yoyo import exceptions
-from yoyo.utils import plural
 
-logger = getLogger("yoyo.migrations")
-default_migration_table = "_yoyo_migration"
+from . import exceptions
+from .utils import plural
+
+logger = getLogger("shipship.migrations")
+default_migration_table = "_shipship_migration"
 
 hash_function = hashlib.sha256
 
 # Prefix used by the (now removed) newmigration tool for temp files.
 # Retained here so that any leftover temp files are excluded from discovery.
-_NEWMIGRATION_TEMPFILE_PREFIX = "_tmp_yoyonew"
+_NEWMIGRATION_TEMPFILE_PREFIX = "_tmp_shipshipnew"
 
 
 def _is_migration_file(path: pathlib.Path):
@@ -262,7 +252,7 @@ class StepBase(object):
 
 class TransactionWrapper(StepBase):
     """
-    A :class:~`yoyo.migrations.TransactionWrapper` object causes a step to be
+    A :class:~`shipship.migrations.TransactionWrapper` object causes a step to be
     run within a single database transaction. Nested transactions are
     implemented via savepoints.
     """
@@ -291,7 +281,7 @@ class TransactionWrapper(StepBase):
 
 class Transactionless(StepBase):
     """
-    A :class:~`yoyo.migrations.TransactionWrapper` object causes a step to be
+    A :class:~`shipship.migrations.TransactionWrapper` object causes a step to be
     run outside of a database transaction.
     """
 
@@ -590,7 +580,7 @@ def ancestors(migration, population):
     """
     Return the dependencies for ``migration`` from ``population``.
 
-    :param migration: a :class:`~yoyo.migrations.Migration` object
+    :param migration: a :class:`~shipship.migrations.Migration` object
     :param population: a collection of migrations
     """
     to_process = set()
@@ -613,7 +603,7 @@ def descendants(migration, population):
     """
     Return all descendants of ``migration`` from ``population``.
 
-    :param migration: a :class:`~yoyo.migrations.Migration` object
+    :param migration: a :class:`~shipship.migrations.Migration` object
     :param population: a collection of migrations
     """
     population = set(population)
@@ -641,8 +631,8 @@ def heads(migration_list):
 
 
 def topological_sort(migrations: t.Iterable[Migration]) -> t.Iterable[Migration]:
-    from yoyo.topologicalsort import CycleError
-    from yoyo.topologicalsort import topological_sort as topological_sort_impl
+    from .topologicalsort import CycleError
+    from .topologicalsort import topological_sort as topological_sort_impl
 
     migration_list = list(migrations)
     all_migrations = set(migration_list)

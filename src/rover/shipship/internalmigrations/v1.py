@@ -1,23 +1,21 @@
 """
-Version 2 schema.
-
-Compatible with yoyo-migrations >=  6.0
+Version 1 schema — initial shipship internal schema.
 """
 
 from datetime import datetime
 
-from yoyo.migrations import get_migration_hash
+from ..migrations import get_migration_hash
 
 
 def upgrade(backend):
     """
-    Upgrade the internal yoyo schema to version 2.
+    Initialise the shipship internal schema to version 1.
 
-    On a **fresh database** (no prior _yoyo_migration table) this simply
-    creates the v2 tables from scratch.
+    On a **fresh database** (no prior migration table) this creates the
+    version 1 tables from scratch.
 
-    When upgrading from a v1 database (old _yoyo_migration table already
-    exists), it migrates the existing rows into the new schema before
+    On a database previously managed by yoyo-migrations (old _yoyo_migration
+    table present), it migrates the existing rows into the new schema before
     replacing the table.
     """
     tables = set(backend.list_tables())
@@ -27,7 +25,7 @@ def upgrade(backend):
     create_version_table(backend)
 
     if old_migration_table_exists:
-        # v1 → v2: copy rows from the old table into the log, then rebuild.
+        # Legacy upgrade: copy rows from the old table into the log, then rebuild.
         qi = backend.quote_identifier
         cursor = backend.execute(
             f"SELECT {qi('id')}, {qi('ctime')} FROM {backend.migration_table_quoted}"
@@ -77,7 +75,7 @@ def upgrade(backend):
             """
         )
     else:
-        # Fresh database: create the v2 migration table directly.
+        # Fresh database: create the migration table directly.
         create_migration_table(backend)
 
 
@@ -85,9 +83,8 @@ def create_migration_table(backend):
     qi = backend.quote_identifier
     backend.execute(
         # migration_hash: sha256 hash of the migration id
-        # migration_id: identifier of the migration file
-        #               (path basename without extension)
-        # applied_at_utc: time in UTC of when the id was applied
+        # migration_id: identifier of the migration file (basename without extension)
+        # applied_at_utc: time in UTC of when the migration was applied
         f"""
         CREATE TABLE {backend.migration_table_quoted} (
             {qi("migration_hash")} VARCHAR(64),

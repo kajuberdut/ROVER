@@ -1,16 +1,5 @@
-# Copyright 2015 Oliver Cope
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Originally yoyo-migrations by Oliver Cope (Apache License 2.0).
+# Modified for ROVER as the shipship migration sub-module.
 
 import getpass
 import os
@@ -25,15 +14,15 @@ from importlib import import_module
 from itertools import count
 from logging import getLogger
 
-from yoyo import exceptions, internalmigrations, utils
-from yoyo.migrations import topological_sort
+from .. import exceptions, internalmigrations, utils
+from ..migrations import topological_sort
 
-logger = getLogger("yoyo.migrations")
+logger = getLogger("shipship.migrations")
 
 
 class TransactionManager:
     """
-    Returned by the :meth:`~yoyo.backends.DatabaseBackend.transaction`
+    Returned by the :meth:`~shipship.backends.DatabaseBackend.transaction`
     context manager.
 
     If rollback is called, the transaction is flagged to be rolled back
@@ -59,21 +48,15 @@ class TransactionManager:
             self._do_commit()
 
     def _do_begin(self):
-        """
-        Instruct the backend to begin a transaction
-        """
+        """Instruct the backend to begin a transaction"""
         self.backend.begin()
 
     def _do_commit(self):
-        """
-        Instruct the backend to commit the transaction
-        """
+        """Instruct the backend to commit the transaction"""
         self.backend.commit()
 
     def _do_rollback(self):
-        """
-        Instruct the backend to roll back the transaction
-        """
+        """Instruct the backend to roll back the transaction"""
         self.backend.rollback()
 
 
@@ -90,7 +73,7 @@ class SavepointTransactionManager(TransactionManager):
         """
         This does nothing.
 
-        Trying to the release savepoint here could cause an database error in
+        Trying to the release savepoint here could cause a database error in
         databases where DDL queries cause the transaction to be committed
         and all savepoints released.
         """
@@ -102,14 +85,14 @@ class SavepointTransactionManager(TransactionManager):
 class DatabaseBackend:
     driver_module = ""
 
-    log_table = "_yoyo_log"
-    lock_table = "yoyo_lock"
+    log_table = "_shipship_log"
+    lock_table = "_shipship_lock"
     list_tables_sql = "SELECT table_name FROM information_schema.tables"
-    version_table = "_yoyo_version"
-    migration_table = "_yoyo_migrations"
+    version_table = "_shipship_version"
+    migration_table = "_shipship_migration"
     is_applied_sql = """
         SELECT COUNT(1) FROM {0.migration_table_quoted}
-        WHERE {quoted.id}=:id}"""
+        WHERE {quoted.id}=:id"""
     mark_migration_sql = (
         "INSERT INTO {0.migration_table_quoted} "
         "({quoted.migration_hash}, {quoted.migration_id}, {quoted.applied_at_utc}) "
@@ -168,9 +151,7 @@ class DatabaseBackend:
         self._transactional_ddl_cache[str(self.uri)] = self.has_transactional_ddl
 
     def _load_driver_module(self):
-        """
-        Load the dbapi driver module and register the base exception class
-        """
+        """Load the dbapi driver module and register the base exception class"""
         driver = get_dbapi_module(self.driver_module)
         exceptions.register(driver.DatabaseError)
         return driver
@@ -206,10 +187,7 @@ class DatabaseBackend:
         """
 
     def copy(self):
-        """
-        Return a copy of the backend with a independent db
-        connection.
-        """
+        """Return a copy of the backend with an independent db connection."""
         return self.__class__(self.uri, self.migration_table)
 
     def __enter__(self):
@@ -237,7 +215,7 @@ class DatabaseBackend:
         Return True if the database supports committing/rolling back
         DDL statements within a transaction
         """
-        table_name = "yoyo_tmp_{}".format(utils.get_random_string(10))
+        table_name = "_shipship_tmp_{}".format(utils.get_random_string(10))
         table_name_quoted = self.quote_identifier(table_name)
         sql = self.format_sql(
             self.create_test_table_sql, table_name_quoted=table_name_quoted
@@ -256,11 +234,7 @@ class DatabaseBackend:
         return False
 
     def list_tables(self, **kwargs) -> list[str]:
-        """
-        Return a list of tables present in the backend.
-        This is used by the test suite to clean up tables
-        generated during testing
-        """
+        """Return a list of tables present in the backend."""
         cursor = self.execute(
             self.list_tables_sql,
             dict({"database": self.uri.database}, **kwargs),
@@ -270,7 +244,6 @@ class DatabaseBackend:
     def transaction(self, rollback_on_exit=False):
         if not self._in_transaction:
             return TransactionManager(self, rollback_on_exit=rollback_on_exit)
-
         else:
             return SavepointTransactionManager(self, rollback_on_exit=rollback_on_exit)
 
@@ -287,29 +260,21 @@ class DatabaseBackend:
         self._in_transaction = False
 
     def begin(self):
-        """
-        Begin a new transaction
-        """
+        """Begin a new transaction"""
         assert not self._in_transaction
         self._in_transaction = True
         self.execute("BEGIN")
 
     def savepoint(self, id):
-        """
-        Create a new savepoint with the given id
-        """
+        """Create a new savepoint with the given id"""
         self.execute(f"SAVEPOINT {self.quote_identifier(id)}")
 
     def savepoint_release(self, id):
-        """
-        Release (commit) the savepoint with the given id
-        """
+        """Release (commit) the savepoint with the given id"""
         self.execute(f"RELEASE SAVEPOINT {self.quote_identifier(id)}")
 
     def savepoint_rollback(self, id):
-        """
-        Rollback the savepoint with the given id
-        """
+        """Rollback the savepoint with the given id"""
         self.execute(f"ROLLBACK TO SAVEPOINT {self.quote_identifier(id)}")
 
     @contextmanager
@@ -332,6 +297,7 @@ class DatabaseBackend:
             yield
             return
 
+        self.create_lock_table()
         pid = os.getpid()
         self._insert_lock_row(pid, timeout)
         try:
@@ -368,11 +334,11 @@ class DatabaseBackend:
                     if row:
                         raise exceptions.LockTimeout(
                             f"Process {row[0]} has locked this database "
-                            "(run yoyo break-lock to remove this lock)"
+                            "(run shipship break-lock to remove this lock)"
                         )
                     else:
                         raise exceptions.LockTimeout(
-                            "Database locked (run yoyo break-lock to remove this lock)"
+                            "Database locked (run shipship break-lock to remove this lock)"
                         )
                 time.sleep(poll_interval)
             else:
@@ -396,7 +362,6 @@ class DatabaseBackend:
         object.
 
         :param sql: A single SQL statement, optionally with named parameters
-                    (eg 'SELECT * FROM foo WHERE :bar IS NULL')
         :param params: A dictionary of parameters
         """
         cursor = self.cursor()
@@ -405,9 +370,7 @@ class DatabaseBackend:
         return cursor
 
     def create_lock_table(self):
-        """
-        Create the lock table if it does not already exist.
-        """
+        """Create the lock table if it does not already exist."""
         try:
             with self.transaction():
                 self.execute(self.format_sql(self.create_lock_table_sql))
@@ -415,9 +378,7 @@ class DatabaseBackend:
             pass
 
     def ensure_internal_schema_updated(self):
-        """
-        Check and upgrade yoyo's internal schema.
-        """
+        """Check and upgrade shipship's internal schema."""
         if self._internal_schema_updated:
             return
         if internalmigrations.needs_upgrading(self):
@@ -431,29 +392,19 @@ class DatabaseBackend:
         return migration.hash in self.get_applied_migration_hashes()
 
     def get_applied_migration_hashes(self):
-        """
-        Return the list of migration hashes in the order in which they
-        were applied
-        """
+        """Return the list of migration hashes in the order applied"""
         self.ensure_internal_schema_updated()
         sql = self.format_sql(self.applied_migrations_sql)
         return [row[0] for row in self.execute(sql).fetchall()]
 
     def to_apply(self, migrations):
-        """
-        Return the subset of migrations not already applied.
-        """
+        """Return the subset of migrations not already applied."""
         applied = self.get_applied_migration_hashes()
         ms = (m for m in migrations if m.hash not in applied)
         return migrations.__class__(topological_sort(ms), migrations.post_apply)
 
     def to_rollback(self, migrations):
-        """
-        Return the subset of migrations already applied and which may be
-        rolled back.
-
-        The order of migrations will be reversed.
-        """
+        """Return the subset of migrations already applied (in reverse order)."""
         applied = self.get_applied_migration_hashes()
         ms = (m for m in migrations if m.hash in applied)
         return migrations.__class__(
@@ -466,10 +417,7 @@ class DatabaseBackend:
             self.run_post_apply(migrations, force=force)
 
     def apply_migrations_only(self, migrations, force=False):
-        """
-        Apply the list of migrations, but do not run any post-apply hooks
-        present.
-        """
+        """Apply migrations, skipping post-apply hooks."""
         if not migrations:
             return
         for m in migrations:
@@ -479,9 +427,7 @@ class DatabaseBackend:
                 continue
 
     def run_post_apply(self, migrations, force=False):
-        """
-        Run any post-apply migrations present in ``migrations``
-        """
+        """Run any post-apply migrations present in ``migrations``"""
         for m in migrations.post_apply:
             self.apply_one(m, mark=False, force=force)
 
@@ -514,9 +460,7 @@ class DatabaseBackend:
                     continue
 
     def apply_one(self, migration, force=False, mark=True):
-        """
-        Apply a single migration
-        """
+        """Apply a single migration"""
         logger.info("Applying %s", migration.id)
         self.ensure_internal_schema_updated()
         with self.copy() as migration_backend:
@@ -527,9 +471,7 @@ class DatabaseBackend:
                 self.mark_one(migration, log=False)
 
     def rollback_one(self, migration, force=False):
-        """
-        Rollback a single migration
-        """
+        """Rollback a single migration"""
         logger.info("Rolling back %s", migration.id)
         self.ensure_internal_schema_updated()
         with self.copy() as migration_backend:
@@ -565,9 +507,7 @@ class DatabaseBackend:
         self.execute(sql, self.get_log_data(migration, operation))
 
     def get_log_data(self, migration=None, operation="apply"):
-        """
-        Return a dict of data for insertion into the ``_yoyo_log`` table
-        """
+        """Return a dict of data for insertion into the ``_shipship_log`` table"""
         assert operation in {"apply", "rollback", "mark", "unmark"}
         return {
             "id": str(uuid.uuid1()),
@@ -584,11 +524,11 @@ def get_backend_class(name):
     """
     Return the backend class for the given scheme name.
 
-    Only PostgreSQL (via psycopg3) is supported. Both ``postgresql://`` and
-    ``postgresql+psycopg://`` schemes resolve to ``PostgresqlPsycopgBackend``.
+    Both ``postgresql://`` and ``postgresql+psycopg://`` resolve to
+    ``PostgresqlPsycopgBackend`` (psycopg3).
     """
     if name in ("postgresql", "postgres", "postgresql+psycopg"):
-        from yoyo.backends.core.postgresql import PostgresqlPsycopgBackend
+        from .core.postgresql import PostgresqlPsycopgBackend
 
         return PostgresqlPsycopgBackend
     raise KeyError(
@@ -597,7 +537,5 @@ def get_backend_class(name):
 
 
 def get_dbapi_module(name):
-    """
-    Import and return the named DB-API driver module
-    """
+    """Import and return the named DB-API driver module"""
     return import_module(name)

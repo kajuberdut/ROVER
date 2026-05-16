@@ -1,16 +1,5 @@
-# Copyright 2015 Oliver Cope
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Originally yoyo-migrations by Oliver Cope (Apache License 2.0).
+# Modified for ROVER as the shipship migration sub-module.
 
 import argparse
 import configparser
@@ -18,7 +7,7 @@ import logging
 import sys
 import typing as t
 
-from yoyo import connections, default_migration_table
+from .. import connections, default_migration_table
 
 verbosity_levels = {
     0: logging.ERROR,
@@ -123,7 +112,7 @@ def make_argparser():
         help="Run in batch mode. Turns off all user prompts",
     )
 
-    argparser = argparse.ArgumentParser(prog="yoyo", parents=[global_parser])
+    argparser = argparse.ArgumentParser(prog="shipship", parents=[global_parser])
 
     subparsers = argparser.add_subparsers(help="Commands help")
 

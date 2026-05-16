@@ -26,11 +26,12 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://rover:${POSTGRES_PASSWORD:-rover_password}@db:5432/rover
     command: >
-      sh -c "uv pip install -r src/rover/vendor/yoyo/requirements.txt && 
-             PYTHONPATH=src/rover/vendor /app/.venv/bin/python -m yoyo apply --database $$DATABASE_URL ./migrations --batch"
+      sh -c "uv pip install -r src/rover/shipship/requirements.txt && 
+             PYTHONPATH=src /app/.venv/bin/python -m rover.shipship apply --database $$DATABASE_URL ./migrations --batch"
 
   web:
     build: .
+    image: rover-web
     user: "${UID:-1000}:${GID:-1000}"
     group_add:
       # Grant access to /var/run/docker.sock. Run `stat -c %g /var/run/docker.sock`

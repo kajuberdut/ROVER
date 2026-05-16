@@ -129,3 +129,10 @@ By relying on these industry-standard OCI annotations, ROVER can automatically c
   - **Semgrep Caching**: Semgrep scans are cached by full SHA-1 commit hash. If a completed scan already exists for a given commit, the worker reuses those results without re-running the container — so scheduled re-scans only run Trivy (whose vulnerability DB changes over time) while Semgrep re-runs only when new commits are introduced.
 - **Report Page**: Scan reports display Trivy CVE results in a fixed-layout table. When a Semgrep job also exists for a repo scan, a tab bar appears alongside showing finding counts. The active tab is persisted in the URL hash for bookmarking and page-refresh stability.
 
+---
+
+## Credits & Origins
+
+ROVER's internal migration system, **shipship**, is a refactored version of the excellent [yoyo-migrations](https://github.com/ollycope/yoyo) library originally by Oliver Cope. 
+
+The name **shipship** is a reference to the **Ship of Theseus** (or Theseus' paradox): a thought experiment that asks whether an object that has had all of its components replaced remains fundamentally the same object.

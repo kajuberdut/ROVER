@@ -564,7 +564,7 @@ rover/
 
 ### ~~A4 · Schema Migrations~~ (Completed)
 
-**Current state:** We have fully containerized schema migrations utilizing a vendored version of `yoyo-migrations` running inside a dedicated initialization container against our Postgres backend.
+**Current state:** We have fully containerized schema migrations utilizing the `shipship` migration sub-module running inside a dedicated initialization container against our Postgres backend.
 
 **Target state:** Adopt a lightweight, stdlib-only migration runner:
 
