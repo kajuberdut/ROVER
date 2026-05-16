@@ -18,30 +18,35 @@ err()  { echo -e "${RED}[error]${NC} $*"; exit 1; }
 QUERY="${1:-}"
 [[ -z "$QUERY" ]] && err "Usage: $0 <email-or-sub>"
 
-DB_PATH="${ROVER_DB_PATH:-$(dirname "$0")/src/rover/jobs.db}"
-[[ -f "$DB_PATH" ]] || err "Database not found at $DB_PATH. Has ROVER been started at least once?"
-
 require() { command -v "$1" &>/dev/null || err "'$1' is required but not found."; }
-require sqlite3
+require docker
 
-# Show all users to aid debugging
-ALL_USERS=$(sqlite3 "$DB_PATH" "SELECT sub, email, name, role FROM users;" 2>/dev/null || true)
+# Check if postgres container is running
+if ! docker ps --format '{{.Names}}' | grep -q "^postgres$"; then
+    err "Postgres container 'postgres' is not running. Please start the database first."
+fi
+
+# Run command inside postgres container
+DB_CMD="docker exec -i postgres psql -U rover -d rover -t -A -c"
+
+# Show all users to aid debugging (concatenate with | so it matches the IFS later)
+ALL_USERS=$($DB_CMD "SELECT sub || '|' || COALESCE(email, '') || '|' || COALESCE(name, '') || '|' || role FROM users;" 2>/dev/null || true)
 
 if [[ -z "$ALL_USERS" ]]; then
     err "No users found. The user must log in at least once before being promoted."
 fi
 
 # Try by email first, then by sub
-MATCH=$(sqlite3 "$DB_PATH" "SELECT sub FROM users WHERE email = '${QUERY}' LIMIT 1;" 2>/dev/null || true)
+MATCH=$($DB_CMD "SELECT sub FROM users WHERE email = '${QUERY}' LIMIT 1;" 2>/dev/null || true)
 
 if [[ -z "$MATCH" ]]; then
     # Try partial email match (in case domain differs)
-    MATCH=$(sqlite3 "$DB_PATH" "SELECT sub FROM users WHERE email LIKE '%${QUERY}%' LIMIT 1;" 2>/dev/null || true)
+    MATCH=$($DB_CMD "SELECT sub FROM users WHERE email LIKE '%${QUERY}%' LIMIT 1;" 2>/dev/null || true)
 fi
 
 if [[ -z "$MATCH" ]]; then
     # Fall back to direct sub match
-    MATCH=$(sqlite3 "$DB_PATH" "SELECT sub FROM users WHERE sub = '${QUERY}' LIMIT 1;" 2>/dev/null || true)
+    MATCH=$($DB_CMD "SELECT sub FROM users WHERE sub = '${QUERY}' LIMIT 1;" 2>/dev/null || true)
 fi
 
 if [[ -z "$MATCH" ]]; then
@@ -59,5 +64,5 @@ if [[ -z "$MATCH" ]]; then
     exit 1
 fi
 
-sqlite3 "$DB_PATH" "UPDATE users SET role = 'system_admin' WHERE sub = '${MATCH}';"
+$DB_CMD "UPDATE users SET role = 'system_admin' WHERE sub = '${MATCH}';" >/dev/null
 info "User with sub '${MATCH}' has been promoted to system_admin."

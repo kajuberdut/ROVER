@@ -5,8 +5,13 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: rover
-      POSTGRES_PASSWORD: rover_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rover_password}
       POSTGRES_DB: rover
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rover -d rover"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
       - db_data:/var/lib/postgresql/data
     expose:
@@ -20,12 +25,13 @@ services:
       # on the host to find the correct GID, then set DOCKER_GID in .env.local if needed.
       - "${DOCKER_GID:-962}"
     environment:
-      - DATABASE_URL=postgresql+psycopg://rover:rover_password@db:5432/rover
+      - DATABASE_URL=postgresql+psycopg://rover:${POSTGRES_PASSWORD:-rover_password}@db:5432/rover
     env_file:
       - path: .env.local
         required: false
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./src:/app/src
