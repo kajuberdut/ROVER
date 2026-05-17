@@ -10,7 +10,7 @@ Planned features are tracked in [ROADMAP.md](ROADMAP.md).
 
 ## Getting Started
 
-ROVER is Docker-first. All services (the web application, Authelia identity provider, and Nginx reverse proxy) are orchestrated with Docker Compose. The Docker daemon is a hard dependency — it is used both to run the stack and to execute ephemeral Trivy vulnerability scan containers.
+ROVER is Docker-first. All services (the web application, PostgreSQL database, Authelia identity provider, and Nginx reverse proxy) are orchestrated with Docker Compose. The Docker daemon is a hard dependency — it is used both to run the stack and to execute ephemeral Trivy vulnerability scan containers.
 
 ### Prerequisites
 
@@ -120,8 +120,8 @@ By relying on these industry-standard OCI annotations, ROVER can automatically c
   - Floating combo-button navigation on long reports managed via `IntersectionObserver`.
   - Dynamic remote repository and container image tag querying (`git ls-remote`, `skopeo list-tags`) coupled to a custom PicoCSS segmented button UI.
   - Inline entity mapping workflows with auto-expanding contextual layouts.
-- **Job Queue**: A lightweight `sqlite3` queue (`scan_queue.py`) manages asynchronous scanning jobs without needing heavy external message brokers. Two queues are maintained: `scan_jobs` (Trivy) and `semgrep_jobs` (Semgrep).
-- **Worker Thread**: `worker.py` runs an `asyncio` loop inside a background Python thread alongside Falcon, gracefully picking up jobs from both SQLite queues each iteration.
+- **Job Queue**: A PostgreSQL-backed queue (`scan_queue.py`) manages asynchronous scanning jobs without needing heavy external message brokers like RabbitMQ or Redis. Two queues are maintained: `scan_jobs` (Trivy) and `semgrep_jobs` (Semgrep).
+- **Worker Thread**: `worker.py` runs an `asyncio` loop inside a background Python thread alongside Falcon, gracefully picking up jobs from both PostgreSQL queues each iteration.
 - **Artifact Bundles**: Users can logically group and track multiple Git Repositories and Docker Images together under Release Packages, rolling up all vulnerability metrics into a unified dashboard view.
 - **Scanner Execution**: The `scanner.py` utility utilizes `testcontainers` to launch ephemeral, isolated Docker containers for scanning.
   - **Trivy (CVE)**: Runs `aquasec/trivy:latest` for dependency and container image vulnerability scanning. Uses a named Docker volume (`trivy-vulnerability-db-cache`) to cache the vulnerability database between scans.
