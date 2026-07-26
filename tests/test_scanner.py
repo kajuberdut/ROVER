@@ -191,8 +191,8 @@ def test_run_major_component_scan_success(mock_urlopen):
     )
     mock_urlopen.return_value.__enter__.return_value = mock_response
 
-    with patch("rover.scanner.scan_queue.get_cached_eol_data", return_value=None):
-        with patch("rover.scanner.scan_queue.set_cached_eol_data") as mock_set:
+    with patch("rover.scanner.db.get_cached_eol_data", return_value=None):
+        with patch("rover.scanner.db.set_cached_eol_data") as mock_set:
             data, source, status = run_major_component_scan("postgresql", "14")
             assert data["eol"] == "2026-11-12"
             assert source == "eol_api"
@@ -200,7 +200,7 @@ def test_run_major_component_scan_success(mock_urlopen):
             mock_set.assert_called_once()
 
 
-@patch("rover.scanner.scan_queue.get_cached_eol_data")
+@patch("rover.scanner.db.get_cached_eol_data")
 def test_run_major_component_scan_cached(mock_get_cached):
     mock_get_cached.return_value = '{"eol": "2026-11-12", "releaseDate": "2021-09-30"}'
 
@@ -249,7 +249,7 @@ def test_run_semgrep_scan_success(mock_docker_from_env):
         MockDockerContainer.return_value = mock_container
 
         mock_client = MagicMock()
-        # Semgrep exits 1 when findings are found — not an error
+        # Semgrep exits 1 when findings are found; not an error
         mock_client.client.containers.get.return_value.wait.return_value = {
             "StatusCode": 1
         }

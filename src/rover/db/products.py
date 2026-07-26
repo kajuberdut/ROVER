@@ -29,7 +29,7 @@ def add_product(name: str, description: str = "") -> str:
             row = conn.execute(
                 select(products.c.id).where(products.c.name == name)
             ).fetchone()
-            return str(row[0])
+            return str(row[0]) if row else product_id
 
 
 def get_all_products() -> list[dict[str, Any]]:
@@ -68,7 +68,7 @@ def add_release(product_id: str, name: str, version: str) -> str:
                     releases.c.name == name, releases.c.version == version
                 )
             ).fetchone()
-            return str(row[0])
+            return str(row[0]) if row else release_id
 
 
 def get_all_releases() -> list[dict[str, Any]]:
@@ -216,6 +216,10 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
     WITH LatestScans AS (
         SELECT sj.*, ROW_NUMBER() OVER(PARTITION BY sj.target_url, sj.target_type, COALESCE(sj.git_ref, '') ORDER BY sj.created_at DESC) as rn
         FROM scan_jobs sj
+    ),
+    LatestSemgrepScans AS (
+        SELECT sem.*, ROW_NUMBER() OVER(PARTITION BY sem.target_url ORDER BY sem.created_at DESC) as rn
+        FROM semgrep_jobs sem
     )
     SELECT 
         pa.id as release_asset_id,
@@ -234,7 +238,10 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         ls.resolved_commit,
         ls.resolved_tags,
         cim.repo_uri as source_repo_url,
-        cim.commit_hash as image_source_git_ref
+        cim.commit_hash as image_source_git_ref,
+        lss.id as semgrep_scan_id,
+        lss.status as semgrep_scan_status,
+        lss.results_json as semgrep_results_json
     FROM release_assets pa
     LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
     LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
@@ -245,6 +252,12 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name WHEN pa.asset_type = 'major_component' THEN e.name END) AND
         (ls.target_type = pa.asset_type) AND
         (COALESCE(ls.git_ref, '') = COALESCE(pa.git_ref, ''))
+    LEFT JOIN LatestSemgrepScans lss ON
+        (lss.rn = 1) AND
+        (
+            (pa.asset_type = 'repo' AND lss.target_url = r.url) OR
+            (pa.asset_type = 'image' AND lss.target_url = cim.repo_uri)
+        )
     WHERE pa.release_id = :release_id
     ORDER BY pa.created_at DESC
     """)

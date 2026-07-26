@@ -1,4 +1,4 @@
-"""rover/routes/refs.py — Git branch/tag and container image tag query routes.
+"""rover/routes/refs.py: Git branch/tag and container image tag query routes.
 
 All resources in this module make subprocess calls (``git ls-remote``
 or ``skopeo list-tags``) to resolve remote refs without cloning.
@@ -14,28 +14,33 @@ import subprocess
 import falcon
 import falcon.asgi
 
-from rover import scan_queue, scanner
+from rover import db, scanner, vault
 
 
 class RepoRefsResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, repo_id: str
     ) -> None:
-        repo = scan_queue.get_repository(repo_id)
+        repo = db.get_repository(repo_id)
         if not repo:
             resp.status = falcon.HTTP_404
             resp.text = json.dumps({"error": "Repository not found"})
             return
 
         url = repo["url"]
+        auth_url = vault.get_authenticated_git_url(url)
         try:
+            import os
+
+            env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
             # Run git ls-remote to securely fetch branches and tags
             result = subprocess.run(  # noqa: S603
-                ["git", "ls-remote", "--heads", "--tags", url],  # noqa: S607
+                ["git", "ls-remote", "--heads", "--tags", auth_url],  # noqa: S607
                 capture_output=True,
                 text=True,
                 check=True,
                 timeout=10,
+                env=env,
             )
 
             branches = []
@@ -73,19 +78,28 @@ class RemoteRepoRefsResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         url = req.get_param("url")
+        credential_id = req.get_param("credential_id")
+        product_id = req.get_param("product_id")
         if not url:
             resp.status = falcon.HTTP_400
             resp.text = json.dumps({"error": "Missing url parameter"})
             return
 
+        auth_url, cred_used = vault.get_authenticated_git_url_info(
+            url, credential_id=credential_id, product_id=product_id
+        )
         try:
+            import os
+
+            env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
             # Run git ls-remote to securely fetch branches and tags from arbitrary url
             result = subprocess.run(  # noqa: S603
-                ["git", "ls-remote", "--heads", "--tags", url],  # noqa: S607
+                ["git", "ls-remote", "--heads", "--tags", auth_url],  # noqa: S607
                 capture_output=True,
                 text=True,
                 check=True,
                 timeout=10,
+                env=env,
             )
 
             branches = []
@@ -107,7 +121,11 @@ class RemoteRepoRefsResource:
                     if clean_tag not in tags:
                         tags.append(clean_tag)
 
-            resp.text = json.dumps({"branches": sorted(branches), "tags": sorted(tags)})
+            resp.text = json.dumps({
+                "branches": sorted(branches),
+                "tags": sorted(tags),
+                "credential_used": cred_used,
+            })
             resp.content_type = falcon.MEDIA_JSON
         except subprocess.TimeoutExpired:
             resp.status = falcon.HTTP_504
@@ -121,7 +139,7 @@ class ImageRefsResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, image_id: str
     ) -> None:
-        image = scan_queue.get_image(image_id)
+        image = db.get_image(image_id)
         if not image:
             resp.status = falcon.HTTP_404
             resp.text = json.dumps({"error": "Image not found"})
@@ -169,7 +187,7 @@ class ImageLinkRepoResource:
         # Allow if system admin, or if they have *any* product role
         is_system_admin = user.get("role") == "system_admin"
         if not is_system_admin:
-            user_products = scan_queue.get_user_product_ids(user["sub"])
+            user_products = db.get_user_product_ids(user["sub"])
             if not user_products:
                 raise falcon.HTTPForbidden(
                     title="Forbidden",
@@ -180,7 +198,7 @@ class ImageLinkRepoResource:
         source_repo_url = form.get("source_repo_url")
         source_git_ref = form.get("source_git_ref")
 
-        image = scan_queue.get_image(image_id)
+        image = db.get_image(image_id)
         if not image:
             raise falcon.HTTPNotFound(description="Image not found")
 
@@ -191,24 +209,25 @@ class ImageLinkRepoResource:
                     scanner.resolve_image_hash, image["name"]
                 )
                 if image_hash:
-                    scan_queue.update_image_hash(image_id, image_hash)
+                    db.update_image_hash(image_id, image_hash)
                 else:
-                    raise falcon.HTTPInternalServerError(
-                        description="Could not resolve image hash for this image."
-                    )
+                    image_hash = f"image_name:{image['name']}"
+                    db.update_image_hash(image_id, image_hash)
 
-            scan_queue.add_ci_image_metadata(
+            db.add_ci_image_metadata(
                 image_hash=image_hash,
                 repo_uri=source_repo_url,
                 commit_hash=source_git_ref or "",
-                metadata_dict={"source": "manual_link"},
+                metadata_dict={
+                    "source": "manual_link",
+                    "image_id": image_id,
+                    "image_name": image["name"],
+                },
                 user_sub=user["sub"],
             )
 
-            scan_queue.add_repository(source_repo_url)
-            scan_queue.create_semgrep_job(
-                source_repo_url, git_ref=source_git_ref or None
-            )
+            db.add_repository(source_repo_url)
+            db.create_semgrep_job(source_repo_url, git_ref=source_git_ref or None)
             resp.media = {
                 "status": "ok",
                 "message": "Repository linked and scan enqueued.",

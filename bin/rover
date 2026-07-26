@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# bin/rover: Unified CLI entrypoint for ROVER management, provisioning, and operations.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+source "$REPO_ROOT/bin/lib.sh"
+
+show_help() {
+    cat << 'EOF'
+R.O.V.E.R Management CLI
+
+Usage:
+  ./bin/rover <command> [arguments]
+
+Available Commands:
+  setup                  Run first-time provisioning setup (certs, secrets, OpenBao)
+  promote-admin <user>   Promote a user (by email or sub UUID) to system_admin role
+  up                     Start all ROVER services using Docker Compose
+  down                   Stop all ROVER services
+  restart                Restart all ROVER services
+  status                 Display health status of all running ROVER services
+  logs [service]         Tail logs from ROVER containers (e.g. ./bin/rover logs worker)
+  test                   Run the pytest test suite
+  lint                   Run ruff linter checks
+  help                   Show this help message
+
+Examples:
+  ./bin/rover setup
+  ./bin/rover up
+  ./bin/rover promote-admin admin@rover.local
+  ./bin/rover logs -f falcon
+EOF
+}
+
+CMD="${1:-help}"
+shift || true
+
+case "$CMD" in
+    setup)
+        exec "$REPO_ROOT/bin/setup.sh" "$@"
+        ;;
+    promote-admin|create-admin)
+        exec "$REPO_ROOT/bin/create-admin.sh" "$@"
+        ;;
+    up)
+        info "Starting ROVER service stack..."
+        exec docker compose -f docker/docker-compose.yml -p rover up -d --build "$@"
+        ;;
+    down)
+        info "Stopping ROVER service stack..."
+        exec docker compose -f docker/docker-compose.yml -p rover down "$@"
+        ;;
+    restart)
+        info "Restarting ROVER service stack..."
+        exec docker compose -f docker/docker-compose.yml -p rover restart "$@"
+        ;;
+    status|ps)
+        docker compose -f docker/docker-compose.yml -p rover ps -a "$@"
+        echo ""
+        docker compose -f docker/docker-compose.yml -p rover top "$@" 2>/dev/null || true
+        ;;
+    logs)
+        exec docker compose -f docker/docker-compose.yml -p rover logs "$@"
+        ;;
+    test)
+        if command -v poe &>/dev/null; then
+            exec poe test "$@"
+        else
+            exec pytest tests/ "$@"
+        fi
+        ;;
+    lint)
+        if command -v poe &>/dev/null; then
+            exec poe lint "$@"
+        else
+            exec ruff check . "$@"
+        fi
+        ;;
+    help|-h|--help)
+        show_help
+        ;;
+    *)
+        error "Unknown command '$CMD'. Run './bin/rover help' for available commands."
+        ;;
+esac

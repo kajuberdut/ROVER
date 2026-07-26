@@ -26,8 +26,8 @@
     <tbody>
         {% for u in all_users %}
         <tr>
-            <td>{{ u.name or "—" }}</td>
-            <td><small>{{ u.email or "—" }}</small></td>
+            <td>{{ u.name or "-" }}</td>
+            <td><small>{{ u.email or "-" }}</small></td>
             <td>
                 {% if u.role == 'system_admin' %}
                 <kbd style="background:var(--pico-primary); border-color:var(--pico-primary);">System Admin</kbd>

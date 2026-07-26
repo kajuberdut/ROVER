@@ -4,6 +4,7 @@
 {% if asset.results_json %}
 {% set results = asset.results_json|loadjson %}
 {% set ns.has_data = true %}
+{% if results is mapping %}
 {% for r in results.get('Results', []) %}
 {% for v in r.get('Vulnerabilities', []) %}
 {% if v.Severity == 'CRITICAL' %}{% set ns.critical = ns.critical + 1 %}{% endif %}
@@ -12,6 +13,8 @@
 {% if v.Severity == 'LOW' %}{% set ns.low = ns.low + 1 %}{% endif %}
 {% endfor %}
 {% endfor %}
+{% endif %}
+
 {% endif %}
 <tr>
     <td style="text-align: center; vertical-align: middle;">
@@ -39,9 +42,14 @@
         </div>
         {% if asset.asset_type == 'image' %}
             {% if asset.source_repo_url %}
-            <div style="font-size: 0.8em; color: var(--pico-muted-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
+            <div style="font-size: 0.8em; color: var(--pico-muted-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
                 <span title="Linked to Source Code">🔗</span>
                 <a href="{{ asset.source_repo_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ asset.source_repo_url | short_url }}</a>
+                {% if asset.semgrep_scan_status == 'completed' %}
+                <span style="color: #00aaff; font-weight: 600; margin-left: 0.3rem;" title="Semgrep SAST Scan Completed">🔍 SAST ✅</span>
+                {% elif asset.semgrep_scan_status in ['queued', 'running'] %}
+                <span style="color: var(--pico-muted-color); margin-left: 0.3rem;" aria-busy="true">🔍 SAST ⏳ {{ asset.semgrep_scan_status }}</span>
+                {% endif %}
             </div>
             {% else %}
             <div style="font-size: 0.8em; color: var(--pico-del-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
@@ -54,7 +62,16 @@
     </td>
     <td>
         {% if asset.asset_type == 'image' %}
-        <span style="color: var(--pico-muted-color); font-size: 0.85em;">N/A</span>
+            {% if asset.image_source_git_ref %}
+            <span style="font-size: 0.9em;">
+                {{ asset.image_source_git_ref }}
+                <br><span style="color: var(--pico-muted-color);">[linked repo ref]</span>
+            </span>
+            {% elif asset.git_ref %}
+            <span style="font-size: 0.9em;">{{ asset.git_ref }}</span>
+            {% else %}
+            <span style="color: var(--pico-muted-color); font-size: 0.85em;">N/A</span>
+            {% endif %}
         {% else %}
         <span style="font-size: 0.9em;">
             {{ asset.git_ref or 'default' }}
@@ -68,6 +85,7 @@
         </span>
         {% endif %}
     </td>
+
     <td>
         {% if asset.latest_scan_status == 'queued' %}
         <span style="white-space: nowrap;">⏳ Queued</span>
@@ -84,29 +102,39 @@
     <td style="white-space: nowrap; color: var(--pico-muted-color); font-size: 0.85em;">{{ asset.latest_scan_time |
         humanize_time }}</td>
     <td>
-        {% if ns.has_data %}
         <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-            {% if ns.critical > 0 %}<kbd
-                style="background-color: #d32f2f; border: 1px solid #b71c1c; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
-                ns.critical }} CRIT</kbd>{% endif %}
-            {% if ns.high > 0 %}<kbd
-                style="background-color: #f57c00; border: 1px solid #e65100; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
-                ns.high }} HIGH</kbd>{% endif %}
-            {% if ns.medium > 0 %}<kbd
-                style="background-color: #fbc02d; border: 1px solid #f57f17; color: #333; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
-                ns.medium }} MED</kbd>{% endif %}
-            {% if ns.low > 0 %}<kbd
-                style="background-color: #388e3c; border: 1px solid #1b5e20; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
-                ns.low }} LOW</kbd>{% endif %}
-            {% if ns.critical == 0 and ns.high == 0 and ns.medium == 0 and ns.low == 0 %}
-            <kbd
-                style="background-color: transparent; color: #388e3c; border: 1px solid #388e3c; font-family: inherit; font-size: 0.85em; font-weight: bold;">Clean</kbd>
+            {% if ns.has_data %}
+                {% if ns.critical > 0 %}<kbd
+                    style="background-color: #d32f2f; border: 1px solid #b71c1c; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
+                    ns.critical }} CRIT</kbd>{% endif %}
+                {% if ns.high > 0 %}<kbd
+                    style="background-color: #f57c00; border: 1px solid #e65100; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
+                    ns.high }} HIGH</kbd>{% endif %}
+                {% if ns.medium > 0 %}<kbd
+                    style="background-color: #fbc02d; border: 1px solid #f57f17; color: #333; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
+                    ns.medium }} MED</kbd>{% endif %}
+                {% if ns.low > 0 %}<kbd
+                    style="background-color: #388e3c; border: 1px solid #1b5e20; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
+                    ns.low }} LOW</kbd>{% endif %}
+                {% if ns.critical == 0 and ns.high == 0 and ns.medium == 0 and ns.low == 0 %}
+                <kbd
+                    style="background-color: transparent; color: #388e3c; border: 1px solid #388e3c; font-family: inherit; font-size: 0.85em; font-weight: bold;">CVE Clean</kbd>
+                {% endif %}
+            {% else %}
+                <span style="color: grey; font-size: 0.85em;">No CVE Data</span>
+            {% endif %}
+
+            {% if asset.semgrep_results_json %}
+                {% set sg_list = (asset.semgrep_results_json | loadjson).get('results', []) %}
+                {% if sg_list|length > 0 %}
+                <kbd style="background-color: #6200ee; border: 1px solid #3700b3; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">🔍 {{ sg_list|length }} SAST</kbd>
+                {% else %}
+                <kbd style="background-color: transparent; color: #6200ee; border: 1px solid #6200ee; font-family: inherit; font-size: 0.85em; font-weight: bold;">🔍 SAST Clean</kbd>
+                {% endif %}
             {% endif %}
         </div>
-        {% else %}
-        <span style="color: grey; font-size: 0.85em;">No Data</span>
-        {% endif %}
     </td>
+
     <td>
         {% set is_read_write = user and (user.role == "system_admin" or product_role in ["admin", "read_write"]) %}
         <div style="display: flex; gap: 0.5rem; align-items: center;">

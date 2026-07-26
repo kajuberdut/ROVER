@@ -53,6 +53,17 @@
 
         @media (min-width: 600px) { .brand-subtitle { display: block; } }
 
+        /* ── Universal Tooltip Formatting ── */
+        [data-tooltip]::before,
+        [data-tooltip]::after {
+            white-space: normal !important;
+            max-width: 260px !important;
+            width: max-content !important;
+            text-align: center;
+            line-height: 1.35;
+            z-index: 9999 !important;
+        }
+
         /* ── User menu dropdown ── */
         .user-menu {
             position: relative;
@@ -80,7 +91,7 @@
 
         .user-menu summary::-webkit-details-marker { display: none; }
 
-        /* Trigger button — mirrors old summary appearance */
+        /* Trigger button; mirrors old summary appearance */
         .user-menu-trigger {
             display: flex;
             align-items: center;
@@ -347,26 +358,52 @@
             </a>
 
             {% if user %}
-            <div class="user-menu" id="user-menu">
-                <button class="user-menu-trigger" id="user-menu-btn"
-                    onclick="toggleUserMenu(event)" type="button">
-                    👤 {{ user.name or user.email or "User" }}
-                    <span class="role-badge {{ user.role }}">{{ user.role | replace('_', ' ') }}</span>
-                    <span class="user-menu-chevron" id="user-menu-chevron">▾</span>
-                </button>
-                <div class="user-menu-dropdown" id="user-menu-dropdown" hidden>
-                    <span class="menu-label">{{ user.email or user.sub }}</span>
-                    <div class="menu-divider"></div>
-                    <a href="/config">⚙️ Settings</a>
-                    <a href="/settings/tokens">🔑 API Tokens</a>
-                    {% if user.role == "system_admin" %}
-                    <a href="/admin/users">👥 Users</a>
-                    {% endif %}
-                    <div class="menu-divider"></div>
-                    <a href="/logout">↩ Logout</a>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                {% if user.role == "system_admin" and get_active_notifications_count() > 0 %}
+                <a href="/admin/notifications" 
+                   title="{{ get_active_notifications_count() }} unread system notification{{ 's' if get_active_notifications_count() != 1 else '' }}"
+                   aria-label="System Notifications"
+                   style="position: relative; text-decoration: none; font-size: 1.1rem; padding: 0.25rem 0.55rem; border: 1px solid rgba(255, 51, 102, 0.4); border-radius: var(--pico-border-radius); background: rgba(255, 51, 102, 0.12); display: flex; align-items: center; gap: 0.35rem; line-height: 1; transition: background 0.2s ease;">
+                    🔔
+                    <span style="background: #ff3366; color: white; border-radius: 999px; padding: 0.15rem 0.45rem; font-size: 0.75rem; font-weight: bold;">
+                        {{ get_active_notifications_count() }}
+                    </span>
+                </a>
+                {% endif %}
+
+                <div class="user-menu" id="user-menu">
+                    <button class="user-menu-trigger" id="user-menu-btn"
+                        onclick="toggleUserMenu(event)" type="button">
+                        👤 {{ user.name or user.email or "User" }}
+                        <span class="role-badge {{ user.role }}">{{ user.role | replace('_', ' ') }}</span>
+                        <span class="user-menu-chevron" id="user-menu-chevron">▾</span>
+                    </button>
+                    <div class="user-menu-dropdown" id="user-menu-dropdown" hidden>
+                        <span class="menu-label">{{ user.email or user.sub }}</span>
+                        <div class="menu-divider"></div>
+                        <a href="/config">⚙️ Settings</a>
+                        <a href="/settings/tokens">🔑 API Tokens</a>
+                        {% if user.role == "system_admin" %}
+                        <a href="/admin/notifications">
+                            🔔 Notifications 
+                            {% if get_active_notifications_count() > 0 %}
+                            <span style="background: #ff3366; color: white; border-radius: 999px; padding: 0.1rem 0.45rem; font-size: 0.75rem; font-weight: bold; margin-left: 0.25rem;">
+                                {{ get_active_notifications_count() }}
+                            </span>
+                            {% endif %}
+                        </a>
+                        <a href="/admin/credentials">🔒 Credential Vault</a>
+                        <a href="/admin/users">👥 Users</a>
+
+                        {% endif %}
+                        <div class="menu-divider"></div>
+
+                        <a href="/logout">↩ Logout</a>
+                    </div>
                 </div>
             </div>
             {% endif %}
+
         </nav>
     </header>
 

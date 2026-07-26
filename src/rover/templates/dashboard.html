@@ -40,8 +40,9 @@
     <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
         {% for prod in products %}
         {# Calculate the highest severity for this product's assets to color-code the card #}
-        {% set assets = scan_queue.get_product_assets_with_latest_scans(prod.id) %}
-        {% set releases = scan_queue.get_product_releases(prod.id) %}
+        {% set assets = db.get_product_assets_with_latest_scans(prod.id) %}
+        {% set releases = db.get_product_releases(prod.id) %}
+
         {% set ns = namespace(highest_severity='clean', is_scanning=false, is_failed=false, not_scanned=false) %}
 
         {% if not assets %}
@@ -162,6 +163,18 @@
                                     <button type="button" id="btn_fetch_new_repo_refs" class="outline secondary" style="width:auto; white-space:nowrap;">Fetch Refs</button>
                                 </div>
                             </label>
+                            <label style="margin-top: 0.75rem;">
+                                Git Credential / Secret
+                                <select id="git_credential_id" name="credential_id">
+                                    <option value="auto" selected>Automatic / Best Match</option>
+                                    {% for c in credentials %}
+                                    {% if c.type in ['git_token', 'github_token'] %}
+                                    <option value="{{ c.id }}">{{ c.name }} ({{ c.scope }})</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <small id="cred_used_status_repo" style="margin-top: -0.25rem; display: block; font-weight: 500;"></small>
                         </div>
                     </fieldset>
 
@@ -331,6 +344,8 @@
 
     const newRepoUrlInput = document.getElementById('target_url');
     const btnFetchNewRepoRefs = document.getElementById('btn_fetch_new_repo_refs');
+    const gitCredSelect = document.getElementById('git_credential_id');
+    const credUsedStatusRepo = document.getElementById('cred_used_status_repo');
 
     btnFetchNewRepoRefs.addEventListener('click', () => {
         const url = newRepoUrlInput.value;
@@ -339,11 +354,13 @@
             return;
         }
 
+        const credId = gitCredSelect ? gitCredSelect.value : 'auto';
         branchSelect.innerHTML = '<option value="" disabled selected>Fetching branches...</option>';
         tagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
         btnFetchNewRepoRefs.setAttribute('aria-busy', 'true');
+        if (credUsedStatusRepo) credUsedStatusRepo.textContent = '';
 
-        fetch(`/api/remote_refs/repo?url=${encodeURIComponent(url)}`)
+        fetch(`/api/remote_refs/repo?url=${encodeURIComponent(url)}&credential_id=${encodeURIComponent(credId)}`)
             .then(res => res.json())
             .then(data => {
                 btnFetchNewRepoRefs.removeAttribute('aria-busy');
@@ -351,7 +368,21 @@
                     console.error(data.error);
                     branchSelect.innerHTML = '<option value="" disabled selected>Failed to load branches</option>';
                     tagSelect.innerHTML = '<option value="" disabled selected>Failed to load tags</option>';
+                    if (credUsedStatusRepo) {
+                        credUsedStatusRepo.style.color = 'var(--pico-del-color, #c62828)';
+                        credUsedStatusRepo.textContent = '❌ Authentication / fetch failed';
+                    }
                     return;
+                }
+
+                if (credUsedStatusRepo) {
+                    if (data.credential_used) {
+                        credUsedStatusRepo.style.color = 'var(--pico-ins-color, #2e7d32)';
+                        credUsedStatusRepo.innerHTML = `✓ Authenticated using: <strong>${data.credential_used.name}</strong> (${data.credential_used.scope})`;
+                    } else {
+                        credUsedStatusRepo.style.color = 'var(--pico-muted-color)';
+                        credUsedStatusRepo.textContent = 'ℹ Public access (No token used)';
+                    }
                 }
 
                 branchSelect.innerHTML = '<option value="" disabled selected>Select a branch...</option>';
@@ -375,6 +406,10 @@
                 console.error("Error fetching refs:", err);
                 branchSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
                 tagSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
+                if (credUsedStatusRepo) {
+                    credUsedStatusRepo.style.color = 'var(--pico-del-color, #c62828)';
+                    credUsedStatusRepo.textContent = '❌ Error fetching refs';
+                }
             });
     });
 
@@ -517,10 +552,9 @@
     btnScanRepo.addEventListener('click', () => setTab('repo'));
     btnScanImage.addEventListener('click', () => setTab('image'));
 
-    // Select tab based on URL parameter if present
+    // Select tab based on URL parameter or configured default_tab
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('tab') === 'image') {
-        setTab('image');
-    }
+    const initialTab = urlParams.get('tab') || '{{ default_tab or "repo" }}';
+    setTab(initialTab);
 </script>
 {% endblock %}

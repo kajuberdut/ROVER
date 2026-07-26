@@ -37,7 +37,7 @@ class TransactionManager:
         self._do_begin()
         return self
 
-    def __exit__(self, exc_type, value, traceback):
+    def __exit__(self, exc_type, _value, _traceback):
         if exc_type:
             self._do_rollback()
             return None
@@ -193,7 +193,7 @@ class DatabaseBackend:
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, _exc_type, _exc_value, _traceback):
         self.connection.close()
 
     def __getattr__(self, attrname):

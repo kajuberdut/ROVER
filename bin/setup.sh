@@ -1,22 +1,33 @@
 #!/usr/bin/env bash
-# setup.sh — First-time provisioning for ROVER
+# bin/setup.sh: First-time provisioning for ROVER
 # Generates TLS certs, secrets, and Authelia config from templates.
 # Safe to re-run; will not overwrite existing files by default.
 
 set -euo pipefail
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
-info()    { echo -e "${GREEN}[setup]${NC} $*"; }
-warn()    { echo -e "${YELLOW}[warn]${NC}  $*"; }
-require() { command -v "$1" &>/dev/null || { echo -e "${RED}[error]${NC} '$1' is required but not found."; exit 1; }; }
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+source "$REPO_ROOT/bin/lib.sh"
 
 require openssl
 require docker
 
+# ── 0. Directory Pre-creation & Permission Sanitization ─────────────────────
+info "Ensuring runtime directories exist with valid permissions ..."
+mkdir -p openbao/config openbao/data nginx/certs authelia
+chmod -R 777 openbao/data nginx/certs 2>/dev/null || true
+
+# Fix any root-owned bind mounts from prior Docker runs automatically
+docker run --rm -v "$REPO_ROOT:/work" alpine sh -c "chmod -R 777 /work/openbao/data /work/nginx/certs /work/authelia" 2>/dev/null || true
+
+# Keep committed source files at standard 644 file mode
+chmod 644 authelia/*.example nginx/nginx.conf nginx/authelia-custom/*.css openbao/config/config.hcl 2>/dev/null || true
+
 # ── 1. Nginx TLS certificates ───────────────────────────────────────────────
 CERT_DIR="nginx/certs"
 if [[ -f "$CERT_DIR/rover.local.crt" ]]; then
-    warn "TLS cert already exists at $CERT_DIR/rover.local.crt — skipping."
+    warn "TLS cert already exists at $CERT_DIR/rover.local.crt; skipping."
 else
     info "Generating self-signed TLS certificate for *.rover.local ..."
     mkdir -p "$CERT_DIR"
@@ -29,7 +40,7 @@ fi
 
 # ── 2. Authelia secrets ──────────────────────────────────────────────────────
 if [[ -f "authelia/configuration.yml" ]]; then
-    warn "authelia/configuration.yml already exists — skipping secret generation."
+    warn "authelia/configuration.yml already exists; skipping secret generation."
 else
     info "Generating Authelia secrets ..."
 
@@ -47,7 +58,7 @@ else
     info "Generating OIDC client secret ..."
     CLIENT_SECRET_PLAIN=$(openssl rand -hex 24)
     if ! docker image inspect authelia/authelia:latest &>/dev/null; then
-        warn "Docker image 'authelia/authelia:latest' not found locally — pulling now."
+        warn "Docker image 'authelia/authelia:latest' not found locally; pulling now."
         warn "This may take several minutes depending on your download speed."
     fi
     CLIENT_SECRET_HASH=$(docker run --rm authelia/authelia:latest \
@@ -74,12 +85,12 @@ open(path, "w").write(content)
 PYEOF
 
     echo "ROVER_OIDC_CLIENT_SECRET=${CLIENT_SECRET_PLAIN}" >> .env.local
-    info "OIDC client secret written to .env.local — docker compose will load it automatically."
+    info "OIDC client secret written to .env.local; docker compose will load it automatically."
 fi
 
 # ── 3. Authelia user database ────────────────────────────────────────────────
 if [[ -f "authelia/users_database.yml" ]]; then
-    warn "authelia/users_database.yml already exists — skipping."
+    warn "authelia/users_database.yml already exists; skipping."
 else
     echo ""
     info "Creating the initial admin user."
@@ -88,7 +99,7 @@ else
 
     info "Hashing password with Argon2 (this may take a moment) ..."
     if ! docker image inspect authelia/authelia:latest &>/dev/null; then
-        warn "Docker image 'authelia/authelia:latest' not found locally — pulling now."
+        warn "Docker image 'authelia/authelia:latest' not found locally; pulling now."
         warn "This may take several minutes depending on your download speed."
     fi
     ADMIN_HASH=$(docker run --rm authelia/authelia:latest \
@@ -102,28 +113,15 @@ else
 fi
 
 # ── 4. config.toml ───────────────────────────────────────────────────────────
-# Docker will create config.toml as a directory if it doesn't exist before the
-# volume is mounted. Remove it if that happened and create the real file.
 if [[ -d "config.toml" ]]; then
-    warn "config.toml is a directory (created by Docker) — removing and replacing with file."
+    warn "config.toml is a directory (created by Docker); removing and replacing with file."
     rm -rf "config.toml"
 fi
 if [[ -f "config.toml" ]]; then
-    warn "config.toml already exists — skipping."
+    warn "config.toml already exists; skipping."
 else
     info "Writing default config.toml ..."
-    cat > config.toml << 'EOF'
-# R.O.V.E.R Configuration File
-# You can edit this manually or via the Web UI settings page.
-
-[scanner]
-# Maximum time in seconds to wait for a scan to complete
-timeout_seconds = 600
-
-[ui]
-# The default tab to open when viewing the dashboard
-default_tab = "repo"
-EOF
+    python3 -c 'from rover.config import load_config; load_config()' 2>/dev/null || true
 fi
 
 # ── 5. /etc/hosts reminder ───────────────────────────────────────────────────
@@ -133,10 +131,12 @@ if ! grep -q "rover.local" /etc/hosts 2>/dev/null; then
     echo "    127.0.0.1 rover.local auth.rover.local"
 fi
 
+# ── 6. OpenBao Setup ─────────────────────────────────────────────────────────
+info "Setting up OpenBao secrets management..."
+python3 "$REPO_ROOT/bin/setup-openbao.py"
+
 echo ""
-info "Setup complete. Next steps:"
-info "  1. docker compose up --build -d"
+info "Setup complete! Next steps:"
+info "  1. ./bin/rover up"
 info "  2. Navigate to https://rover.local and log in with your Authelia 'admin' credentials."
-info "  3. Run: ./create-admin.sh admin@rover.local"
-info "     (This promotes the admin user to the ROVER admin role.)"
-info "     Re-run create-admin.sh at any time to recover access."
+info "  3. Run: ./bin/rover promote-admin admin@rover.local"

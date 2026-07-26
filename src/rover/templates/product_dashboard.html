@@ -61,7 +61,7 @@
     <!-- Active Releases Grid -->
     <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
         {% for release in releases %}
-        {% set assets = scan_queue.get_release_assets_with_latest_scans(release.id) %}
+        {% set assets = db.get_release_assets_with_latest_scans(release.id) %}
         {% set ns = namespace(highest_severity='clean', is_scanning=false, is_failed=false, not_scanned=false) %}
 
         {% if not assets %}

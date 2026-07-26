@@ -59,9 +59,9 @@ def parse_args(
     globalparser, argparser, subparsers = make_argparser()
 
     # Initial parse to extract any global arguments
-    global_args, _ = globalparser.parse_known_args(argv)
+    _global_args, _ = globalparser.parse_known_args(argv)
 
-    # Always use an empty config — no yoyo.ini support in ROVER's batch mode
+    # Always use an empty config; no yoyo.ini support in ROVER's batch mode
     config = _empty_config()
 
     defaults = {}
@@ -94,7 +94,10 @@ def make_argparser():
     """
     global_parser = argparse.ArgumentParser(add_help=False)
     global_parser.add_argument(
-        "--config", "-c", default=None, help="Path to config file (unused in batch mode)"
+        "--config",
+        "-c",
+        default=None,
+        help="Path to config file (unused in batch mode)",
     )
     global_parser.add_argument(
         "-v",

@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 
-from rover.scan_queue import (
+from rover.db import (
     claim_next_job,
     claim_next_semgrep_job,
     get_completed_semgrep_job_by_commit,
@@ -24,7 +24,9 @@ async def process_job(
     # Job is already set to 'running' via claim_next_job.
 
     try:
-        from rover import scanner
+        from rover import plugins
+
+        plugin = plugins.get_plugin_for_job(target_type)
 
         if target_type == "major_component":
             # We expect target_url to be the name, and git_ref to be the version
@@ -32,12 +34,11 @@ async def process_job(
                 raise ValueError(
                     "Major Component scan requires a version string in git_ref"
                 )
-            results, commit_hash, tags_str = await asyncio.to_thread(
-                scanner.run_major_component_scan, target_url, git_ref
-            )
+            res = await asyncio.to_thread(plugin.scan, target_url, git_ref, target_type)
         else:
             if target_type == "image":
-                from rover.scan_queue import (
+                from rover import scanner
+                from rover.db import (
                     add_repository,
                     create_semgrep_job,
                     get_ci_image_metadata,
@@ -71,20 +72,15 @@ async def process_job(
                             add_repository(source)
                             create_semgrep_job(source, git_ref=revision)
 
-            # Run the actual Trivy scan using testcontainers
-            # Since this is a blocking I/O operation (Docker), wrap it in to_thread so we don't
-            # block the asyncio event loop while the container is running
-            results, commit_hash, tags_str = await asyncio.to_thread(
-                scanner.run_trivy_scan, target_url, git_ref, target_type
-            )
+            res = await asyncio.to_thread(plugin.scan, target_url, git_ref, target_type)
 
         # Update status to completed
         update_job_status(
             job_id,
             "completed",
-            results_json=json.dumps(results),
-            resolved_commit=commit_hash,
-            resolved_tags=tags_str,
+            results_json=json.dumps(res.results),
+            resolved_commit=res.resolved_commit or "latest",
+            resolved_tags=res.resolved_tags,
         )
 
         logger.info(f"Job {job_id} completed successfully")
@@ -103,7 +99,7 @@ async def process_semgrep_job(
 
     Before running the container, resolve the commit hash and check whether a
     completed Semgrep job already exists for that exact commit (full SHA-1).
-    If a cache hit is found, copy the results directly — no Docker run needed.
+    If a cache hit is found, copy the results directly; no Docker run needed.
     """
     logger.info(f"Starting semgrep job {job_id} for {target_url} at ref {git_ref}")
 
@@ -115,18 +111,23 @@ async def process_semgrep_job(
         # use a lightweight git ls-remote to resolve the ref to a commit.
         import subprocess
 
-        from rover import scanner
-
         commit_hash: str | None = None
 
         # Try to resolve commit hash without a full clone using ls-remote
         try:
+            import os
+
+            from rover import vault
+
             ref_to_resolve = git_ref or "HEAD"
+            auth_url = vault.get_authenticated_git_url(target_url)
+            env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
             ls_result = subprocess.run(  # noqa: S603
-                ["git", "ls-remote", target_url, ref_to_resolve],  # noqa: S607
+                ["git", "ls-remote", auth_url, ref_to_resolve],  # noqa: S607
                 capture_output=True,
                 text=True,
                 timeout=15,
+                env=env,
             )
             if ls_result.returncode == 0 and ls_result.stdout.strip():
                 first_line = ls_result.stdout.strip().splitlines()[0]
@@ -139,7 +140,7 @@ async def process_semgrep_job(
         except Exception as e:
             logger.debug(f"Pre-scan ls-remote failed, will resolve after clone: {e}")
 
-        # Step 2: Cache check — if we have the hash, look for a completed job
+        # Step 2: Cache check; if we have the hash, look for a completed job
         if commit_hash:
             cached = get_completed_semgrep_job_by_commit(commit_hash)
             if cached:
@@ -156,20 +157,20 @@ async def process_semgrep_job(
                 )
                 return
 
-        # Step 3: Cache miss — run the full scan
-        results, resolved_commit, tags_str = await asyncio.to_thread(
-            scanner.run_semgrep_scan, target_url, git_ref
-        )
+        from rover import plugins
+
+        plugin = plugins.get_plugin_for_job("semgrep")
+        res = await asyncio.to_thread(plugin.scan, target_url, git_ref, "semgrep")
 
         update_semgrep_job_status(
             job_id,
             "completed",
-            results_json=json.dumps(results),
-            resolved_commit=resolved_commit,
-            resolved_tags=tags_str,
+            results_json=json.dumps(res.results),
+            resolved_commit=res.resolved_commit or "unknown",
+            resolved_tags=res.resolved_tags,
         )
         logger.info(
-            f"Semgrep job {job_id} completed (commit {resolved_commit[:7] if resolved_commit else 'unknown'})"
+            f"Semgrep job {job_id} completed (commit {res.resolved_commit[:7] if res.resolved_commit else 'unknown'})"
         )
 
     except Exception as e:

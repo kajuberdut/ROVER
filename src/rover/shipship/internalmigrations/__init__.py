@@ -8,7 +8,7 @@ from . import v1
 
 #: Mapping of {schema version number: module}
 #: Version 0: no migration tables exist (fresh database).
-#: Version 1: current schema — all shipship tracking tables present.
+#: Version 1: current schema; all shipship tracking tables present.
 schema_versions = {0: None, 1: v1}
 
 #: First schema version that uses the version tracking table.

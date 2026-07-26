@@ -1,19 +1,19 @@
-"""rover/routes/api.py — Machine-to-machine JSON API routes.
+"""rover/routes/api.py: Machine-to-machine JSON API routes.
 
 This module is the designated home for all future authenticated JSON
 endpoints. Current surface:
-  - POST /api/ci/image-metadata  — CI pipeline CI metadata ingestion
+  - POST /api/ci/image-metadata; CI pipeline CI metadata ingestion
 
 Planned additions (see ROADMAP for details):
-  - §9.2  GET  /api/v1/releases/{release_id}/report  — structured JSON release report
-  - §15.1 POST /api/v1/releases/{release_id}/scan    — CI/CD scan trigger
-  - §15.2 GET  /api/v1/jobs/{job_id}/status          — job status + policy verdict
+  - §9.2  GET  /api/v1/releases/{release_id}/report; structured JSON release report
+  - §15.1 POST /api/v1/releases/{release_id}/scan; CI/CD scan trigger
+  - §15.2 GET  /api/v1/jobs/{job_id}/status; job status + policy verdict
 """
 
 import falcon
 import falcon.asgi
 
-from rover import permissions, scan_queue
+from rover import db, permissions
 
 
 class CiImageMetadataResource:
@@ -44,13 +44,13 @@ class CiImageMetadataResource:
         if not isinstance(metadata, dict):
             raise falcon.HTTPBadRequest(description="metadata must be a JSON object")
 
-        success = scan_queue.add_ci_image_metadata(
-            image_hash=image_hash,
-            repo_uri=repo_uri,
-            commit_hash=commit_hash,
+        success = db.add_ci_image_metadata(
+            image_hash=str(image_hash),
+            repo_uri=str(repo_uri),
+            commit_hash=str(commit_hash),
             metadata_dict=metadata,
             image_tags=image_tags,
-            ci_job_url=ci_job_url,
+            ci_job_url=str(ci_job_url) if ci_job_url else None,
             user_sub=req.context.user.get("sub"),
             token_id=req.context.user.get("api_token_id"),
         )

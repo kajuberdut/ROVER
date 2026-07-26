@@ -1,4 +1,4 @@
-"""rover/routes/_env.py — Shared Jinja2 environment.
+"""rover/routes/_env.py: Shared Jinja2 environment.
 
 All route modules import ``template_env`` from here so that the
 environment (loader, autoescape settings, and custom filters) is
@@ -59,3 +59,15 @@ def short_url(url: str | None) -> str:
 
 
 template_env.filters["short_url"] = short_url
+
+
+def _get_active_notifications_count() -> int:
+    try:
+        from rover import db
+
+        return len(db.get_active_admin_notifications())
+    except Exception:
+        return 0
+
+
+template_env.globals["get_active_notifications_count"] = _get_active_notifications_count

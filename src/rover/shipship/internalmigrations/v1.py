@@ -1,5 +1,5 @@
 """
-Version 1 schema — initial shipship internal schema.
+Version 1 schema; initial shipship internal schema.
 """
 
 from datetime import datetime

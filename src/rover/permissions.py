@@ -1,5 +1,5 @@
 """
-permissions.py — Falcon hook functions and context helpers for RBAC.
+permissions.py; Falcon hook functions and context helpers for RBAC.
 
 Usage (as a Falcon before-hook):
     @falcon.before(require_system_admin)
@@ -13,10 +13,7 @@ from typing import Any
 
 import falcon
 
-from rover import scan_queue
-
-VALID_ROLES = ("viewer", "system_admin")
-VALID_PRODUCT_ROLES = ("read", "read_write", "admin")
+from rover import db
 
 
 def _get_user(req: falcon.asgi.Request) -> dict[str, Any]:
@@ -35,7 +32,7 @@ def _get_user(req: falcon.asgi.Request) -> dict[str, Any]:
 
 
 async def require_system_admin(
-    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource: Any, params: Any
+    req: falcon.asgi.Request, resp: falcon.asgi.Response, _resource: Any, params: Any
 ) -> None:
     """Allow only system admins."""
     user = _get_user(req)
@@ -51,7 +48,7 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
         product_id = body.get("product_id")
 
     if product_id:
-        return product_id
+        return str(product_id)
 
     # 2. Check via release_id
     release_id = params.get("release_id")
@@ -60,9 +57,9 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
         release_id = body.get("release_id")
 
     if release_id:
-        release = scan_queue.get_release(release_id)
-        if release:
-            return release["product_id"]
+        release = db.get_release(release_id)
+        if release and release.get("product_id"):
+            return str(release["product_id"])
 
     # 3. Check via release_asset_id
     release_asset_id = params.get("release_asset_id")
@@ -71,11 +68,11 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
         release_asset_id = body.get("release_asset_id")
 
     if release_asset_id:
-        release_asset = scan_queue.get_release_asset(release_asset_id)
+        release_asset = db.get_release_asset(release_asset_id)
         if release_asset:
-            release = scan_queue.get_release(release_asset["release_id"])
-            if release:
-                return release["product_id"]
+            release = db.get_release(release_asset["release_id"])
+            if release and release.get("product_id"):
+                return str(release["product_id"])
 
     return None
 
@@ -93,31 +90,31 @@ def _check_product_role(
         # can reject it due to missing parameters.
         return
 
-    product_role = scan_queue.get_user_product_role(user["sub"], product_id)
+    product_role = db.get_user_product_role(user["sub"], product_id)
     if not product_role or product_role not in allowed_roles:
         raise falcon.HTTPForbidden(description="Insufficient product permissions.")
 
 
 async def require_product_admin(
-    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource: Any, params: Any
+    req: falcon.asgi.Request, resp: falcon.asgi.Response, _resource: Any, params: Any
 ) -> None:
     _check_product_role(req, params, {"admin"})
 
 
 async def require_product_read_write(
-    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource: Any, params: Any
+    req: falcon.asgi.Request, resp: falcon.asgi.Response, _resource: Any, params: Any
 ) -> None:
     _check_product_role(req, params, {"admin", "read_write"})
 
 
 async def require_product_read(
-    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource: Any, params: Any
+    req: falcon.asgi.Request, resp: falcon.asgi.Response, _resource: Any, params: Any
 ) -> None:
     _check_product_role(req, params, {"admin", "read_write", "read"})
 
 
 async def require_api_write_token(
-    req: falcon.asgi.Request, resp: falcon.asgi.Response, resource: Any, params: Any
+    req: falcon.asgi.Request, resp: falcon.asgi.Response, _resource: Any, params: Any
 ) -> None:
     """Explicitly require authentication via an API token that has write permissions."""
     user = _get_user(req)
@@ -128,7 +125,7 @@ async def require_api_write_token(
             description="This endpoint requires a valid API token."
         )
 
-    if user["api_token_permission"] != "write":
+    if user["api_token_permission"] != "write":  # noqa: S105
         raise falcon.HTTPForbidden(
             description="This endpoint requires an API token with write permissions."
         )

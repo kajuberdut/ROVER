@@ -173,3 +173,35 @@ ci_image_metadata = Table(
     Column("created_by_token_id", String, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
+
+admin_notifications = Table(
+    "admin_notifications",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("title", String, nullable=False),
+    Column("message", String, nullable=False),
+    Column("category", String, nullable=False, server_default="scanner_update"),
+    Column("source_tool", String, nullable=False),
+    Column("metadata_json", String, server_default="{}"),
+    Column("is_dismissed", Boolean, server_default=text("false")),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("dismissed_at", TIMESTAMP, default=None),
+)
+
+credentials = Table(
+    "credentials",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("type", String, nullable=False),
+    Column("scope", String, nullable=False),
+    Column(
+        "product_id",
+        String,
+        ForeignKey("products.id", ondelete="CASCADE"),
+        default=None,
+    ),
+    Column("description", String, default=None),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
+)

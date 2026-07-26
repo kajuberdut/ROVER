@@ -19,7 +19,7 @@ def add_repository(url: str) -> str:
             row = conn.execute(
                 select(repositories.c.id).where(repositories.c.url == url)
             ).fetchone()
-            return str(row[0])
+            return str(row[0]) if row else repo_id
 
 
 def get_all_repositories() -> list[dict[str, Any]]:
@@ -49,7 +49,7 @@ def add_image(name: str) -> str:
             row = conn.execute(
                 select(images.c.id).where(images.c.name == name)
             ).fetchone()
-            return str(row[0])
+            return str(row[0]) if row else image_id
 
 
 def get_all_images() -> list[dict[str, Any]]:
@@ -97,7 +97,7 @@ def add_major_component(name: str, version: str) -> str:
                     major_components.c.version == version,
                 )
             ).fetchone()
-            return str(row[0])
+            return str(row[0]) if row else component_id
 
 
 def get_all_major_components() -> list[dict[str, Any]]:
@@ -108,11 +108,3 @@ def get_all_major_components() -> list[dict[str, Any]]:
             )
         ).fetchall()
         return [dict(row._mapping) for row in rows]
-
-
-def get_major_component(component_id: str) -> dict[str, Any] | None:
-    with get_db_connection() as conn:
-        row = conn.execute(
-            select(major_components).where(major_components.c.id == component_id)
-        ).fetchone()
-        return dict(row._mapping) if row else None

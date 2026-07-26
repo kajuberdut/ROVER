@@ -17,8 +17,8 @@
     <tbody>
         {% for u in users %}
         <tr>
-            <td>{{ u.name or "—" }}</td>
-            <td><small>{{ u.email or "—" }}</small></td>
+            <td>{{ u.name or "-" }}</td>
+            <td><small>{{ u.email or "-" }}</small></td>
             <td>
                 <select id="role-select-{{ loop.index }}"
                     onchange="setRole('{{ u.sub }}', this.value)"

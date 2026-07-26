@@ -6,7 +6,15 @@ from .migrations import default_migration_table
 
 
 class DatabaseURI:
-    __slots__ = ("scheme", "username", "password", "hostname", "port", "database", "args")
+    __slots__ = (
+        "scheme",
+        "username",
+        "password",
+        "hostname",
+        "port",
+        "database",
+        "args",
+    )
 
     def __init__(self, scheme, username, password, hostname, port, database, args):
         self.scheme = scheme
@@ -34,7 +42,11 @@ class DatabaseURI:
 
     def __repr__(self):
         # Never expose password in repr
-        safe = str(self).replace(f":{self.password}@", ":***@") if self.password else str(self)
+        safe = (
+            str(self).replace(f":{self.password}@", ":***@")
+            if self.password
+            else str(self)
+        )
         return f"DatabaseURI({safe!r})"
 
 

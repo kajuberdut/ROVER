@@ -13,11 +13,12 @@ def add_ci_image_metadata(
     repo_uri: str,
     commit_hash: str,
     metadata_dict: dict[str, Any],
-    image_tags: list[str] = None,
-    ci_job_url: str = None,
-    user_sub: str = None,
-    token_id: str = None,
+    image_tags: list[str] | None = None,
+    ci_job_url: str | None = None,
+    user_sub: str | None = None,
+    token_id: str | None = None,
 ) -> bool:
+
     metadata_json = json.dumps(metadata_dict)
     tags_json = json.dumps(image_tags or [])
 

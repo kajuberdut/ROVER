@@ -153,6 +153,17 @@
                                         style="width:auto; white-space:nowrap;">Fetch Refs</button>
                                 </div>
                             </label>
+                            <label style="margin-top: 0.75rem;">Git Credential / Secret
+                                <select id="modal_git_credential_id" name="credential_id">
+                                    <option value="auto" selected>Automatic / Best Match</option>
+                                    {% for c in credentials %}
+                                    {% if c.type in ['git_token', 'github_token'] %}
+                                    <option value="{{ c.id }}">{{ c.name }} ({{ c.scope }})</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                            </label>
+                            <small id="modal_cred_used_status_repo" style="margin-top: -0.25rem; display: block; font-weight: 500;"></small>
                         </div>
                     </fieldset>
 
@@ -310,7 +321,7 @@
     box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     z-index: 9999;
     white-space: nowrap;
-">✓ Scan enqueued — results will appear shortly</div>
+">✓ Scan enqueued; results will appear shortly</div>
 
 <script>
     let _linkRepoAssetId = null;
@@ -373,7 +384,7 @@
                 return;
             }
 
-            // Success — close the modal
+            // Success; close the modal
             closeLinkRepoModal();
 
             // Refresh the assets table so the "Link" warning disappears immediately
@@ -390,7 +401,7 @@
             setTimeout(() => { toast.style.display = 'none'; }, 4000);
 
         } catch (err) {
-            errorBox.textContent = '⚠ Network error — check your connection and try again.';
+            errorBox.textContent = '⚠ Network error; check your connection and try again.';
             errorBox.style.display = 'block';
             btn.removeAttribute('aria-busy');
             btn.textContent = 'Link and Scan';
@@ -481,6 +492,8 @@
 
     const modalNewRepoUrlInput = document.getElementById('modal_target_url');
     const modalBtnFetchNewRepoRefs = document.getElementById('modal_btn_fetch_new_repo_refs');
+    const modalGitCredSelect = document.getElementById('modal_git_credential_id');
+    const modalCredUsedStatusRepo = document.getElementById('modal_cred_used_status_repo');
 
     modalBtnFetchNewRepoRefs.addEventListener('click', () => {
         const url = modalNewRepoUrlInput.value;
@@ -489,11 +502,13 @@
             return;
         }
 
+        const credId = modalGitCredSelect ? modalGitCredSelect.value : 'auto';
         branchSelect.innerHTML = '<option value="" disabled selected>Fetching branches...</option>';
         tagSelect.innerHTML = '<option value="" disabled selected>Fetching tags...</option>';
         modalBtnFetchNewRepoRefs.setAttribute('aria-busy', 'true');
+        if (modalCredUsedStatusRepo) modalCredUsedStatusRepo.textContent = '';
 
-        fetch(`/api/remote_refs/repo?url=${encodeURIComponent(url)}`)
+        fetch(`/api/remote_refs/repo?url=${encodeURIComponent(url)}&credential_id=${encodeURIComponent(credId)}`)
             .then(res => res.json())
             .then(data => {
                 modalBtnFetchNewRepoRefs.removeAttribute('aria-busy');
@@ -501,7 +516,21 @@
                     console.error(data.error);
                     branchSelect.innerHTML = '<option value="" disabled selected>Failed to load branches</option>';
                     tagSelect.innerHTML = '<option value="" disabled selected>Failed to load tags</option>';
+                    if (modalCredUsedStatusRepo) {
+                        modalCredUsedStatusRepo.style.color = 'var(--pico-del-color, #c62828)';
+                        modalCredUsedStatusRepo.textContent = '❌ Authentication / fetch failed';
+                    }
                     return;
+                }
+
+                if (modalCredUsedStatusRepo) {
+                    if (data.credential_used) {
+                        modalCredUsedStatusRepo.style.color = 'var(--pico-ins-color, #2e7d32)';
+                        modalCredUsedStatusRepo.innerHTML = `✓ Authenticated using: <strong>${data.credential_used.name}</strong> (${data.credential_used.scope})`;
+                    } else {
+                        modalCredUsedStatusRepo.style.color = 'var(--pico-muted-color)';
+                        modalCredUsedStatusRepo.textContent = 'ℹ Public access (No token used)';
+                    }
                 }
 
                 branchSelect.innerHTML = '<option value="" disabled selected>Select a branch...</option>';
@@ -525,6 +554,10 @@
                 console.error("Error fetching refs:", err);
                 branchSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
                 tagSelect.innerHTML = '<option value="" disabled selected>Error loading refs</option>';
+                if (modalCredUsedStatusRepo) {
+                    modalCredUsedStatusRepo.style.color = 'var(--pico-del-color, #c62828)';
+                    modalCredUsedStatusRepo.textContent = '❌ Error fetching refs';
+                }
             });
     });
 

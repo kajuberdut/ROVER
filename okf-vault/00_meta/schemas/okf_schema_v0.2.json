@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Open Knowledge Format (OKF) v0.2 Note Frontmatter Schema",
+  "description": "Standardized frontmatter specification for OKF v0.2 knowledge base notes.",
+  "type": "object",
+  "required": [
+    "id",
+    "type",
+    "title",
+    "created",
+    "updated",
+    "tags"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9]{12}$",
+      "description": "12-digit timestamp identifier formatted as YYYYMMDDHHMM."
+    },
+    "type": {
+      "type": "string",
+      "enum": ["Concept", "Resource", "Index", "Log", "Meta", "Feature"],
+      "description": "The structural classification of the note."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable title of the note."
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of creation (e.g. 2026-07-26T08:25:00Z)."
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of last update (e.g. 2026-07-26T08:25:00Z)."
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_/-]+$"
+      },
+      "description": "List of categorical tags for taxonomy filtering."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["draft", "stable", "deprecated"],
+      "default": "stable",
+      "description": "Lifecycle state of the note: draft -> stable -> deprecated (absent implies stable)."
+    },
+    "stale_after": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "Absolute YYYY-MM-DD date after which the concept content requires re-verification."
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Alternate titles or synonyms for cross-referencing."
+    },
+    "milestone": {
+      "type": "string",
+      "description": "Roadmap milestone identifier (e.g. M1, M2, A1)."
+    },
+    "feature_status": {
+      "type": "string",
+      "enum": ["completed", "in_progress", "planned", "deferred"],
+      "description": "Feature execution status for roadmap tracking."
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Prerequisite milestone identifiers required before this feature can be started."
+    }
+  },
+  "additionalProperties": true
+}

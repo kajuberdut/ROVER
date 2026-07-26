@@ -4,7 +4,7 @@ import urllib.request
 
 import falcon.asgi
 
-from rover import scan_queue
+from rover import db
 
 
 class EolProxyAllResource:
@@ -14,7 +14,7 @@ class EolProxyAllResource:
         """Proxies and caches the master list of all EOL component names."""
 
         # Check cache
-        cached = scan_queue.get_cached_eol_data("ALL", "list")
+        cached = db.get_cached_eol_data("ALL", "list")
         if cached:
             resp.text = cached
             resp.content_type = falcon.MEDIA_JSON
@@ -32,7 +32,7 @@ class EolProxyAllResource:
                 # Verify it's valid JSON before caching
                 json.loads(data)
 
-                scan_queue.set_cached_eol_data("ALL", "list", data)
+                db.set_cached_eol_data("ALL", "list", data)
 
                 resp.text = data
                 resp.content_type = falcon.MEDIA_JSON
@@ -54,7 +54,7 @@ class EolProxyProductResource:
         """Proxies and caches the version list for a specific EOL component."""
 
         # Check cache
-        cached = scan_queue.get_cached_eol_data(product, "cycles")
+        cached = db.get_cached_eol_data(product, "cycles")
         if cached:
             resp.text = cached
             resp.content_type = falcon.MEDIA_JSON
@@ -72,7 +72,7 @@ class EolProxyProductResource:
                 # Verify it's valid JSON before caching
                 json.loads(data)
 
-                scan_queue.set_cached_eol_data(product, "cycles", data)
+                db.set_cached_eol_data(product, "cycles", data)
 
                 resp.text = data
                 resp.content_type = falcon.MEDIA_JSON

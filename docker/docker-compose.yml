@@ -1,3 +1,5 @@
+name: rover
+
 services:
   db:
     image: postgres:17-alpine
@@ -30,7 +32,9 @@ services:
              PYTHONPATH=src /app/.venv/bin/python -m rover.shipship apply --database $$DATABASE_URL ./migrations --batch"
 
   web:
-    build: .
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     image: rover-web
     user: "${UID:-1000}:${GID:-1000}"
     group_add:
@@ -39,23 +43,69 @@ services:
       - "${DOCKER_GID:-962}"
     environment:
       - DATABASE_URL=postgresql+psycopg://rover:${POSTGRES_PASSWORD:-rover_password}@db:5432/rover
+      - VAULT_ADDR=http://openbao:8200
     env_file:
-      - path: .env.local
+      - path: ../.env.local
         required: false
     depends_on:
       migrator:
         condition: service_completed_successfully
+      openbao:
+        condition: service_healthy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./src:/app/src
-      - ./config.toml:/app/config.toml
+      - ../src:/app/src
+      - ../config.toml:/app/config.toml
+
+  openbao:
+    image: openbao/openbao:latest
+    container_name: openbao
+    ports:
+      - "8200:8200"
+    volumes:
+      - ../openbao/config:/vault/config
+      - ../openbao/data:/vault/file
+    command: server -config=/vault/config/config.hcl
+    cap_add:
+      - IPC_LOCK
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8200/v1/sys/health | grep -q '\"initialized\":false\\|\"sealed\":false'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  openbao-unseal:
+    image: curlimages/curl:latest
+    container_name: openbao-unseal
+    restart: unless-stopped
+    volumes:
+      - ../openbao/config:/vault/config:ro
+    command: >
+      sh -c '
+        echo "Starting OpenBao unseal listener...";
+        while true; do
+          if [ -f /vault/config/unseal_key.txt ]; then
+            HEALTH=$$(curl -s http://openbao:8200/v1/sys/health || true);
+            if echo "$$HEALTH" | grep -q "\"sealed\":true"; then
+              echo "OpenBao is sealed. Submitting unseal key...";
+              UNSEAL_KEY=$$(cat /vault/config/unseal_key.txt);
+              curl -s --request PUT --data "{\"key\": \"$$UNSEAL_KEY\"}" http://openbao:8200/v1/sys/unseal > /dev/null;
+              echo "Unseal key submitted.";
+            fi;
+          fi;
+          sleep 5;
+        done;
+      '
+    depends_on:
+      - openbao
 
   authelia:
     image: authelia/authelia:latest
     container_name: authelia
     user: "${UID:-1000}:${GID:-1000}"
     volumes:
-      - ./authelia:/config
+      - ../authelia:/config
     restart: unless-stopped
     expose:
       - "9091"
@@ -64,9 +114,9 @@ services:
     image: nginx:alpine
     container_name: nginx
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
-      - ./nginx/authelia-custom:/etc/nginx/authelia-custom:ro
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/certs:/etc/nginx/certs:ro
+      - ../nginx/authelia-custom:/etc/nginx/authelia-custom:ro
     ports:
       - "80:80"
       - "443:443"

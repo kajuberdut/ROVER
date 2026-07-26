@@ -1,4 +1,4 @@
-"""rover/app.py — ASGI application entry point.
+"""rover/app.py: ASGI application entry point.
 
 Assembles the Falcon app via ``rover.routes.create_app()`` and starts
 the background worker thread. Import this module to get the ``app``

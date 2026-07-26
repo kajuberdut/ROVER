@@ -47,21 +47,35 @@ known-first-party = ["rover"]
 [tool.ruff.lint.per-file-ignores]
 "**/tests/*" = ["S101", "S608", "S110", "S108", "S105"]
 "**/shipship/**" = ["S101", "S608"]
+"**/cli/**" = ["S310"]
+"**/bin/setup-openbao.py" = ["S603", "S607", "S108"]
+
+
 
 [tool.poe]
 executor = { type = "uv" }
 
 [tool.poe.tasks]
-rover = { cmd = "uv run uvicorn rover.app:app --port 8000", help = "Start ROVER server" }
 test = { cmd = "pytest tests/", help = "Run all tests" }
+
 coverage = { cmd = "pytest --cov=src --cov-report=term-missing tests/", help = "Run tests with coverage" }
 lint = { cmd = "ruff check --fix .", help = "Lint code using ruff" }
 format = { cmd = "ruff format .", help = "Format code using ruff" }
 vulture = { cmd = "vulture src/", help = "Find dead code" }
 mypy = { cmd = "mypy src/", help = "Run mypy" }
 verify = { sequence = ["lint", "format", "test", "mypy"], help = "Run lint, format, test, and mypy in sequence" }
-compose-up = { cmd = "docker compose up -d --build", help = "Start the server in Docker" }
-compose-down = { cmd = "docker compose down", help = "Stop the server in Docker" }
+up = { cmd = "docker compose -f docker/docker-compose.yml -p rover up -d --build", help = "Start the compose stack in Docker" }
+down = { cmd = "docker compose -f docker/docker-compose.yml -p rover down", help = "Stop the compose stack in Docker" }
+restart = { cmd = "docker compose -f docker/docker-compose.yml -p rover restart", help = "Restart the compose stack in Docker" }
+status = { sequence = [{ cmd = "docker compose -f docker/docker-compose.yml -p rover ps -a" }, { cmd = "docker compose -f docker/docker-compose.yml -p rover top" }], help = "Display container status and active processes for the ROVER compose stack" }
+logs = { cmd = "docker compose -f docker/docker-compose.yml -p rover logs -f", help = "Tail container logs from the ROVER compose stack" }
+setup = { cmd = "bin/setup.sh", help = "Run first-time provisioning setup (certs, secrets, OpenBao)" }
+promote-admin = { cmd = "bin/create-admin.sh", help = "Promote a user (by email or sub UUID) to system_admin role" }
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 
 [[tool.mypy.overrides]]
 module = "testcontainers.*"
@@ -79,4 +93,5 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 check_untyped_defs = true
-exclude = ["tests"]
+exclude = ["tests", "src/rover/shipship"]
+

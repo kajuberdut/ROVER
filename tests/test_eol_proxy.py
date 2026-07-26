@@ -6,7 +6,7 @@ from falcon import testing
 from sqlalchemy import create_engine
 from testcontainers.postgres import PostgresContainer
 
-from rover import scan_queue
+from rover import db
 
 
 @pytest.fixture(scope="session")
@@ -26,7 +26,7 @@ def client(postgres_db):
     schema.metadata.create_all(connection.engine)
 
     # We must yield the client, then cleanup if necessary, but the key is we MUST clear the cache BEFORE each test
-    with scan_queue.get_db_connection() as conn:
+    with db.get_db_connection() as conn:
         from sqlalchemy import text
 
         conn.execute(text("DELETE FROM eol_cache"))  # Clear cache before tests

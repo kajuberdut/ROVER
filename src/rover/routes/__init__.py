@@ -1,4 +1,4 @@
-"""rover/routes/__init__.py — Falcon ASGI application factory.
+"""rover/routes/__init__.py: Falcon ASGI application factory.
 
 This is the only module that calls ``app.add_route()``. All resource
 classes are imported from their domain modules; route registration is
@@ -12,7 +12,11 @@ import falcon.asgi
 
 from rover import auth
 from rover.eol_proxy import EolProxyAllResource, EolProxyProductResource
-from rover.routes.admin import AdminUsersResource, ConfigResource
+from rover.routes.admin import (
+    AdminNotificationsResource,
+    AdminUsersResource,
+    ConfigResource,
+)
 from rover.routes.api import CiImageMetadataResource
 from rover.routes.assets import (
     ImageResource,
@@ -23,7 +27,15 @@ from rover.routes.assets import (
     ReleaseMajorComponentCardsResource,
     RepositoryResource,
 )
-from rover.routes.dashboard import DashboardResource, QueueTableResource
+from rover.routes.credentials import (
+    AdminCredentialDeleteResource,
+    AdminCredentialsResource,
+)
+from rover.routes.dashboard import (
+    DashboardResource,
+    FaviconResource,
+    QueueTableResource,
+)
 from rover.routes.helm import HelmRepoChartsResource, ReleaseHelmResource
 from rover.routes.products import (
     ProductDashboardResource,
@@ -73,17 +85,23 @@ def create_app() -> falcon.asgi.App:
     # Dashboard
     app.add_route("/", DashboardResource())
     app.add_route("/api/queue_table", QueueTableResource())
+    app.add_route("/favicon.ico", FaviconResource())
 
     # Config / Admin
     app.add_route("/config", ConfigResource())
     app.add_route("/admin/users", AdminUsersResource())
+    app.add_route("/admin/notifications", AdminNotificationsResource())
+    app.add_route("/admin/credentials", AdminCredentialsResource())
+    app.add_route(
+        "/admin/credentials/{credential_id}/delete", AdminCredentialDeleteResource()
+    )
 
     # Direct asset creation
     app.add_route("/repo", RepositoryResource())
     app.add_route("/image", ImageResource())
     app.add_route("/major_components", MajorComponentResource())
 
-    # Refs — git ls-remote / skopeo tag queries
+    # Refs; git ls-remote / skopeo tag queries
     app.add_route("/api/repos/{repo_id}/refs", RepoRefsResource())
     app.add_route("/api/images/{image_id}/refs", ImageRefsResource())
     app.add_route("/api/images/{image_id}/link_repo", ImageLinkRepoResource())
@@ -100,7 +118,7 @@ def create_app() -> falcon.asgi.App:
     app.add_route("/products/{product_id}/delete", ProductDeleteResource())
     app.add_route("/products/{product_id}/permissions", ProductPermissionsResource())
 
-    # Releases — order matters: static segments before parameterised ones
+    # Releases; order matters: static segments before parameterised ones
     app.add_route("/releases", ReleaseResource())
     app.add_route("/releases/helm", ReleaseHelmResource())
     app.add_route("/releases/{release_id}/assets", ReleaseAssetResource())
@@ -122,7 +140,7 @@ def create_app() -> falcon.asgi.App:
     # Helm chart discovery
     app.add_route("/api/helm/repo/charts", HelmRepoChartsResource())
 
-    # Settings — API token management
+    # Settings; API token management
     app.add_route("/settings/tokens", ApiTokenPageResource())
     app.add_route("/settings/tokens/create", ApiTokenCreateResource())
     app.add_route("/settings/tokens/{token_id}/revoke", ApiTokenRevokeResource())

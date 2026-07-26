@@ -8,7 +8,7 @@ import requests  # type: ignore[import-untyped]
 from authlib.jose import jwt  # type: ignore[import-untyped]
 from itsdangerous import BadSignature, URLSafeSerializer
 
-from rover import scan_queue
+from rover import db
 
 log = logging.getLogger(__name__)
 
@@ -72,16 +72,16 @@ class RequireAuthMiddleware:
         auth_header = req.get_header("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ", 1)[1]
-            token_data = scan_queue.verify_api_token(token)
+            token_data = db.verify_api_token(token)
             if token_data:
-                db_user = scan_queue.get_user(token_data["user_sub"])
+                db_user = db.get_user(token_data["user_sub"])
                 if db_user:
                     req.context.user = {
                         "sub": db_user["sub"],
                         "email": db_user["email"],
                         "name": db_user["name"],
                         "role": db_user["role"],
-                        "product_ids": scan_queue.get_user_product_ids(db_user["sub"]),
+                        "product_ids": db.get_user_product_ids(db_user["sub"]),
                         "api_token_permission": token_data["permission"],
                         "api_token_id": token_data["id"],
                     }
@@ -231,7 +231,7 @@ class CallbackResource:
             return
 
         # Authentication successful!
-        # Fetch userinfo from Authelia to get email/name — these aren't always
+        # Fetch userinfo from Authelia to get email/name; these aren't always
         # in the id_token JWT for flat-file users, but are available via userinfo.
         access_token = tokens.get("access_token")
         userinfo = {}
@@ -262,15 +262,15 @@ class CallbackResource:
         )
 
         # Upsert user into ROVER's user registry.
-        db_user = scan_queue.upsert_user(sub=sub, email=email, name=name)
+        db_user = db.upsert_user(sub=sub, email=email, name=name)
 
-        # Build local session — include role and owned products for permission checks.
+        # Build local session; include role and owned products for permission checks.
         user_data = {
             "sub": db_user["sub"],
             "email": db_user["email"],
             "name": db_user["name"],
             "role": db_user["role"],
-            "product_ids": scan_queue.get_user_product_ids(db_user["sub"]),
+            "product_ids": db.get_user_product_ids(db_user["sub"]),
         }
 
         session_token = cookie_serializer.dumps(user_data)

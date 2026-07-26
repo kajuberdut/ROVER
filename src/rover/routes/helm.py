@@ -1,11 +1,11 @@
-"""rover/routes/helm.py — Helm chart ingestion routes."""
+"""rover/routes/helm.py: Helm chart ingestion routes."""
 
 import asyncio
 
 import falcon
 import falcon.asgi
 
-from rover import permissions, scan_queue, scanner
+from rover import db, permissions, scanner
 
 
 class HelmRepoChartsResource:
@@ -41,15 +41,15 @@ class ReleaseHelmResource:
             referer = req.get_header("Referer", default="/")
             raise falcon.HTTPFound(referer)
 
-        release_id = scan_queue.add_release(product_id, chart_name, chart_version)
+        release_id = db.add_release(product_id, chart_name, chart_version)
 
         try:
             images = await asyncio.to_thread(
                 scanner.run_helm_ingestion, repo_url, chart_name, chart_version
             )
             for img in images:
-                image_id = scan_queue.add_image(img)
-                scan_queue.add_release_asset(release_id, "image", image_id)
+                image_id = db.add_image(img)
+                db.add_release_asset(release_id, "image", image_id)
         except Exception:
             # Provide an error parameter on redirect so the user knows ingestion failed
             raise falcon.HTTPFound(f"/products/{product_id}?error=helm_ingest_failed")

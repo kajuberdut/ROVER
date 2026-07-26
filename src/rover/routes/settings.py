@@ -1,9 +1,9 @@
-"""rover/routes/settings.py — API token management routes."""
+"""rover/routes/settings.py: API token management routes."""
 
 import falcon
 import falcon.asgi
 
-from rover import scan_queue
+from rover import db
 from rover.routes._env import template_env
 
 
@@ -19,7 +19,7 @@ def _check_can_manage_tokens(req: falcon.asgi.Request) -> None:
     if user.get("role") == "system_admin":
         return
     for pid in user.get("product_ids", []):
-        role = scan_queue.get_user_product_role(user["sub"], pid)
+        role = db.get_user_product_role(user["sub"], pid)
         if role == "admin":
             return
     raise falcon.HTTPForbidden(
@@ -33,7 +33,7 @@ class ApiTokenPageResource:
     ) -> None:
         _check_can_manage_tokens(req)
         user = req.context.user
-        tokens = scan_queue.get_user_api_tokens(user["sub"])
+        tokens = db.get_user_api_tokens(user["sub"])
         template = template_env.get_template("settings_tokens.html")
 
         # Check if we just created a token and need to display it
@@ -61,7 +61,7 @@ class ApiTokenCreateResource:
             raise falcon.HTTPBadRequest(description="Invalid token parameters.")
 
         user = req.context.user
-        cleartext_token, _ = scan_queue.create_api_token(user["sub"], name, permission)
+        cleartext_token, _ = db.create_api_token(user["sub"], name, permission)
 
         raise falcon.HTTPFound(f"/settings/tokens?new_token={cleartext_token}")
 
@@ -72,5 +72,5 @@ class ApiTokenRevokeResource:
     ) -> None:
         _check_can_manage_tokens(req)
         user = req.context.user
-        scan_queue.revoke_api_token(token_id, user["sub"])
+        db.revoke_api_token(token_id, user["sub"])
         raise falcon.HTTPFound("/settings/tokens")

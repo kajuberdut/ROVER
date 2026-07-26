@@ -51,7 +51,7 @@ Tests `fetch_helm_chart_versions` (OCI path) and `run_helm_ingestion` (OCI
 
 ## 2. HTTP Helm Repo Import (regression)
 
-Tests `fetch_helm_chart_versions` (HTTP path) — ensures the OCI change did not
+Tests `fetch_helm_chart_versions` (HTTP path); ensures the OCI change did not
 break standard repo imports.
 
 ### Steps
@@ -71,7 +71,7 @@ break standard repo imports.
 
 ---
 
-## 3. Link Source Repository — Happy Path
+## 3. Link Source Repository: Happy Path
 
 Tests the async modal UX: spinner, success toast, live table update.
 
@@ -99,7 +99,7 @@ Tests the async modal UX: spinner, success toast, live table update.
 - Button text changes to **Linking…** with a spinner; all fields disabled.
 - Modal closes automatically on success.
 - A green toast notification appears at the bottom of the screen:
-  > ✓ Scan enqueued — results will appear shortly
+  > ✓ Scan enqueued; results will appear shortly
 - Toast disappears after ~4 seconds.
 - The image row in **Release Assets** updates within 3 seconds: the
   **⚠ Missing Source Link** warning is replaced by a 🔗 link showing the
@@ -108,7 +108,7 @@ Tests the async modal UX: spinner, success toast, live table update.
 
 ---
 
-## 4. Link Source Repository — Commit Hash Ref
+## 4. Link Source Repository: Commit Hash Ref
 
 Tests the two-step `git clone` + `git checkout` path for exact commit hashes.
 
@@ -130,7 +130,7 @@ Tests the two-step `git clone` + `git checkout` path for exact commit hashes.
 
 ---
 
-## 5. Link Source Repository — Validation Error
+## 5. Link Source Repository: Validation Error
 
 Tests that the modal stays open and shows an actionable error on failure.
 
@@ -151,7 +151,7 @@ Tests that the modal stays open and shows an actionable error on failure.
 
 ---
 
-## 6. Trivy Scan — Architecture Check
+## 6. Trivy Scan: Architecture Check
 
 Confirms the pinned Trivy image (`v0.69.3`) runs correctly on `linux/amd64`.
 
