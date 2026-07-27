@@ -121,11 +121,13 @@ class RemoteRepoRefsResource:
                     if clean_tag not in tags:
                         tags.append(clean_tag)
 
-            resp.text = json.dumps({
-                "branches": sorted(branches),
-                "tags": sorted(tags),
-                "credential_used": cred_used,
-            })
+            resp.text = json.dumps(
+                {
+                    "branches": sorted(branches),
+                    "tags": sorted(tags),
+                    "credential_used": cred_used,
+                }
+            )
             resp.content_type = falcon.MEDIA_JSON
         except subprocess.TimeoutExpired:
             resp.status = falcon.HTTP_504

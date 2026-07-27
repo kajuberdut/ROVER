@@ -32,8 +32,8 @@
             </hgroup>
         </header>
 
-        {# ── Scan-type tab bar (only shown when a semgrep job exists) ── #}
-        {% if semgrep_job %}
+        {# ── Scan-type tab bar (shown when semgrep or snyk jobs exist) ── #}
+        {% if semgrep_job or snyk_job %}
         <div class="scan-tab-bar" role="tablist">
             <button id="tab-trivy" class="scan-tab active" role="tab"
                 aria-selected="true" aria-controls="pane-trivy"
@@ -49,6 +49,7 @@
                 {% endif %}
                 {% endif %}
             </button>
+            {% if semgrep_job %}
             <button id="tab-semgrep" class="scan-tab" role="tab"
                 aria-selected="false" aria-controls="pane-semgrep"
                 onclick="showTab('semgrep')">
@@ -62,6 +63,23 @@
                 <span class="status-pill running">{{ semgrep_job.status }}</span>
                 {% endif %}
             </button>
+            {% endif %}
+            {% if snyk_job %}
+            <button id="tab-snyk" class="scan-tab" role="tab"
+                aria-selected="false" aria-controls="pane-snyk"
+                onclick="showTab('snyk')">
+                🐶 Snyk Security
+                {% if snyk_job.status == 'completed' and snyk_job.results_json %}
+                {% set snyk_data = (snyk_job.results_json | loadjson) %}
+                {% set snyk_count = snyk_data.get('vulnerabilities', []) | length %}
+                {% if snyk_count > 0 %}
+                <span class="finding-badge">{{ snyk_count }}</span>
+                {% endif %}
+                {% elif snyk_job.status in ('queued', 'running') %}
+                <span class="status-pill running">{{ snyk_job.status }}</span>
+                {% endif %}
+            </button>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -136,6 +154,13 @@
         {% if semgrep_job %}
         <div id="pane-semgrep" class="tab-pane hidden" role="tabpanel">
             {% include "report_semgrep.html" %}
+        </div>
+        {% endif %}
+
+        {# ── Snyk pane ── #}
+        {% if snyk_job %}
+        <div id="pane-snyk" class="tab-pane hidden" role="tabpanel">
+            {% include "report_snyk.html" %}
         </div>
         {% endif %}
 
@@ -307,6 +332,8 @@
         const hash = window.location.hash;
         if (hash === '#tab-semgrep' && document.getElementById('tab-semgrep')) {
             showTab('semgrep');
+        } else if (hash === '#tab-snyk' && document.getElementById('tab-snyk')) {
+            showTab('snyk');
         }
 
         const topAnchor = document.getElementById("top-anchor");

@@ -5,9 +5,12 @@ import logging
 from rover.db import (
     claim_next_job,
     claim_next_semgrep_job,
+    claim_next_snyk_job,
     get_completed_semgrep_job_by_commit,
+    get_completed_snyk_job_by_commit,
     update_job_status,
     update_semgrep_job_status,
+    update_snyk_job_status,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -178,13 +181,102 @@ async def process_semgrep_job(
         update_semgrep_job_status(job_id, "failed", error_message=str(e))
 
 
+async def process_snyk_job(
+    job_id: str, target_url: str, git_ref: str | None = None
+) -> None:
+    """Process a Snyk OSS & SAST scan job with commit hash caching."""
+    logger.info(f"Starting snyk job {job_id} for {target_url} at ref {git_ref}")
+
+    try:
+        import subprocess
+
+        commit_hash: str | None = None
+        try:
+            import os
+
+            from rover import vault
+
+            ref_to_resolve = git_ref or "HEAD"
+            auth_url = vault.get_authenticated_git_url(target_url)
+            env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+            ls_result = subprocess.run(  # noqa: S603
+                ["git", "ls-remote", auth_url, ref_to_resolve],  # noqa: S607
+                capture_output=True,
+                text=True,
+                timeout=15,
+                env=env,
+            )
+            if ls_result.returncode == 0 and ls_result.stdout.strip():
+                first_line = ls_result.stdout.strip().splitlines()[0]
+                candidate = first_line.split()[0].strip()
+                if len(candidate) == 40 and all(
+                    c in "0123456789abcdef" for c in candidate
+                ):
+                    commit_hash = candidate
+        except Exception as e:
+            logger.debug(f"Pre-scan ls-remote failed for snyk: {e}")
+
+        if commit_hash:
+            cached = get_completed_snyk_job_by_commit(commit_hash)
+            if cached and cached.get("results_json"):
+                try:
+                    cdata = json.loads(cached["results_json"])
+                    if isinstance(cdata, dict) and (
+                        "snyk_oss" in cdata or "vulnerabilities" in cdata
+                    ):
+                        logger.info(
+                            f"Snyk cache HIT for commit {commit_hash[:7]} "
+                            f"(existing job {cached['id']}). Reusing results."
+                        )
+                        update_snyk_job_status(
+                            job_id,
+                            "completed",
+                            results_json=cached["results_json"],
+                            resolved_commit=cached["resolved_commit"],
+                            resolved_tags=cached.get("resolved_tags"),
+                        )
+                        return
+                except Exception as cache_err:
+                    logger.debug(f"Invalid cached Snyk JSON ignored: {cache_err}")
+
+        from rover import plugins
+
+        plugin = plugins.get_plugin_for_job("snyk")
+        target_type = (
+            "image"
+            if not (
+                target_url.startswith("http://")
+                or target_url.startswith("https://")
+                or target_url.startswith("git@")
+            )
+            else "repo"
+        )
+        res = await asyncio.to_thread(plugin.scan, target_url, git_ref, target_type)
+
+        update_snyk_job_status(
+            job_id,
+            "completed",
+            results_json=json.dumps(res.results),
+            resolved_commit=res.resolved_commit or "unknown",
+            resolved_tags=res.resolved_tags,
+        )
+        logger.info(
+            f"Snyk job {job_id} completed (commit {res.resolved_commit[:7] if res.resolved_commit else 'unknown'})"
+        )
+
+    except Exception as e:
+        logger.error(f"Snyk job {job_id} failed: {e}")
+        update_snyk_job_status(job_id, "failed", error_message=str(e))
+
+
 async def worker_loop() -> None:
     logger.info("Starting background worker loop")
     while True:
         try:
-            # Poll both queues each iteration
+            # Poll all queues each iteration
             trivy_job = claim_next_job()
             semgrep_job = claim_next_semgrep_job()
+            snyk_job = claim_next_snyk_job()
 
             if trivy_job:
                 await process_job(
@@ -199,8 +291,14 @@ async def worker_loop() -> None:
                     semgrep_job["target_url"],
                     semgrep_job.get("git_ref"),
                 )
-            if not trivy_job and not semgrep_job:
-                # No jobs in either queue; sleep before next poll
+            if snyk_job:
+                await process_snyk_job(
+                    snyk_job["id"],
+                    snyk_job["target_url"],
+                    snyk_job.get("git_ref"),
+                )
+            if not trivy_job and not semgrep_job and not snyk_job:
+                # No jobs in queues; sleep before next poll
                 await asyncio.sleep(2)
 
         except Exception as e:

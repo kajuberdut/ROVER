@@ -118,4 +118,3 @@ def test_get_unmasked_secret_by_type_custom_name() -> None:
         vault_client=mock_vault,
     )
     assert unmasked == "ghp_winnow_secret_999"
-

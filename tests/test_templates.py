@@ -98,6 +98,12 @@ def dummy_context() -> dict:
             "status": "completed",
             "results_json": '{"results": []}',
         },
+        "snyk_job": {
+            "id": "snyk_1",
+            "target_url": "https://github.com/example/repo",
+            "status": "completed",
+            "results_json": '{"vulnerabilities": []}',
+        },
         "repositories": [{"id": "repo_1", "url": "https://github.com/example/repo"}],
         "images": [{"id": "img_1", "name": "example/image:latest"}],
         "major_components": [{"id": "comp_1", "name": "python", "version": "3.12"}],

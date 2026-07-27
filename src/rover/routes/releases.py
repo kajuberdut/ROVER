@@ -76,8 +76,12 @@ class ReleaseScanResource:
                     target_type="repo",
                     git_ref=asset["git_ref"],
                 )
-                # Also enqueue Semgrep (worker will use commit-hash cache if already scanned)
+                # Also enqueue Semgrep and Snyk (worker will use commit-hash cache if already scanned)
                 db.create_semgrep_job(
+                    target_url=asset["asset_name"],
+                    git_ref=asset.get("git_ref"),
+                )
+                db.create_snyk_job(
                     target_url=asset["asset_name"],
                     git_ref=asset.get("git_ref"),
                 )
@@ -85,6 +89,10 @@ class ReleaseScanResource:
                 db.create_job(
                     target_url=asset["asset_name"],
                     target_type="image",
+                    git_ref=asset.get("git_ref"),
+                )
+                db.create_snyk_job(
+                    target_url=asset["asset_name"],
                     git_ref=asset.get("git_ref"),
                 )
                 if asset.get("source_repo_url"):

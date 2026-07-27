@@ -5,7 +5,7 @@ from sqlalchemy import insert, select, update
 from sqlalchemy.sql import func
 
 from rover.db.connection import get_db_connection
-from rover.db.schema import scan_jobs, semgrep_jobs
+from rover.db.schema import scan_jobs, semgrep_jobs, snyk_jobs
 
 
 def create_job(
@@ -104,7 +104,7 @@ def get_completed_semgrep_job_by_commit(commit_hash: str) -> dict[str, Any] | No
                 semgrep_jobs.c.resolved_commit == commit_hash,
                 semgrep_jobs.c.status == "completed",
             )
-            .order_by(semgrep_jobs.c.created_at.asc())
+            .order_by(semgrep_jobs.c.created_at.desc())
             .limit(1)
         ).fetchone()
         return dict(row._mapping) if row else None
@@ -170,6 +170,93 @@ def claim_next_job() -> dict[str, Any] | None:
             conn.execute(
                 update(scan_jobs)
                 .where(scan_jobs.c.id == job_id)
+                .values(status="running", updated_at=func.current_timestamp())
+            )
+            return dict(row._mapping)
+    return None
+
+
+def create_snyk_job(target_url: str, git_ref: str | None = None) -> str:
+    job_id = str(uuid.uuid4())
+    with get_db_connection() as conn:
+        conn.execute(
+            insert(snyk_jobs).values(
+                id=job_id, target_url=target_url, git_ref=git_ref, status="queued"
+            )
+        )
+    return job_id
+
+
+def get_snyk_job(job_id: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        row = conn.execute(select(snyk_jobs).where(snyk_jobs.c.id == job_id)).fetchone()
+        return dict(row._mapping) if row else None
+
+
+def get_snyk_job_for_target(
+    target_url: str, git_ref: str | None
+) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        row = conn.execute(
+            select(snyk_jobs)
+            .where(snyk_jobs.c.target_url == target_url)
+            .where(func.coalesce(snyk_jobs.c.git_ref, "") == (git_ref or ""))
+            .order_by(snyk_jobs.c.created_at.desc())
+            .limit(1)
+        ).fetchone()
+        return dict(row._mapping) if row else None
+
+
+def get_completed_snyk_job_by_commit(commit_hash: str) -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        row = conn.execute(
+            select(snyk_jobs)
+            .where(
+                snyk_jobs.c.resolved_commit == commit_hash,
+                snyk_jobs.c.status == "completed",
+            )
+            .order_by(snyk_jobs.c.created_at.desc())
+            .limit(1)
+        ).fetchone()
+        return dict(row._mapping) if row else None
+
+
+def update_snyk_job_status(
+    job_id: str,
+    status: str,
+    results_json: str | None = None,
+    error_message: str | None = None,
+    resolved_commit: str | None = None,
+    resolved_tags: str | None = None,
+) -> None:
+    with get_db_connection() as conn:
+        conn.execute(
+            update(snyk_jobs)
+            .where(snyk_jobs.c.id == job_id)
+            .values(
+                status=status,
+                results_json=results_json,
+                error_message=error_message,
+                resolved_commit=resolved_commit,
+                resolved_tags=resolved_tags,
+                updated_at=func.current_timestamp(),
+            )
+        )
+
+
+def claim_next_snyk_job() -> dict[str, Any] | None:
+    with get_db_connection() as conn:
+        row = conn.execute(
+            select(snyk_jobs.c.id, snyk_jobs.c.target_url, snyk_jobs.c.git_ref)
+            .where(snyk_jobs.c.status == "queued")
+            .order_by(snyk_jobs.c.created_at.asc())
+            .limit(1)
+        ).fetchone()
+        if row:
+            job_id = row.id
+            conn.execute(
+                update(snyk_jobs)
+                .where(snyk_jobs.c.id == job_id)
                 .values(status="running", updated_at=func.current_timestamp())
             )
             return dict(row._mapping)

@@ -14,6 +14,7 @@ from rover import auth
 from rover.eol_proxy import EolProxyAllResource, EolProxyProductResource
 from rover.routes.admin import (
     AdminNotificationsResource,
+    AdminRedirectResource,
     AdminUsersResource,
     ConfigResource,
 )
@@ -89,6 +90,7 @@ def create_app() -> falcon.asgi.App:
 
     # Config / Admin
     app.add_route("/config", ConfigResource())
+    app.add_route("/admin", AdminRedirectResource())
     app.add_route("/admin/users", AdminUsersResource())
     app.add_route("/admin/notifications", AdminNotificationsResource())
     app.add_route("/admin/credentials", AdminCredentialsResource())

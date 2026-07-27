@@ -11,6 +11,16 @@ from rover.routes._env import template_env
 logger = logging.getLogger(__name__)
 
 
+class AdminRedirectResource:
+    """Redirects /admin to /config."""
+
+    @falcon.before(permissions.require_system_admin)
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        raise falcon.HTTPFound("/config")
+
+
 class ConfigResource:
     @falcon.before(permissions.require_system_admin)
     async def on_get(

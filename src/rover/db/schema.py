@@ -115,6 +115,21 @@ semgrep_jobs = Table(
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
 
+snyk_jobs = Table(
+    "snyk_jobs",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("target_url", String, nullable=False),
+    Column("git_ref", String, default=None),
+    Column("resolved_commit", String, default=None),
+    Column("status", String, nullable=False),
+    Column("results_json", String, default=None),
+    Column("resolved_tags", String, default=None),
+    Column("error_message", String, default=None),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
+)
+
 users = Table(
     "users",
     metadata,

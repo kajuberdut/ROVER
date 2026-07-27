@@ -220,6 +220,10 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
     LatestSemgrepScans AS (
         SELECT sem.*, ROW_NUMBER() OVER(PARTITION BY sem.target_url ORDER BY sem.created_at DESC) as rn
         FROM semgrep_jobs sem
+    ),
+    LatestSnykScans AS (
+        SELECT snyk.*, ROW_NUMBER() OVER(PARTITION BY snyk.target_url ORDER BY snyk.created_at DESC) as rn
+        FROM snyk_jobs snyk
     )
     SELECT 
         pa.id as release_asset_id,
@@ -241,7 +245,12 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         cim.commit_hash as image_source_git_ref,
         lss.id as semgrep_scan_id,
         lss.status as semgrep_scan_status,
-        lss.results_json as semgrep_results_json
+        lss.results_json as semgrep_results_json,
+        lss.error_message as semgrep_error_message,
+        lsn.id as snyk_scan_id,
+        lsn.status as snyk_scan_status,
+        lsn.results_json as snyk_results_json,
+        lsn.error_message as snyk_error_message
     FROM release_assets pa
     LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
     LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
@@ -254,10 +263,10 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         (COALESCE(ls.git_ref, '') = COALESCE(pa.git_ref, ''))
     LEFT JOIN LatestSemgrepScans lss ON
         (lss.rn = 1) AND
-        (
-            (pa.asset_type = 'repo' AND lss.target_url = r.url) OR
-            (pa.asset_type = 'image' AND lss.target_url = cim.repo_uri)
-        )
+        (lss.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN cim.repo_uri END)
+    LEFT JOIN LatestSnykScans lsn ON
+        (lsn.rn = 1) AND
+        (lsn.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name END)
     WHERE pa.release_id = :release_id
     ORDER BY pa.created_at DESC
     """)

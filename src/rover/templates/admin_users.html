@@ -1,4 +1,13 @@
 {% extends "base.html" %}
+
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<a href="/config">Settings</a>
+<span class="breadcrumb-sep">›</span>
+<span>User Management</span>
+{% endblock %}
+
 {% block content %}
 <hgroup>
     <h2>👥 User Management</h2>

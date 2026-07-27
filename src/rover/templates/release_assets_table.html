@@ -132,6 +132,26 @@
                 <kbd style="background-color: transparent; color: #6200ee; border: 1px solid #6200ee; font-family: inherit; font-size: 0.85em; font-weight: bold;">🔍 SAST Clean</kbd>
                 {% endif %}
             {% endif %}
+
+            {% if asset.snyk_scan_status == 'failed' %}
+                <kbd style="background-color: #d32f2f; border: 1px solid #b71c1c; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em; cursor: help;"
+                     data-tooltip="Snyk Scan Failed: {{ asset.snyk_error_message or 'Authentication or execution error' }}"
+                     data-placement="bottom">🐶 ⚠️ Snyk Failed</kbd>
+            {% elif asset.snyk_scan_status in ['queued', 'running'] %}
+                <kbd style="background-color: #ff9800; border: 1px solid #e65100; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;" aria-busy="true">🐶 ⏳ Snyk {{ asset.snyk_scan_status }}</kbd>
+            {% elif asset.snyk_results_json %}
+                {% set snyk_data = (asset.snyk_results_json | loadjson) %}
+                {% set snyk_vulns = snyk_data.get('vulnerabilities', []) %}
+                {% if snyk_data.get('unsupported_manifest') or snyk_data.get('manifest_error') %}
+                <kbd style="background-color: #f57c00; border: 1px solid #e65100; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em; cursor: help;"
+                     data-tooltip="Snyk Notice: {{ snyk_data.get('manifest_error') or 'Unsupported package manager' }}"
+                     data-placement="bottom">🐶 ⚠️ Unsupported</kbd>
+                {% elif snyk_vulns|length > 0 %}
+                <kbd style="background-color: #4b45a9; border: 1px solid #363181; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">🐶 {{ snyk_vulns|length }} Snyk</kbd>
+                {% else %}
+                <kbd style="background-color: transparent; color: #4b45a9; border: 1px solid #4b45a9; font-family: inherit; font-size: 0.85em; font-weight: bold;">🐶 Snyk Clean</kbd>
+                {% endif %}
+            {% endif %}
         </div>
     </td>
 

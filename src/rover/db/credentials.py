@@ -142,16 +142,27 @@ def get_unmasked_secret_by_type_info(
     """Fetches unmasked secret and metadata dictionary from OpenBao by credential type or name."""
     # 1. Search DB credentials table for matching records
     with get_db_connection() as conn:
+        is_git_lookup = credential_type in ("git_token", "github_token")
         if product_id:
             query = text("""
                 SELECT id, name, type, scope, product_id FROM credentials
                 WHERE product_id = :product_id
-                  AND (type = :type OR type = 'git_token' OR type = 'github_token' OR name = :hostname OR name = :type)
-                ORDER BY created_at DESC
+                  AND (
+                      type = :type
+                      OR (:is_git_lookup = TRUE AND type IN ('git_token', 'github_token'))
+                      OR name = :hostname
+                      OR name = :type
+                  )
+                ORDER BY (CASE WHEN type = :type THEN 1 ELSE 2 END), created_at DESC
             """)
             rows = conn.execute(
                 query,
-                {"product_id": product_id, "type": credential_type, "hostname": hostname or ""},
+                {
+                    "product_id": product_id,
+                    "type": credential_type,
+                    "hostname": hostname or "",
+                    "is_git_lookup": is_git_lookup,
+                },
             ).fetchall()
             for r in rows:
                 sec = get_unmasked_secret(
@@ -170,15 +181,24 @@ def get_unmasked_secret_by_type_info(
                     }
                     return sec, info
 
-        # Fallback check across all credentials (product or system) ordered by product first, then latest created_at
+        # Fallback check across all credentials (product or system) ordered by exact type match first, then product, then latest created_at
         query = text("""
             SELECT id, name, type, scope, product_id FROM credentials
-            WHERE (type = :type OR type = 'git_token' OR type = 'github_token' OR name = :hostname OR name = :type)
-            ORDER BY (CASE WHEN scope = 'product' THEN 1 ELSE 2 END), created_at DESC
+            WHERE (
+                type = :type
+                OR (:is_git_lookup = TRUE AND type IN ('git_token', 'github_token'))
+                OR name = :hostname
+                OR name = :type
+            )
+            ORDER BY (CASE WHEN type = :type THEN 1 WHEN scope = 'product' THEN 2 ELSE 3 END), created_at DESC
         """)
         rows = conn.execute(
             query,
-            {"type": credential_type, "hostname": hostname or ""},
+            {
+                "type": credential_type,
+                "hostname": hostname or "",
+                "is_git_lookup": is_git_lookup,
+            },
         ).fetchall()
         for r in rows:
             sec = get_unmasked_secret(
@@ -202,7 +222,10 @@ def get_unmasked_secret_by_type_info(
         for key in (hostname, credential_type, "git_token", "github_token"):
             if key:
                 sec = get_unmasked_secret(
-                    name=key, scope="product", product_id=product_id, vault_client=vault_client
+                    name=key,
+                    scope="product",
+                    product_id=product_id,
+                    vault_client=vault_client,
                 )
                 if sec:
                     info = {

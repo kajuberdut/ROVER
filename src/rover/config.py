@@ -8,6 +8,7 @@ CONFIG_FILE = "config.toml"
 DEFAULT_TRIVY_IMAGE = "aquasec/trivy@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f"
 DEFAULT_SEMGREP_IMAGE = "semgrep/semgrep@sha256:98c2572fced2474539fd27cab3207ebd8e95e4e7aab4c3b381fdc5e2641d9941"
 DEFAULT_HELM_IMAGE = "alpine/helm@sha256:b97ba4f9b27fe7af16ee3d37e6815783c9d4a51289b6240a9024ec471611ae9b"
+DEFAULT_SNYK_IMAGE = "snyk/snyk:alpine@sha256:4e573b645e9c0c43e515ed9f80e9944322d214a1177ec1227d9b5e4f1ff37d04"
 
 
 DEFAULT_CONFIG_TOML = f"""# R.O.V.E.R Configuration File
@@ -32,6 +33,9 @@ semgrep_image = "{DEFAULT_SEMGREP_IMAGE}"
 # Helm CLI tool container image for chart linting and template rendering (e.g., alpine/helm:3.16.2)
 helm_image = "{DEFAULT_HELM_IMAGE}"
 
+# Snyk scanner container image for open-source dependency (OSS) and SAST code scanning
+snyk_image = "{DEFAULT_SNYK_IMAGE}"
+
 [ui]
 # The primary navigation tab selected by default on the dashboard.
 # Valid options: "repo" (Source Repositories), "image" (Container Images), "major_components" (Major Components)
@@ -49,6 +53,8 @@ class ScannersConfig:
     trivy_image: str = DEFAULT_TRIVY_IMAGE
     semgrep_image: str = DEFAULT_SEMGREP_IMAGE
     helm_image: str = DEFAULT_HELM_IMAGE
+    snyk_image: str = DEFAULT_SNYK_IMAGE
+    snyk_target_files: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -80,10 +86,16 @@ def load_config() -> RoverConfig:
     scanner_config = ScannerConfig(
         timeout_seconds=scanner_data.get("timeout_seconds", 600)
     )
+    raw_snyk_targets = scanners_data.get("snyk_target_files", [])
+    snyk_targets = (
+        list(raw_snyk_targets) if isinstance(raw_snyk_targets, (list, tuple)) else []
+    )
     scanners_config = ScannersConfig(
         trivy_image=scanners_data.get("trivy_image", DEFAULT_TRIVY_IMAGE),
         semgrep_image=scanners_data.get("semgrep_image", DEFAULT_SEMGREP_IMAGE),
         helm_image=scanners_data.get("helm_image", DEFAULT_HELM_IMAGE),
+        snyk_image=scanners_data.get("snyk_image", DEFAULT_SNYK_IMAGE),
+        snyk_target_files=snyk_targets,
     )
     ui_config = UIConfig(default_tab=ui_data.get("default_tab", "repo"))
 

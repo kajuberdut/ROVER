@@ -1,0 +1,66 @@
+{% set snyk_res = (snyk_job.results_json | loadjson) if (snyk_job and snyk_job.results_json) else {} %}
+{% set vulns = snyk_res.get('vulnerabilities', []) %}
+
+{% if snyk_job and snyk_job.status == 'completed' %}
+    {% if vulns %}
+    <figure>
+        <table role="grid" class="sticky-table snyk-table">
+            <colgroup>
+                <col style="width:18ch">
+                <col style="width:20ch">
+                <col style="width:9ch">
+                <col style="width:14ch">
+                <col><!-- Description: takes remaining -->
+            </colgroup>
+            <thead>
+                <tr>
+                    <th scope="col">Vulnerability ID</th>
+                    <th scope="col">Package / File</th>
+                    <th scope="col">Severity</th>
+                    <th scope="col">Version</th>
+                    <th scope="col">Title</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vuln in vulns %}
+                <tr>
+                    <td><code>{{ vuln.id or vuln.ruleId or 'SNYK-VULN' }}</code></td>
+                    <td>{{ vuln.packageName or vuln.from | default([]) | join(' > ') or 'Package' }}</td>
+                    <td>
+                        {% set sev = (vuln.severity or 'medium') | upper %}
+                        {% if sev == 'CRITICAL' or sev == 'HIGH' %}
+                        <ins style="color: var(--pico-del-color);">{{ sev }}</ins>
+                        {% elif sev == 'MEDIUM' %}
+                        <ins style="color: #ff9800;">{{ sev }}</ins>
+                        {% else %}
+                        <span>{{ sev }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ vuln.version or 'N/A' }}</td>
+                    <td>{{ vuln.title or vuln.message or 'Vulnerability detected' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+    {% else %}
+        {% if snyk_res.get('unsupported_manifest') or snyk_res.get('manifest_error') %}
+        <div style="border: 1px solid #f57c00; padding: 1rem; border-radius: 6px; background-color: rgba(245, 124, 0, 0.1); margin-top: 1rem;">
+            <p style="color: #f57c00; margin: 0; font-weight: bold;">⚠️ Unsupported Package Manager / Manifest</p>
+            <p style="margin-top: 0.5rem; margin-bottom: 0;">Snyk CLI open-source scanner could not analyze dependencies: <code>{{ snyk_res.get('manifest_error') }}</code></p>
+            <p style="font-size: 0.9em; color: var(--pico-muted-color); margin-top: 0.5rem; margin-bottom: 0;">Tip: Adding or exporting a <code>requirements.txt</code>, <code>poetry.lock</code>, or <code>Pipfile.lock</code> allows Snyk to scan all Python dependencies.</p>
+        </div>
+        {% elif snyk_res.get('no_manifests_found') %}
+        <p style="color: var(--pico-muted-color);">ℹ️ <strong>Snyk Notice:</strong> No supported package manifest files (e.g. <code>requirements.txt</code>, <code>pyproject.toml</code>, <code>package.json</code>, <code>pom.xml</code>) were detected in this repository.</p>
+        {% else %}
+        <p>✅ No vulnerabilities found by Snyk Security scan.</p>
+        {% endif %}
+    {% endif %}
+
+{% elif snyk_job and snyk_job.status == 'failed' %}
+    <p><strong style="color: var(--pico-del-color);">Snyk scan failed:</strong> {{ snyk_job.error_message }}</p>
+{% elif snyk_job and snyk_job.status in ('queued', 'running') %}
+    <p>Snyk scan is currently <mark>{{ snyk_job.status }}</mark>… check back shortly.</p>
+{% else %}
+    <p style="color: var(--pico-muted-color);">No Snyk scan results available for this asset.</p>
+{% endif %}

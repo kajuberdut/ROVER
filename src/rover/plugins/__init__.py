@@ -6,11 +6,13 @@ from rover.plugins.base import ScannerPlugin, ScanResult
 from rover.plugins.eol import EolComponentScannerPlugin
 from rover.plugins.helm import HelmScannerPlugin
 from rover.plugins.semgrep import SemgrepScannerPlugin
+from rover.plugins.snyk import SnykScannerPlugin
 from rover.plugins.trivy import TrivyScannerPlugin
 
 _REGISTRY: list[ScannerPlugin] = [
     TrivyScannerPlugin(),
     SemgrepScannerPlugin(),
+    SnykScannerPlugin(),
     EolComponentScannerPlugin(),
     HelmScannerPlugin(),
 ]
@@ -43,6 +45,7 @@ __all__ = [
     "ScanResult",
     "ScannerPlugin",
     "SemgrepScannerPlugin",
+    "SnykScannerPlugin",
     "TrivyScannerPlugin",
     "get_plugin_for_job",
     "list_plugins",

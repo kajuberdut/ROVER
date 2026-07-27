@@ -37,8 +37,9 @@ class ScanResource:
 
             # Create a new scan job
             db.create_job(repo["url"], git_ref, target_type="repo")
-            # Also enqueue a Semgrep SAST scan for every repo (commit-hash cached in worker)
+            # Also enqueue Semgrep SAST and Snyk scans for every repo
             db.create_semgrep_job(repo["url"], git_ref)
+            db.create_snyk_job(repo["url"], git_ref)
         elif scan_type == "image":
             target_name = form.get("target_image_name") or form.get("target_name")
             if target_name:
@@ -73,12 +74,19 @@ class ReportResource:
     ) -> None:
         job = db.get_job(report_id)
         semgrep_job = None
+        snyk_job = None
         if job:
             if job.get("target_type") == "repo":
                 semgrep_job = db.get_semgrep_job_for_target(
                     job["target_url"], job.get("git_ref")
                 )
+                snyk_job = db.get_snyk_job_for_target(
+                    job["target_url"], job.get("git_ref")
+                )
             elif job.get("target_type") == "image":
+                snyk_job = db.get_snyk_job_for_target(
+                    job["target_url"], job.get("git_ref")
+                )
                 image = db.get_image_by_name(job["target_url"])
                 if image and image.get("image_hash"):
                     ci_meta = db.get_ci_image_metadata(image["image_hash"])
@@ -86,6 +94,10 @@ class ReportResource:
                         semgrep_job = db.get_semgrep_job_for_target(
                             ci_meta["repo_uri"], ci_meta.get("commit_hash")
                         )
+                        if not snyk_job:
+                            snyk_job = db.get_snyk_job_for_target(
+                                ci_meta["repo_uri"], ci_meta.get("commit_hash")
+                            )
 
         back_url = req.get_param("back")
         back_label = req.get_param("back_label") or "Release"
@@ -95,6 +107,7 @@ class ReportResource:
             title=f"Report {report_id}",
             job=job,
             semgrep_job=semgrep_job,
+            snyk_job=snyk_job,
             back_url=back_url,
             back_label=back_label,
         )

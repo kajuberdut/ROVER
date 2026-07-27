@@ -23,7 +23,9 @@ class OpenBaoClient:
     def __init__(self, vault_addr: str | None = None) -> None:
         self.vault_addr = (vault_addr or get_vault_addr()).rstrip("/")
         self.token: str | None = (
-            os.getenv("VAULT_TOKEN") or os.getenv("OPENBAO_TOKEN") or os.getenv("BAO_TOKEN")
+            os.getenv("VAULT_TOKEN")
+            or os.getenv("OPENBAO_TOKEN")
+            or os.getenv("BAO_TOKEN")
         )
 
     def _get_headers(self) -> dict[str, str]:
@@ -88,6 +90,7 @@ class OpenBaoClient:
             clean_path = f"kv/data/{clean_path}"
 
         import urllib.parse
+
         quoted_path = urllib.parse.quote(clean_path, safe="/")
 
         url = f"{self.vault_addr}/v1/{quoted_path}"
@@ -116,6 +119,7 @@ class OpenBaoClient:
             clean_path = f"kv/data/{clean_path}"
 
         import urllib.parse
+
         quoted_path = urllib.parse.quote(clean_path, safe="/")
 
         url = f"{self.vault_addr}/v1/{quoted_path}"
@@ -146,6 +150,7 @@ class OpenBaoClient:
             clean_path = f"kv/metadata/{clean_path}"
 
         import urllib.parse
+
         quoted_path = urllib.parse.quote(clean_path, safe="/")
 
         url = f"{self.vault_addr}/v1/{quoted_path}"
