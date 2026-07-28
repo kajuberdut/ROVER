@@ -3,7 +3,7 @@
 {% block breadcrumb %}
 <a href="/">Dashboard</a>
 <span class="breadcrumb-sep">›</span>
-<a href="/products/{{ release.product_id }}">Product</a>
+<a href="/products/{{ release.product_id }}">{{ product.name if product else 'Product' }}</a>
 <span class="breadcrumb-sep">›</span>
 <span>{{ release.name }} v{{ release.version }}</span>
 {% endblock %}

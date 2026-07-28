@@ -1,5 +1,7 @@
 """rover/routes/reports.py: Report display and scan-trigger routes."""
 
+from typing import Any
+
 import falcon
 import falcon.asgi
 
@@ -73,31 +75,47 @@ class ReportResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, report_id: str
     ) -> None:
         job = db.get_job(report_id)
-        semgrep_job = None
-        snyk_job = None
+        from rover import plugins
+
+        plugin_jobs: dict[str, Any] = {}
         if job:
-            if job.get("target_type") == "repo":
-                semgrep_job = db.get_semgrep_job_for_target(
-                    job["target_url"], job.get("git_ref")
+            target_url = job.get("target_url")
+            git_ref = job.get("git_ref")
+
+            linked = db.get_linked_targets(target_url) if target_url else {}
+            candidate_targets: list[tuple[str, str | None]] = []
+            if target_url:
+                candidate_targets.append((target_url, git_ref))
+            if linked.get("image_name") and linked["image_name"] != target_url:
+                candidate_targets.append((linked["image_name"], git_ref))
+            if (
+                linked.get("source_repo_url")
+                and linked["source_repo_url"] != target_url
+            ):
+                candidate_targets.append(
+                    (
+                        linked["source_repo_url"],
+                        linked.get("source_git_ref") or git_ref,
+                    )
                 )
-                snyk_job = db.get_snyk_job_for_target(
-                    job["target_url"], job.get("git_ref")
-                )
-            elif job.get("target_type") == "image":
-                snyk_job = db.get_snyk_job_for_target(
-                    job["target_url"], job.get("git_ref")
-                )
-                image = db.get_image_by_name(job["target_url"])
-                if image and image.get("image_hash"):
-                    ci_meta = db.get_ci_image_metadata(image["image_hash"])
-                    if ci_meta and ci_meta.get("repo_uri"):
-                        semgrep_job = db.get_semgrep_job_for_target(
-                            ci_meta["repo_uri"], ci_meta.get("commit_hash")
-                        )
-                        if not snyk_job:
-                            snyk_job = db.get_snyk_job_for_target(
-                                ci_meta["repo_uri"], ci_meta.get("commit_hash")
-                            )
+
+            for plugin in plugins.list_plugins():
+                p_job = None
+                if job and job.get("scanner_name") == plugin.name:
+                    p_job = job
+                else:
+                    for t_url, t_ref in candidate_targets:
+                        p_job = db.get_scanner_job_for_target(plugin.name, t_url, t_ref)
+                        if not p_job:
+                            p_job = db.get_scanner_job_for_target(plugin.name, t_url)
+                        if p_job:
+                            break
+
+                plugin_jobs[plugin.name] = p_job
+
+        trivy_job = plugin_jobs.get("trivy") or job
+        semgrep_job = plugin_jobs.get("semgrep")
+        snyk_job = plugin_jobs.get("snyk")
 
         back_url = req.get_param("back")
         back_label = req.get_param("back_label") or "Release"
@@ -106,8 +124,11 @@ class ReportResource:
             user=getattr(req.context, "user", None),
             title=f"Report {report_id}",
             job=job,
+            trivy_job=trivy_job,
             semgrep_job=semgrep_job,
             snyk_job=snyk_job,
+            plugin_jobs=plugin_jobs,
+            plugins=plugins.list_plugins(),
             back_url=back_url,
             back_label=back_label,
         )

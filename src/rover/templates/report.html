@@ -32,6 +32,7 @@
             </hgroup>
         </header>
 
+        {% set trivy_job = (job if (not job.scanner_name or job.scanner_name == 'trivy') else (plugin_jobs.get('trivy') or job)) %}
         {# ── Scan-type tab bar (shown when semgrep or snyk jobs exist) ── #}
         {% if semgrep_job or snyk_job %}
         <div class="scan-tab-bar" role="tablist">
@@ -39,9 +40,9 @@
                 aria-selected="true" aria-controls="pane-trivy"
                 onclick="showTab('trivy')">
                 🛡 Trivy CVE
-                {% if job.status == 'completed' and job.results_json %}
+                {% if trivy_job.status == 'completed' and trivy_job.results_json %}
                 {% set trivy_count = namespace(n=0) %}
-                {% for r in (job.results_json | loadjson).get('Results', []) %}
+                {% for r in (trivy_job.results_json | loadjson).get('Results', []) %}
                 {% set trivy_count.n = trivy_count.n + (r.Vulnerabilities | default([]) | length) %}
                 {% endfor %}
                 {% if trivy_count.n > 0 %}
@@ -85,8 +86,8 @@
 
         {# ── Trivy pane ── #}
         <div id="pane-trivy" class="tab-pane" role="tabpanel">
-        {% if job.status == 'completed' and job.results_json %}
-        {% set results = (job.results_json | loadjson) %}
+        {% if trivy_job.status == 'completed' and trivy_job.results_json %}
+        {% set results = (trivy_job.results_json | loadjson) %}
 
         {% if results.Results %}
         {% set ns = namespace(found_any=false) %}
@@ -328,12 +329,14 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        // Restore tab from URL hash on load
-        const hash = window.location.hash;
-        if (hash === '#tab-semgrep' && document.getElementById('tab-semgrep')) {
-            showTab('semgrep');
-        } else if (hash === '#tab-snyk' && document.getElementById('tab-snyk')) {
-            showTab('snyk');
+        // Restore tab from URL query param or hash on load
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        const hash = window.location.hash.replace('#tab-', '').replace('#', '');
+        const targetTab = tabParam || hash;
+
+        if (targetTab && document.getElementById('tab-' + targetTab)) {
+            showTab(targetTab);
         }
 
         const topAnchor = document.getElementById("top-anchor");

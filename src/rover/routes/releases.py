@@ -47,12 +47,14 @@ class ReleaseDashboardResource:
             product_role = db.get_user_product_role(user["sub"], release["product_id"])
 
         credentials = db.get_credentials(release["product_id"])
+        product = db.get_product(release["product_id"])
         template = template_env.get_template("release_dashboard.html")
         resp.text = template.render(
             user=user,
             product_role=product_role,
             title=f"Release: {release['name']} {release['version']}",
             release=release,
+            product=product,
             assets=assets,
             major_component_assets=major_component_assets,
             repositories=repositories,

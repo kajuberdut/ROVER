@@ -1,5 +1,5 @@
 {% for asset in assets %}
-{% if asset.asset_type != 'major_component' %}
+{% if asset.asset_type not in ['major_component', 'helm'] %}
 {% set ns = namespace(critical=0, high=0, medium=0, low=0, has_data=false) %}
 {% if asset.results_json %}
 {% set results = asset.results_json|loadjson %}
@@ -45,11 +45,6 @@
             <div style="font-size: 0.8em; color: var(--pico-muted-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
                 <span title="Linked to Source Code">🔗</span>
                 <a href="{{ asset.source_repo_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ asset.source_repo_url | short_url }}</a>
-                {% if asset.semgrep_scan_status == 'completed' %}
-                <span style="color: #00aaff; font-weight: 600; margin-left: 0.3rem;" title="Semgrep SAST Scan Completed">🔍 SAST ✅</span>
-                {% elif asset.semgrep_scan_status in ['queued', 'running'] %}
-                <span style="color: var(--pico-muted-color); margin-left: 0.3rem;" aria-busy="true">🔍 SAST ⏳ {{ asset.semgrep_scan_status }}</span>
-                {% endif %}
             </div>
             {% else %}
             <div style="font-size: 0.8em; color: var(--pico-del-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
@@ -102,55 +97,34 @@
     <td style="white-space: nowrap; color: var(--pico-muted-color); font-size: 0.85em;">{{ asset.latest_scan_time |
         humanize_time }}</td>
     <td>
-        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
-            {% if ns.has_data %}
-                {% if ns.critical > 0 %}<kbd
-                    style="background-color: #d32f2f; border: 1px solid #b71c1c; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
-                    ns.critical }} CRIT</kbd>{% endif %}
-                {% if ns.high > 0 %}<kbd
-                    style="background-color: #f57c00; border: 1px solid #e65100; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
-                    ns.high }} HIGH</kbd>{% endif %}
-                {% if ns.medium > 0 %}<kbd
-                    style="background-color: #fbc02d; border: 1px solid #f57f17; color: #333; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
-                    ns.medium }} MED</kbd>{% endif %}
-                {% if ns.low > 0 %}<kbd
-                    style="background-color: #388e3c; border: 1px solid #1b5e20; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">{{
-                    ns.low }} LOW</kbd>{% endif %}
-                {% if ns.critical == 0 and ns.high == 0 and ns.medium == 0 and ns.low == 0 %}
-                <kbd
-                    style="background-color: transparent; color: #388e3c; border: 1px solid #388e3c; font-family: inherit; font-size: 0.85em; font-weight: bold;">CVE Clean</kbd>
-                {% endif %}
+        <div style="display: flex; gap: 0.35rem; align-items: center;">
+            {% set ns = namespace(total_vulns=0, has_critical=false, has_high=false, any_scanned=false, all_clean=true) %}
+            {% if asset.badges %}
+                {% for badge in asset.badges %}
+                    {% if badge.status == 'has_vulns' %}
+                        {% set ns.total_vulns = ns.total_vulns + (badge.total or badge.count or 0) %}
+                        {% set ns.any_scanned = true %}
+                        {% set ns.all_clean = false %}
+                        {% if badge.critical and badge.critical > 0 %}{% set ns.has_critical = true %}{% endif %}
+                        {% if badge.high and badge.high > 0 %}{% set ns.has_high = true %}{% endif %}
+                    {% elif badge.status == 'clean' %}
+                        {% set ns.any_scanned = true %}
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+            {% if ns.total_vulns > 0 %}
+                <kbd style="background-color: {% if ns.has_critical %}#d32f2f{% elif ns.has_high %}#f57c00{% else %}#6200ee{% endif %}; border: none; color: white; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem;">
+                    {% if ns.has_critical %}🔴{% elif ns.has_high %}🟠{% else %}⚠️{% endif %} {{ ns.total_vulns }} Findings
+                </kbd>
+            {% elif ns.any_scanned and ns.all_clean %}
+                <kbd style="background-color: transparent; border: 1px solid #388e3c; color: #388e3c; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem;">
+                    🟢 All Clean
+                </kbd>
+            {% elif asset.latest_scan_status in ['queued', 'running'] %}
+                <span aria-busy="true" style="font-size: 0.85em; color: var(--pico-muted-color);">Scanning...</span>
             {% else %}
-                <span style="color: grey; font-size: 0.85em;">No CVE Data</span>
-            {% endif %}
-
-            {% if asset.semgrep_results_json %}
-                {% set sg_list = (asset.semgrep_results_json | loadjson).get('results', []) %}
-                {% if sg_list|length > 0 %}
-                <kbd style="background-color: #6200ee; border: 1px solid #3700b3; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">🔍 {{ sg_list|length }} SAST</kbd>
-                {% else %}
-                <kbd style="background-color: transparent; color: #6200ee; border: 1px solid #6200ee; font-family: inherit; font-size: 0.85em; font-weight: bold;">🔍 SAST Clean</kbd>
-                {% endif %}
-            {% endif %}
-
-            {% if asset.snyk_scan_status == 'failed' %}
-                <kbd style="background-color: #d32f2f; border: 1px solid #b71c1c; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em; cursor: help;"
-                     data-tooltip="Snyk Scan Failed: {{ asset.snyk_error_message or 'Authentication or execution error' }}"
-                     data-placement="bottom">🐶 ⚠️ Snyk Failed</kbd>
-            {% elif asset.snyk_scan_status in ['queued', 'running'] %}
-                <kbd style="background-color: #ff9800; border: 1px solid #e65100; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;" aria-busy="true">🐶 ⏳ Snyk {{ asset.snyk_scan_status }}</kbd>
-            {% elif asset.snyk_results_json %}
-                {% set snyk_data = (asset.snyk_results_json | loadjson) %}
-                {% set snyk_vulns = snyk_data.get('vulnerabilities', []) %}
-                {% if snyk_data.get('unsupported_manifest') or snyk_data.get('manifest_error') %}
-                <kbd style="background-color: #f57c00; border: 1px solid #e65100; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em; cursor: help;"
-                     data-tooltip="Snyk Notice: {{ snyk_data.get('manifest_error') or 'Unsupported package manager' }}"
-                     data-placement="bottom">🐶 ⚠️ Unsupported</kbd>
-                {% elif snyk_vulns|length > 0 %}
-                <kbd style="background-color: #4b45a9; border: 1px solid #363181; color: white; font-weight: bold; font-family: inherit; font-size: 0.85em;">🐶 {{ snyk_vulns|length }} Snyk</kbd>
-                {% else %}
-                <kbd style="background-color: transparent; color: #4b45a9; border: 1px solid #4b45a9; font-family: inherit; font-size: 0.85em; font-weight: bold;">🐶 Snyk Clean</kbd>
-                {% endif %}
+                <span style="color: grey; font-size: 0.85em;">No Findings</span>
             {% endif %}
         </div>
     </td>
@@ -159,7 +133,7 @@
         {% set is_read_write = user and (user.role == "system_admin" or product_role in ["admin", "read_write"]) %}
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if is_read_write %}
-            <button type="button" class="outline" title="Remove Asset"
+            <button type="button" class="outline contrast" title="Remove Asset"
                 onclick="openGlobalConfirmModal({
                     title: `Remove Asset: {{ asset.asset_name }}`,
                     message: `This action is <strong>irreversible</strong> and will permanently remove this asset from the release.`,
@@ -167,7 +141,7 @@
                     requireTyping: false,
                     buttonText: `Permanently Remove`
                 })"
-                style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.25rem 0.5rem; margin-bottom: 0;">✕</button>
+                style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.2rem 0.5rem; margin-bottom: 0; line-height: 1; border-radius: 6px; font-weight: bold;" aria-label="Remove Asset">✕</button>
             {% endif %}
             {% if asset.latest_scan_id %}
             <a href="/reports/{{ asset.latest_scan_id }}?back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}" role="button" class="outline"
@@ -178,6 +152,66 @@
         </div>
     </td>
 </tr>
+
+<tr style="background: rgba(0, 0, 0, 0.02); border-bottom: 2px solid var(--pico-muted-border-color);">
+    <td colspan="7" style="padding: 0.75rem 1.25rem;">
+        <div style="font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pico-muted-color); margin-bottom: 0.5rem;">
+            <span>Scanner Pipeline & Time Tracking</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.6rem;">
+            {% for badge in asset.badges %}
+            <div style="background: var(--pico-card-background-color, #1e293b); border: 1px solid var(--pico-border-color, #334155); border-radius: 8px; padding: 0.55rem 0.75rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.35rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;">
+                    <div style="font-weight: 600; font-size: 0.85em; display: flex; align-items: center; gap: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <span>{{ badge.icon }}</span>
+                        <span>{{ badge.display_name }}</span>
+                    </div>
+                    {% if badge.status != 'none' %}
+                    <kbd style="background-color: {{ badge.bg }}; border: 1px solid {{ badge.border or badge.bg }}; color: {{ badge.color or 'white' }}; font-weight: bold; font-family: inherit; font-size: 0.75em; padding: 0.1rem 0.35rem; white-space: nowrap;"
+                         {% if badge.tooltip %}data-tooltip="{{ badge.tooltip }}" data-placement="bottom"{% endif %}
+                         {% if badge.busy %}aria-busy="true"{% endif %}>
+                        {{ badge.label }}
+                    </kbd>
+                    {% else %}
+                    <kbd style="background-color: transparent; border: 1px solid var(--pico-muted-border-color, #444); color: var(--pico-muted-color, grey); font-family: inherit; font-size: 0.75em; padding: 0.1rem 0.35rem; white-space: nowrap;">Idle</kbd>
+                    {% endif %}
+                </div>
+
+                <div style="font-size: 0.78em; color: var(--pico-muted-color); display: flex; flex-direction: column; gap: 0.2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Time:</span>
+                        <span style="font-weight: 600; color: var(--pico-color);">
+                            {% if badge.status == 'running' %}
+                                {% if badge.duration_str %}{{ badge.duration_str }}{% else %}Running...{% endif %}
+                                {% if badge.avg_str %}<span style="font-weight: normal; color: var(--pico-muted-color);"> (avg: {{ badge.avg_str }})</span>{% endif %}
+                            {% elif badge.status == 'queued' %}
+                                <span style="color: #ff9800;">Queued</span>
+                                {% if badge.avg_str %}<span style="font-weight: normal; color: var(--pico-muted-color);"> (avg: {{ badge.avg_str }})</span>{% endif %}
+                            {% elif badge.duration_str %}
+                                {{ badge.duration_str }}
+                                {% if badge.avg_str %}<span style="font-weight: normal; color: var(--pico-muted-color);"> (avg: {{ badge.avg_str }})</span>{% endif %}
+                            {% else %}
+                                <span style="color: var(--pico-muted-color);">N/A</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if badge.status == 'running' and badge.duration_seconds is not none and badge.avg_duration_seconds %}
+                        {% set pct = (badge.duration_seconds / badge.avg_duration_seconds * 100) | round | int %}
+                        <progress value="{{ [pct, 100] | min }}" max="100" style="height: 4px; margin: 0.15rem 0 0 0;"></progress>
+                    {% endif %}
+                </div>
+
+                {% if badge.latest_scan_id %}
+                <div style="display: flex; justify-content: flex-end; margin-top: 0.1rem;">
+                    <a href="/reports/{{ badge.latest_scan_id }}?tab={{ badge.scanner_name }}&back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}#tab-{{ badge.scanner_name }}" style="font-size: 0.75em; text-decoration: none; font-weight: 600; color: var(--pico-primary);">View Details →</a>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </td>
+</tr>
+
 {% endif %}
 {% else %}
 <tr>

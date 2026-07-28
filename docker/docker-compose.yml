@@ -44,6 +44,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+psycopg://rover:${POSTGRES_PASSWORD:-rover_password}@db:5432/rover
       - VAULT_ADDR=http://openbao:8200
+      - TESTCONTAINERS_RYUK_DISABLED=true
     env_file:
       - path: ../.env.local
         required: false

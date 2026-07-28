@@ -4,6 +4,7 @@ from sqlalchemy import (
     Column,
     ForeignKey,
     Index,
+    Integer,
     MetaData,
     String,
     Table,
@@ -100,32 +101,25 @@ release_assets = Table(
 # Index idx_rel_asset_unique from init_db using coalesce for git_ref compatibility (will fix manually if needed later)
 # Actually, SQLAlchemy allows creating indexes with expressions, but for now we'll define a basic index or just let the SQLite init handle it in phase 1.
 
-semgrep_jobs = Table(
-    "semgrep_jobs",
+scanner_jobs = Table(
+    "scanner_jobs",
     metadata,
     Column("id", String, primary_key=True),
+    Column("scanner_name", String, nullable=False),
+    Column("asset_id", String, default=None),
     Column("target_url", String, nullable=False),
+    Column("target_type", String, server_default="repo"),
     Column("git_ref", String, default=None),
-    Column("resolved_commit", String, default=None),
-    Column("status", String, nullable=False),
+    Column("product_id", String, default=None),
+    Column("credential_id", String, default=None),
+    Column("status", String, nullable=False, server_default="queued"),
     Column("results_json", String, default=None),
-    Column("resolved_tags", String, default=None),
     Column("error_message", String, default=None),
-    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
-    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
-)
-
-snyk_jobs = Table(
-    "snyk_jobs",
-    metadata,
-    Column("id", String, primary_key=True),
-    Column("target_url", String, nullable=False),
-    Column("git_ref", String, default=None),
     Column("resolved_commit", String, default=None),
-    Column("status", String, nullable=False),
-    Column("results_json", String, default=None),
     Column("resolved_tags", String, default=None),
-    Column("error_message", String, default=None),
+    Column("started_at", TIMESTAMP, default=None),
+    Column("finished_at", TIMESTAMP, default=None),
+    Column("duration_seconds", Integer, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
 )

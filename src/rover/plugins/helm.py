@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Any
 
-import docker  # type: ignore[import-untyped]
+import docker  # type: ignore[import-untyped,attr-defined]
 
 # ruff: noqa: S603, S607
 from testcontainers.core.container import DockerContainer  # type: ignore
@@ -24,7 +24,7 @@ def fetch_helm_chart_versions(repo_url: str) -> dict[str, list[str]]:
 
     Returns a dictionary mapping chart names to a list of available versions.
     """
-    docker_client = docker.from_env()
+    docker_client = docker.from_env()  # type: ignore[attr-defined]
     logger.info(f"Interrogating helm repo {repo_url} for charts and versions")
 
     is_oci = repo_url.startswith("oci://")
@@ -176,11 +176,40 @@ def run_helm_ingestion(
 class HelmScannerPlugin:
     """Scanner plugin that handles Helm chart interrogation and template ingestion."""
 
-    name: str = "helm"
-    supported_asset_types: set[str] = {"helm"}
+    name = "helm"
+    display_name = "Helm Interrogator"
+    icon = "☸️"
+    description = "Helm Chart Template Interrogator and Image Extractor"
+    template_name: str | None = None
+    supported_asset_types = {"helm"}
 
     def can_handle(self, target_type: str) -> bool:
         return target_type in self.supported_asset_types
+
+    def get_badge_info(
+        self,
+        results: dict[str, Any] | None,
+        status: str | None,
+        error_message: str | None = None,
+        duration_seconds: int | None = None,
+        avg_duration_seconds: int | None = None,
+    ) -> dict[str, Any]:
+        if status == "failed":
+            return {
+                "label": "☸️ Helm Failed",
+                "status": "failed",
+                "bg": "#d32f2f",
+                "color": "white",
+            }
+        if results:
+            images = results.get("images", [])
+            return {
+                "label": f"☸️ {len(images)} Images",
+                "status": "completed",
+                "bg": "#0288d1",
+                "color": "white",
+            }
+        return {"label": "☸️ Helm Interrogated", "status": "none"}
 
     def scan(
         self,

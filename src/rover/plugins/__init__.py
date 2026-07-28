@@ -39,6 +39,14 @@ def get_plugin_for_job(target_type: str) -> ScannerPlugin:
     raise ValueError(f"No scanner plugin registered for target_type '{target_type}'")
 
 
+def get_plugin(name: str) -> ScannerPlugin | None:
+    """Finds and returns a registered ScannerPlugin by its machine name."""
+    for plugin in _REGISTRY:
+        if plugin.name == name:
+            return plugin
+    return None
+
+
 __all__ = [
     "EolComponentScannerPlugin",
     "HelmScannerPlugin",
@@ -47,6 +55,7 @@ __all__ = [
     "SemgrepScannerPlugin",
     "SnykScannerPlugin",
     "TrivyScannerPlugin",
+    "get_plugin",
     "get_plugin_for_job",
     "list_plugins",
     "register_plugin",

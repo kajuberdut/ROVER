@@ -19,28 +19,45 @@ template_env = jinja2.Environment(
 template_env.filters["loadjson"] = json.loads
 
 
-def humanize_time(date_str: str | None) -> str:
-    if not date_str:
+def humanize_time(date_val: str | datetime | None) -> str:
+    if not date_val:
         return "N/A"
-    try:
-        dt = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-        now = datetime.now()
-        diff = now - dt
-        if diff.days == 0:
-            if diff.seconds < 60:
-                return "Just now"
-            elif diff.seconds < 3600:
-                mins = diff.seconds // 60
-                return f"{mins} min{'s' if mins > 1 else ''} ago"
-            else:
-                hours = diff.seconds // 3600
-                return f"{hours} hour{'s' if hours > 1 else ''} ago"
-        elif diff.days == 1:
-            return "Yesterday"
-        else:
-            return dt.strftime("%b %d, %Y")
-    except Exception:
-        return date_str
+    dt: datetime | None = None
+    if isinstance(date_val, datetime):
+        dt = date_val
+    elif isinstance(date_val, str):
+        cleaned = date_val.strip().replace(" ", "T")
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            dt = datetime.fromisoformat(cleaned)
+        if dt is None:
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d"):
+                with contextlib.suppress(Exception):
+                    dt = datetime.strptime(date_val, fmt)
+                    break
+
+    if dt is None:
+        return str(date_val)
+
+    from datetime import timezone
+
+    now = datetime.now(timezone.utc) if dt.tzinfo else datetime.now()
+    diff = now - dt
+    total_seconds = int(diff.total_seconds())
+
+    if total_seconds < 60:
+        return "Just now"
+    elif total_seconds < 3600:
+        mins = total_seconds // 60
+        return f"{mins} min{'s' if mins > 1 else ''} ago"
+    elif total_seconds < 86400:
+        hours = total_seconds // 3600
+        return f"{hours} hour{'s' if hours > 1 else ''} ago"
+    elif diff.days == 1:
+        return "Yesterday"
+    else:
+        return dt.strftime("%b %d, %Y")
 
 
 template_env.filters["humanize_time"] = humanize_time

@@ -69,3 +69,45 @@ def get_ci_image_metadata(image_hash: str) -> dict[str, Any] | None:
             )
         ).fetchone()
         return dict(row._mapping) if row else None
+
+
+def get_linked_targets(target_url: str) -> dict[str, Any]:
+    """Given either an image name or a repo URL, return linked target details."""
+    from sqlalchemy import text
+
+    with get_db_connection() as conn:
+        # Check if target_url is an image name
+        row = (
+            conn.execute(
+                text("""
+            SELECT i.name as image_name, cim.repo_uri as source_repo_url, cim.commit_hash as source_git_ref
+            FROM images i
+            JOIN ci_image_metadata cim ON i.image_hash = cim.image_hash
+            WHERE i.name = :target_url
+            """),
+                {"target_url": target_url},
+            )
+            .mappings()
+            .first()
+        )
+        if row:
+            return dict(row)
+
+        # Check if target_url is a repo URI
+        row = (
+            conn.execute(
+                text("""
+            SELECT i.name as image_name, cim.repo_uri as source_repo_url, cim.commit_hash as source_git_ref
+            FROM ci_image_metadata cim
+            JOIN images i ON cim.image_hash = i.image_hash
+            WHERE cim.repo_uri = :target_url
+            """),
+                {"target_url": target_url},
+            )
+            .mappings()
+            .first()
+        )
+        if row:
+            return dict(row)
+
+        return {"image_name": None, "source_repo_url": None, "source_git_ref": None}

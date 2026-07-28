@@ -79,11 +79,112 @@ def parse_snyk_code_output(json_text: str) -> list[dict[str, Any]]:
 class SnykScannerPlugin:
     """Scanner plugin that executes Snyk OSS dependency, SAST, and container image scans using Testcontainers."""
 
-    name: str = "snyk"
-    supported_asset_types: set[str] = {"snyk", "repo", "image"}
+    name = "snyk"
+    display_name = "Snyk Security"
+    icon = "🐶"
+    description = "Snyk Open-Source and Container Image Vulnerability Scanner"
+    template_name: str | None = "report_snyk.html"
+    supported_asset_types = {"snyk", "repo", "image"}
 
     def can_handle(self, target_type: str) -> bool:
         return target_type in self.supported_asset_types
+
+    def get_badge_info(
+        self,
+        results: dict[str, Any] | None,
+        status: str | None,
+        error_message: str | None = None,
+        duration_seconds: int | None = None,
+        avg_duration_seconds: int | None = None,
+    ) -> dict[str, Any]:
+        duration_str = (
+            f"{duration_seconds}s"
+            if (duration_seconds is not None and duration_seconds < 60)
+            else (
+                f"{duration_seconds // 60}m {duration_seconds % 60:02d}s"
+                if duration_seconds is not None
+                else None
+            )
+        )
+        avg_str = (
+            f"{int(avg_duration_seconds)}s"
+            if (avg_duration_seconds is not None and avg_duration_seconds < 60)
+            else (
+                f"{int(avg_duration_seconds) // 60}m {int(avg_duration_seconds) % 60:02d}s"
+                if avg_duration_seconds is not None
+                else None
+            )
+        )
+
+        time_label = ""
+        if status == "running" and duration_str:
+            time_label = f" ({duration_str}" + (f", avg {avg_str})" if avg_str else ")")
+        elif status == "queued" and avg_str:
+            time_label = f" (avg {avg_str})"
+        elif status == "completed" and duration_str:
+            time_label = f" [{duration_str}]"
+
+        if status == "failed":
+            return {
+                "label": f"🐶 ⚠️ Snyk Failed{time_label}",
+                "status": "failed",
+                "bg": "#d32f2f",
+                "border": "#b71c1c",
+                "color": "white",
+                "tooltip": f"Snyk Scan Failed: {error_message or 'Execution error'}",
+                "duration_str": duration_str,
+                "avg_str": avg_str,
+            }
+        if status in ("queued", "running"):
+            return {
+                "label": f"🐶 ⏳ Snyk {status}{time_label}",
+                "status": status,
+                "bg": "#ff9800",
+                "border": "#e65100",
+                "color": "white",
+                "busy": True,
+                "duration_str": duration_str,
+                "avg_str": avg_str,
+            }
+        if results:
+            vulns = results.get("vulnerabilities", [])
+            if results.get("unsupported_manifest") or results.get("manifest_error"):
+                return {
+                    "label": f"🐶 ⚠️ Unsupported{time_label}",
+                    "status": "unsupported",
+                    "bg": "#f57c00",
+                    "border": "#e65100",
+                    "color": "white",
+                    "tooltip": f"Snyk Notice: {results.get('manifest_error') or 'Unsupported package manager'}",
+                    "duration_str": duration_str,
+                    "avg_str": avg_str,
+                }
+            if len(vulns) > 0:
+                return {
+                    "label": f"🐶 {len(vulns)} Snyk{time_label}",
+                    "status": "has_vulns",
+                    "count": len(vulns),
+                    "bg": "#4b45a9",
+                    "border": "#363181",
+                    "color": "white",
+                    "duration_str": duration_str,
+                    "avg_str": avg_str,
+                }
+            return {
+                "label": f"🐶 Snyk Clean{time_label}",
+                "status": "clean",
+                "bg": "transparent",
+                "border": "#4b45a9",
+                "color": "#4b45a9",
+                "duration_str": duration_str,
+                "avg_str": avg_str,
+            }
+        return {
+            "label": "🐶 No Snyk Data",
+            "status": "none",
+            "duration_str": duration_str,
+            "avg_str": avg_str,
+        }
 
     def scan(
         self,

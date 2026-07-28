@@ -15,11 +15,47 @@ logger = logging.getLogger(__name__)
 class EolComponentScannerPlugin:
     """Scanner plugin that fetches end-of-life dates for components via endoflife.date API."""
 
-    name: str = "major_component"
-    supported_asset_types: set[str] = {"major_component"}
+    name = "major_component"
+    display_name = "EOL Interrogator"
+    icon = "📅"
+    description = "End-Of-Life Date Interrogator"
+    template_name: str | None = None
+    supported_asset_types = {"major_component"}
 
     def can_handle(self, target_type: str) -> bool:
         return target_type in self.supported_asset_types
+
+    def get_badge_info(
+        self,
+        results: dict[str, Any] | None,
+        status: str | None,
+        error_message: str | None = None,
+        duration_seconds: int | None = None,
+        avg_duration_seconds: int | None = None,
+    ) -> dict[str, Any]:
+        if status == "failed":
+            return {
+                "label": "📅 EOL Failed",
+                "status": "failed",
+                "bg": "#d32f2f",
+                "color": "white",
+            }
+        if results:
+            eol_date = results.get("eol")
+            if results.get("is_eol"):
+                return {
+                    "label": f"📅 EOL ({eol_date})",
+                    "status": "eol",
+                    "bg": "#d32f2f",
+                    "color": "white",
+                }
+            return {
+                "label": f"📅 Supported ({eol_date or 'Active'})",
+                "status": "active",
+                "bg": "#388e3c",
+                "color": "white",
+            }
+        return {"label": "📅 No EOL Data", "status": "none"}
 
     def scan(
         self,

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any
 
@@ -7,6 +8,8 @@ from sqlalchemy.sql import func
 
 from rover.db.connection import get_db_connection
 from rover.db.schema import product_users, products, release_assets, releases
+
+logger = logging.getLogger(__name__)
 
 
 def add_product(name: str, description: str = "") -> str:
@@ -176,7 +179,8 @@ def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]
     query = text("""
     WITH LatestScans AS (
         SELECT sj.*, ROW_NUMBER() OVER(PARTITION BY sj.target_url, sj.target_type, COALESCE(sj.git_ref, '') ORDER BY sj.created_at DESC) as rn
-        FROM scan_jobs sj
+        FROM scanner_jobs sj
+        WHERE sj.scanner_name = 'trivy'
     )
     SELECT 
         pa.id as release_asset_id,
@@ -202,7 +206,6 @@ def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]
     LEFT JOIN LatestScans ls ON 
         (ls.rn = 1) AND 
         (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name WHEN pa.asset_type = 'major_component' THEN e.name END) AND
-        (ls.target_type = pa.asset_type) AND
         (COALESCE(ls.git_ref, '') = COALESCE(pa.git_ref, ''))
     WHERE pk.product_id = :product_id AND pk.is_end_of_life = false
     """)
@@ -214,16 +217,9 @@ def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]
 def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]]:
     query = text("""
     WITH LatestScans AS (
-        SELECT sj.*, ROW_NUMBER() OVER(PARTITION BY sj.target_url, sj.target_type, COALESCE(sj.git_ref, '') ORDER BY sj.created_at DESC) as rn
-        FROM scan_jobs sj
-    ),
-    LatestSemgrepScans AS (
-        SELECT sem.*, ROW_NUMBER() OVER(PARTITION BY sem.target_url ORDER BY sem.created_at DESC) as rn
-        FROM semgrep_jobs sem
-    ),
-    LatestSnykScans AS (
-        SELECT snyk.*, ROW_NUMBER() OVER(PARTITION BY snyk.target_url ORDER BY snyk.created_at DESC) as rn
-        FROM snyk_jobs snyk
+        SELECT sj.*, ROW_NUMBER() OVER(PARTITION BY sj.target_url, COALESCE(sj.git_ref, '') ORDER BY sj.created_at DESC) as rn
+        FROM scanner_jobs sj
+        WHERE sj.scanner_name = 'trivy'
     )
     SELECT 
         pa.id as release_asset_id,
@@ -242,15 +238,7 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         ls.resolved_commit,
         ls.resolved_tags,
         cim.repo_uri as source_repo_url,
-        cim.commit_hash as image_source_git_ref,
-        lss.id as semgrep_scan_id,
-        lss.status as semgrep_scan_status,
-        lss.results_json as semgrep_results_json,
-        lss.error_message as semgrep_error_message,
-        lsn.id as snyk_scan_id,
-        lsn.status as snyk_scan_status,
-        lsn.results_json as snyk_results_json,
-        lsn.error_message as snyk_error_message
+        cim.commit_hash as image_source_git_ref
     FROM release_assets pa
     LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
     LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
@@ -259,17 +247,137 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
     LEFT JOIN LatestScans ls ON 
         (ls.rn = 1) AND 
         (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name WHEN pa.asset_type = 'major_component' THEN e.name END) AND
-        (ls.target_type = pa.asset_type) AND
         (COALESCE(ls.git_ref, '') = COALESCE(pa.git_ref, ''))
-    LEFT JOIN LatestSemgrepScans lss ON
-        (lss.rn = 1) AND
-        (lss.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN cim.repo_uri END)
-    LEFT JOIN LatestSnykScans lsn ON
-        (lsn.rn = 1) AND
-        (lsn.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name END)
     WHERE pa.release_id = :release_id
     ORDER BY pa.created_at DESC
     """)
     with get_db_connection() as conn:
         rows = conn.execute(query, {"release_id": release_id}).fetchall()
-        return [dict(row._mapping) for row in rows]
+        assets = [dict(row._mapping) for row in rows]
+
+        from rover import plugins
+
+        for asset in assets:
+            badges = []
+            for plugin in plugins.list_plugins():
+                if not plugin.can_handle(asset["asset_type"]):
+                    continue
+
+                if (
+                    plugin.name == "semgrep"
+                    and asset["asset_type"] == "image"
+                    and not asset.get("source_repo_url")
+                ):
+                    continue
+
+                # Check legacy and unified scanner job records
+                results = None
+                status = None
+                err = None
+
+                if plugin.name == "semgrep":
+                    status = asset.get("semgrep_scan_status")
+                    err = asset.get("semgrep_error_message")
+                    if asset.get("semgrep_results_json"):
+                        import json
+
+                        try:
+                            results = json.loads(asset["semgrep_results_json"])
+                        except Exception as exc:
+                            logger.debug(f"Failed to parse semgrep_results_json: {exc}")
+                elif plugin.name == "snyk":
+                    status = asset.get("snyk_scan_status")
+                    err = asset.get("snyk_error_message")
+                    if asset.get("snyk_results_json"):
+                        import json
+
+                        try:
+                            results = json.loads(asset["snyk_results_json"])
+                        except Exception as exc:
+                            logger.debug(f"Failed to parse snyk_results_json: {exc}")
+                elif plugin.name == "trivy":
+                    status = asset.get("latest_scan_status")
+                    if asset.get("results_json"):
+                        import json
+
+                        try:
+                            results = json.loads(asset["results_json"])
+                        except Exception as exc:
+                            logger.debug(f"Failed to parse results_json: {exc}")
+
+                # Also check unified scanner_jobs table
+                duration_sec = None
+                started_at_val = None
+                latest_scan_id_val = None
+
+                target_url = asset.get("asset_name")
+                if (
+                    plugin.name == "semgrep"
+                    and asset["asset_type"] == "image"
+                    and asset.get("source_repo_url")
+                ):
+                    target_url = asset["source_repo_url"]
+
+                if target_url:
+                    scanner_job = (
+                        conn.execute(
+                            text("""
+                        SELECT * FROM scanner_jobs
+                        WHERE scanner_name = :scanner_name AND target_url = :target_url
+                        ORDER BY created_at DESC LIMIT 1
+                        """),
+                            {"scanner_name": plugin.name, "target_url": target_url},
+                        )
+                        .mappings()
+                        .first()
+                    )
+                    if scanner_job:
+                        status = scanner_job["status"]
+                        err = scanner_job.get("error_message")
+                        latest_scan_id_val = scanner_job["id"]
+                        duration_sec = scanner_job.get("duration_seconds")
+                        started_at_val = scanner_job.get("started_at")
+                        if scanner_job.get("results_json"):
+                            import json
+
+                            try:
+                                results = json.loads(scanner_job["results_json"])
+                            except Exception as exc:
+                                logger.debug(
+                                    f"Failed to parse scanner_job results_json: {exc}"
+                                )
+
+                # Calculate elapsed time if currently running
+                if status == "running" and started_at_val:
+                    import datetime
+
+                    if isinstance(started_at_val, datetime.datetime):
+                        now = datetime.datetime.now(datetime.timezone.utc)
+                        if started_at_val.tzinfo is None:
+                            now = datetime.datetime.now()
+                        duration_sec = max(
+                            0, int((now - started_at_val).total_seconds())
+                        )
+
+                from rover.db.jobs import get_average_scan_duration
+
+                avg_sec = get_average_scan_duration(plugin.name, target_url)
+
+                badge_info = plugin.get_badge_info(
+                    results,
+                    status,
+                    error_message=err,
+                    duration_seconds=duration_sec,
+                    avg_duration_seconds=int(avg_sec) if avg_sec else None,
+                )
+                badge_info["scanner_name"] = plugin.name
+                badge_info["display_name"] = plugin.display_name
+                badge_info["icon"] = plugin.icon
+                badge_info["latest_scan_id"] = latest_scan_id_val
+                badge_info["duration_seconds"] = duration_sec
+                badge_info["avg_duration_seconds"] = int(avg_sec) if avg_sec else None
+                badges.append(badge_info)
+
+            asset["badges"] = badges
+
+        return assets

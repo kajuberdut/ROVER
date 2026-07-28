@@ -1,6 +1,10 @@
 import asyncio
 import json
 import logging
+import os
+from typing import Any
+
+os.environ["TESTCONTAINERS_RYUK_DISABLED"] = "true"
 
 from rover.db import (
     claim_next_job,
@@ -269,38 +273,65 @@ async def process_snyk_job(
         update_snyk_job_status(job_id, "failed", error_message=str(e))
 
 
+MAX_CONCURRENT_JOBS = 4
+
+
+async def _dispatch_job(job: dict[str, Any]) -> None:
+    s_name = job.get("scanner_name", "trivy")
+    job_id = job["id"]
+    target_url = job["target_url"]
+    git_ref = job.get("git_ref")
+    target_type = job.get("target_type", "repo")
+
+    try:
+        if s_name == "semgrep":
+            await process_semgrep_job(job_id, target_url, git_ref)
+        elif s_name == "snyk":
+            await process_snyk_job(job_id, target_url, git_ref)
+        else:
+            await process_job(job_id, target_url, git_ref, target_type)
+    except Exception as exc:
+        logger.error(
+            f"Error executing concurrent scanner job {job_id} ({s_name}): {exc}"
+        )
+
+
 async def worker_loop() -> None:
-    logger.info("Starting background worker loop")
+    logger.info(
+        f"Starting async multi-process worker loop (max_concurrent={MAX_CONCURRENT_JOBS})"
+    )
+    from rover.db import claim_next_scanner_job
+
+    active_tasks: set[asyncio.Task[None]] = set()
+
     while True:
         try:
-            # Poll all queues each iteration
-            trivy_job = claim_next_job()
-            semgrep_job = claim_next_semgrep_job()
-            snyk_job = claim_next_snyk_job()
+            # Clean up finished tasks
+            active_tasks = {t for t in active_tasks if not t.done()}
 
-            if trivy_job:
-                await process_job(
-                    trivy_job["id"],
-                    trivy_job["target_url"],
-                    trivy_job.get("git_ref"),
-                    trivy_job.get("target_type", "repo"),
-                )
-            if semgrep_job:
-                await process_semgrep_job(
-                    semgrep_job["id"],
-                    semgrep_job["target_url"],
-                    semgrep_job.get("git_ref"),
-                )
-            if snyk_job:
-                await process_snyk_job(
-                    snyk_job["id"],
-                    snyk_job["target_url"],
-                    snyk_job.get("git_ref"),
-                )
-            if not trivy_job and not semgrep_job and not snyk_job:
-                # No jobs in queues; sleep before next poll
-                await asyncio.sleep(2)
+            while len(active_tasks) < MAX_CONCURRENT_JOBS:
+                gen_job = claim_next_scanner_job()
+                if not gen_job:
+                    legacy_trivy = claim_next_job()
+                    if legacy_trivy:
+                        gen_job = {**legacy_trivy, "scanner_name": "trivy"}
+                    else:
+                        legacy_semgrep = claim_next_semgrep_job()
+                        if legacy_semgrep:
+                            gen_job = {**legacy_semgrep, "scanner_name": "semgrep"}
+                        else:
+                            legacy_snyk = claim_next_snyk_job()
+                            if legacy_snyk:
+                                gen_job = {**legacy_snyk, "scanner_name": "snyk"}
+
+                if not gen_job:
+                    break
+
+                task = asyncio.create_task(_dispatch_job(gen_job))
+                active_tasks.add(task)
+
+            await asyncio.sleep(1)
 
         except Exception as e:
             logger.error(f"Worker iteration error: {e}")
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
