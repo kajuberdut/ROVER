@@ -5,6 +5,7 @@ description = "Add your description here"
 requires-python = ">=3.12"
 dependencies = [
     "authlib>=1.6.9",
+    "croniter>=6.2.4",
     "docker>=7.0.0",
     "falcon",
     "httpx>=0.28.1",
@@ -27,6 +28,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-cov>=7.0.0",
     "ruff>=0.15.4",
+    "types-croniter>=6.2.4.20260711",
     "vulture>=2.14",
 ]
 

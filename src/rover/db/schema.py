@@ -183,6 +183,45 @@ ci_image_metadata = Table(
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
 
+scheduled_scans = Table(
+    "scheduled_scans",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("name", String, nullable=False),
+    Column(
+        "product_id",
+        String,
+        ForeignKey("products.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("release_id", String, ForeignKey("releases.id", ondelete="CASCADE")),
+    Column("cron_expression", String, nullable=False, server_default="0 2 * * *"),
+    Column("enabled", Boolean, nullable=False, server_default="true"),
+    Column("last_run_at", TIMESTAMP),
+    Column("next_run_at", TIMESTAMP),
+    Column("last_status", String, server_default="idle"),
+    Column("created_by_user_sub", String),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
+)
+
+schedule_execution_logs = Table(
+    "schedule_execution_logs",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "schedule_id",
+        String,
+        ForeignKey("scheduled_scans.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("triggered_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("status", String, nullable=False),
+    Column("jobs_created_count", Integer, server_default="0"),
+    Column("details_json", String),
+    Column("error_message", String),
+)
+
 admin_notifications = Table(
     "admin_notifications",
     metadata,

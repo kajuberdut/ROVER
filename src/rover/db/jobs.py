@@ -273,3 +273,23 @@ def update_snyk_job_status(
 
 def claim_next_snyk_job() -> dict[str, Any] | None:
     return claim_next_scanner_job("snyk")
+
+
+def get_jobs_status_summary(job_ids: list[str]) -> dict[str, int]:
+    """Returns aggregated count breakdown of scanner jobs by status for a list of job IDs."""
+    if not job_ids:
+        return {"total": 0, "completed": 0, "failed": 0, "running": 0, "queued": 0}
+    with get_db_connection() as conn:
+        rows = conn.execute(
+            select(scanner_jobs.c.status, func.count())
+            .where(scanner_jobs.c.id.in_(job_ids))
+            .group_by(scanner_jobs.c.status)
+        ).fetchall()
+        counts = {r[0]: r[1] for r in rows}
+        return {
+            "total": len(job_ids),
+            "completed": counts.get("completed", 0),
+            "failed": counts.get("failed", 0),
+            "running": counts.get("running", 0),
+            "queued": counts.get("queued", 0),
+        }

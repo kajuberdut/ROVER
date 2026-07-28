@@ -150,4 +150,17 @@ def create_app() -> falcon.asgi.App:
     # Machine-to-machine JSON API (see rover/routes/api.py for roadmap context)
     app.add_route("/api/ci/image-metadata", CiImageMetadataResource())
 
+    # Schedule management routes
+    from rover.routes.schedules import (
+        ProductSchedulesPageResource,
+        ProductSchedulesResource,
+        ScheduleDetailResource,
+        ScheduleLogsResource,
+    )
+
+    app.add_route("/products/{product_id}/schedules", ProductSchedulesPageResource())
+    app.add_route("/api/products/{product_id}/schedules", ProductSchedulesResource())
+    app.add_route("/api/schedules/{schedule_id}", ScheduleDetailResource())
+    app.add_route("/api/schedules/{schedule_id}/logs", ScheduleLogsResource())
+
     return app

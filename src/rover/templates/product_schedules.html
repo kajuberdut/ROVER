@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<a href="/products/{{ product.id }}">{{ product.name }}</a>
+<span class="breadcrumb-sep">›</span>
+<span>Scheduled Scans</span>
+{% endblock %}
+
+{% block content %}
+<style>
+    .schedule-actions-desktop {
+        display: flex;
+        gap: 0.3rem;
+        justify-content: flex-end;
+        align-items: center;
+    }
+    .schedule-actions-mobile {
+        display: none;
+    }
+    @media (max-width: 991px) {
+        .schedule-actions-desktop {
+            display: none !important;
+        }
+        .schedule-actions-mobile {
+            display: inline-block !important;
+        }
+    }
+</style>
+<section style="margin-bottom: 1.5rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <hgroup style="margin-bottom: 0; flex: 1; min-width: 0;">
+            <h2 style="margin-bottom: 0;">Scheduled Scans</h2>
+            <h3 style="margin-bottom: 0; margin-top: 0.25rem; color: var(--pico-muted-color);">
+                Automate periodic security evaluations for {{ product.name }}
+            </h3>
+        </hgroup>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <a href="/products/{{ product.id }}" role="button" class="outline secondary" style="margin-bottom: 0;">← Back to Product</a>
+            {% if user.role == 'system_admin' or product_role in ['admin', 'read_write'] %}
+            <button type="button" onclick="document.getElementById('add-schedule-modal').showModal();" style="margin-bottom: 0;">
+                + Create Schedule
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Schedule List Table -->
+    <div class="card" style="background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); border-radius: 8px; padding: 1rem; overflow-x: auto;">
+        <table role="grid" style="margin-bottom: 0; width: 100%; min-width: 650px;">
+            <thead>
+                <tr>
+                    <th scope="col">Schedule Name</th>
+                    <th scope="col" style="white-space: nowrap;">Cron Pattern</th>
+                    <th scope="col">Scope</th>
+                    <th scope="col" style="white-space: nowrap;">Status</th>
+                    <th scope="col" style="white-space: nowrap;">Last Run</th>
+                    <th scope="col" style="white-space: nowrap;">Next Run</th>
+                    <th scope="col" style="text-align: right; white-space: nowrap;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="schedules-table-body">
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--pico-muted-color);" aria-busy="true">
+                        Loading schedules via API...
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Create Schedule Modal -->
+<dialog id="add-schedule-modal">
+    <article style="max-width: 550px;">
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('add-schedule-modal').close();"></button>
+            <h3>Create Scheduled Scan</h3>
+        </header>
+        <form id="create-schedule-form" onsubmit="handleCreateSchedule(event);">
+            <label for="sched-name">
+                Schedule Name
+                <input type="text" id="sched-name" name="name" placeholder="e.g., Nightly Security Audit" required>
+            </label>
+
+            <label for="sched-preset">
+                Frequency Preset
+                <select id="sched-preset" onchange="applyCronPreset(this.value)">
+                    <option value="0 2 * * *">Daily at 2:00 AM (0 2 * * *)</option>
+                    <option value="0 */6 * * *">Every 6 Hours (0 */6 * * *)</option>
+                    <option value="0 0 * * 1">Weekly on Monday at Midnight (0 0 * * 1)</option>
+                    <option value="custom">Custom Cron Expression</option>
+                </select>
+            </label>
+
+            <label for="sched-cron">
+                Cron Expression
+                <input type="text" id="sched-cron" name="cron_expression" value="0 2 * * *" required placeholder="e.g. 0 2 * * *">
+                <small style="color: var(--pico-muted-color);">Standard 5-field cron format (minute hour day month weekday).</small>
+            </label>
+
+            <label for="sched-release">
+                Target Scope
+                <select id="sched-release" name="release_id">
+                    <option value="">All Active Releases (Recommended)</option>
+                    {% for rel in releases %}
+                    {% if not rel.is_end_of_life %}
+                    <option value="{{ rel.id }}">{{ rel.name }} v{{ rel.version }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </label>
+
+            <footer style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
+                <button type="button" class="secondary" onclick="document.getElementById('add-schedule-modal').close();">Cancel</button>
+                <button type="submit">Save Schedule</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+
+<!-- Audit Logs Modal -->
+<dialog id="schedule-logs-modal">
+    <article style="max-width: 650px;">
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('schedule-logs-modal').close();"></button>
+            <h3 id="logs-modal-title">Execution Audit Logs</h3>
+        </header>
+        <div id="logs-modal-body" style="max-height: 400px; overflow-y: auto;">
+            <p aria-busy="true">Loading logs...</p>
+        </div>
+        <footer>
+            <button type="button" class="secondary" onclick="document.getElementById('schedule-logs-modal').close();">Close</button>
+        </footer>
+    </article>
+</dialog>
+
+<script>
+    const productId = "{{ product.id }}";
+    const canWrite = {{ 'true' if (user.role == 'system_admin' or product_role in ['admin', 'read_write']) else 'false' }};
+
+    function applyCronPreset(val) {
+        if (val !== 'custom') {
+            document.getElementById('sched-cron').value = val;
+        }
+    }
+
+    async function loadSchedules() {
+        const tbody = document.getElementById('schedules-table-body');
+        try {
+            const res = await fetch(`/api/products/${productId}/schedules`);
+            if (!res.ok) throw new Error('Failed to fetch schedules');
+            const data = await res.json();
+            const schedules = data.schedules || [];
+
+            if (schedules.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; color: var(--pico-muted-color); padding: 2rem;">
+                            No scheduled scans configured for this product yet.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            tbody.innerHTML = schedules.map(s => {
+                const isEnabled = s.enabled;
+                const statusBadge = isEnabled
+                    ? `<span style="color: #2e7d32; font-weight: bold; white-space: nowrap;">● Active</span>`
+                    : `<span style="color: grey; white-space: nowrap;">Paused</span>`;
+
+                const lastRun = s.last_run_at ? new Date(s.last_run_at).toLocaleString() : 'Never';
+                const nextRun = isEnabled && s.next_run_at ? new Date(s.next_run_at).toLocaleString() : 'N/A';
+                const scopeLabel = s.release_id ? 'Specific Release' : 'All Active Releases';
+
+                let actionsHtml = '';
+                if (canWrite) {
+                    actionsHtml = `
+                        <!-- Desktop View: Inline Buttons -->
+                        <div class="schedule-actions-desktop">
+                            <button type="button" class="outline" onclick="triggerSchedule('${s.id}')" title="Trigger Now" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; white-space: nowrap;">⚡ Run</button>
+                            <button type="button" class="outline secondary" onclick="toggleSchedule('${s.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; min-width: 62px; text-align: center; white-space: nowrap;">${isEnabled ? 'Pause' : 'Enable'}</button>
+                            <button type="button" class="outline secondary" onclick="viewLogs('${s.id}', '${escapeHtml(s.name)}')" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; white-space: nowrap;">Logs</button>
+                            <button type="button" class="outline" onclick="deleteSchedule('${s.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; color: #d32f2f; border-color: #d32f2f; white-space: nowrap;">✕</button>
+                        </div>
+                        <!-- Mobile View: Native Action Dropdown -->
+                        <div class="schedule-actions-mobile">
+                            <select onchange="handleMobileAction('${s.id}', '${escapeHtml(s.name)}', this)" style="margin-bottom: 0; padding: 0.2rem 0.5rem; font-size: 0.8em; width: auto; display: inline-block;">
+                                <option value="" disabled selected>Actions ▾</option>
+                                <option value="run">⚡ Run Now</option>
+                                <option value="toggle">${isEnabled ? '⏸️ Pause' : '▶️ Enable'}</option>
+                                <option value="logs">📋 Audit Logs</option>
+                                <option value="delete">🗑️ Delete</option>
+                            </select>
+                        </div>
+                    `;
+                } else {
+                    actionsHtml = `<button type="button" class="outline secondary" onclick="viewLogs('${s.id}', '${escapeHtml(s.name)}')" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0;">Logs</button>`;
+                }
+
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(s.name)}</strong></td>
+                        <td style="white-space: nowrap;"><code style="white-space: nowrap; font-family: var(--pico-font-family-monospace);">${escapeHtml(s.cron_expression)}</code></td>
+                        <td><small>${scopeLabel}</small></td>
+                        <td style="white-space: nowrap;">${statusBadge}</td>
+                        <td style="white-space: nowrap;"><small>${lastRun}</small></td>
+                        <td style="white-space: nowrap;"><small>${nextRun}</small></td>
+                        <td style="text-align: right; white-space: nowrap;">${actionsHtml}</td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="7" style="color: #d32f2f; text-align: center;">Error loading schedules: ${err.message}</td></tr>`;
+        }
+    }
+
+    async function handleCreateSchedule(event) {
+        event.preventDefault();
+        const form = event.target;
+        const payload = {
+            name: form.name.value,
+            cron_expression: form.cron_expression.value,
+            release_id: form.release_id.value || null,
+            enabled: true
+        };
+
+        try {
+            const res = await fetch(`/api/products/${productId}/schedules`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || 'Failed to create schedule');
+            }
+            document.getElementById('add-schedule-modal').close();
+            form.reset();
+            loadSchedules();
+        } catch (err) {
+            alert('Error creating schedule: ' + err.message);
+        }
+    }
+
+    async function toggleSchedule(scheduleId) {
+        try {
+            const res = await fetch(`/api/schedules/${scheduleId}?action=toggle`, { method: 'POST' });
+            if (!res.ok) throw new Error('Failed to toggle schedule');
+            loadSchedules();
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    async function triggerSchedule(scheduleId) {
+        try {
+            const res = await fetch(`/api/schedules/${scheduleId}?action=trigger`, { method: 'POST' });
+            if (!res.ok) throw new Error('Failed to trigger schedule');
+            const data = await res.json();
+            alert(`Schedule triggered! Dispatched ${data.dispatched || 0} scheduled scan(s).`);
+            loadSchedules();
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    async function deleteSchedule(scheduleId) {
+        if (!confirm('Are you sure you want to delete this scheduled scan?')) return;
+        try {
+            const res = await fetch(`/api/schedules/${scheduleId}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('Failed to delete schedule');
+            loadSchedules();
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+
+    function handleMobileAction(scheduleId, scheduleName, selectEl) {
+        const val = selectEl.value;
+        selectEl.value = "";
+        if (val === 'run') {
+            triggerSchedule(scheduleId);
+        } else if (val === 'toggle') {
+            toggleSchedule(scheduleId);
+        } else if (val === 'logs') {
+            viewLogs(scheduleId, scheduleName);
+        } else if (val === 'delete') {
+            deleteSchedule(scheduleId);
+        }
+    }
+
+    async function viewLogs(scheduleId, scheduleName) {
+        document.getElementById('logs-modal-title').textContent = `Execution Audit Logs: ${scheduleName}`;
+        const modalBody = document.getElementById('logs-modal-body');
+        modalBody.innerHTML = `<p aria-busy="true">Loading audit logs...</p>`;
+        document.getElementById('schedule-logs-modal').showModal();
+
+        try {
+            const res = await fetch(`/api/schedules/${scheduleId}/logs`);
+            if (!res.ok) throw new Error('Failed to load logs');
+            const data = await res.json();
+            const logs = data.logs || [];
+
+            if (logs.length === 0) {
+                modalBody.innerHTML = `<p style="color: var(--pico-muted-color);">No execution history recorded for this schedule yet.</p>`;
+                return;
+            }
+
+            modalBody.innerHTML = `
+                <table role="grid">
+                    <thead>
+                        <tr>
+                            <th>Triggered At</th>
+                            <th>Status</th>
+                            <th>Jobs Enqueued</th>
+                            <th>Details / Errors</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${logs.map(l => {
+                            let detailsText = l.error_message || '-';
+                            if (!l.error_message && l.job_summary) {
+                                const js = l.job_summary;
+                                if (js.completed === js.total && js.total > 0) {
+                                    detailsText = `<span style="color: #2e7d32; font-weight: bold;">✔ All ${js.total} scans completed</span>`;
+                                } else if (js.failed > 0) {
+                                    detailsText = `<span style="color: #d32f2f; font-weight: bold;">🔴 ${js.failed} failed, ${js.completed}/${js.total} completed</span>`;
+                                } else {
+                                    detailsText = `<span style="color: #ed6c02; font-weight: bold;">⏳ ${js.completed}/${js.total} completed (${js.running} running, ${js.queued} queued)</span>`;
+                                }
+                            } else if (!l.error_message && l.details_json) {
+                                detailsText = 'Jobs enqueued successfully';
+                            }
+                            return `
+                                <tr>
+                                    <td><small>${new Date(l.triggered_at).toLocaleString()}</small></td>
+                                    <td><kbd style="background: ${l.status === 'success' ? '#2e7d32' : '#d32f2f'}; color: white;">${l.status}</kbd></td>
+                                    <td>${l.jobs_created_count}</td>
+                                    <td><small>${detailsText}</small></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+        } catch (err) {
+            modalBody.innerHTML = `<p style="color: #d32f2f;">Error: ${err.message}</p>`;
+        }
+    }
+
+    function escapeHtml(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    document.addEventListener('DOMContentLoaded', loadSchedules);
+</script>
+{% endblock %}

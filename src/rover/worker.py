@@ -306,6 +306,11 @@ async def worker_loop() -> None:
 
     while True:
         try:
+            # Check and dispatch due scheduled scans
+            from rover.scheduler import dispatch_due_scheduled_scans
+
+            dispatch_due_scheduled_scans()
+
             # Clean up finished tasks
             active_tasks = {t for t in active_tasks if not t.done()}
 
