@@ -4,7 +4,7 @@ type: Index
 title: ROVER Roadmap Map of Content
 description: Comprehensive feature roadmap index, milestone dependency graph, and implementation tracker for ROVER.
 created: "2026-07-26T11:41:00Z"
-updated: "2026-07-26T11:41:00Z"
+updated: "2026-07-28T00:00:00Z"
 tags:
   - index/moc
   - rover/roadmap
@@ -24,11 +24,11 @@ aliases:
 
 | Category | Milestone Range | Completed | Planned | Total |
 | :--- | :--- | :---: | :---: | :---: |
-| **Core Features & Scanners** | M1 – M9 | 2 (M1, M3) | 7 | 9 |
-| **MVP Gaps** | M10 – M13 | 0 | 4 | 4 |
-| **High-Value Additions** | M14 – M17 | 0 | 4 | 4 |
-| **Architectural Targets** | A1 – A7 | 4 (A1–A4) | 3 | 7 |
-| **Total** | | **6** | **18** | **24** |
+| **Core Features & Scanners** | M1 – M9 | 6 (M1, M2, M3, M6, M7, M9) | 3 | 9 |
+| **Operational MVP Gaps** | M10 – M13 | 0 | 4 | 4 |
+| **High-Value Additions** | M14 – M17 | 2 (M15, M17) | 2 | 4 |
+| **Architectural Targets** | A1 – A7 | 5 (A1–A4, A7) | 2 | 7 |
+| **Total** | | **13** | **11** | **24** |
 
 ---
 
@@ -37,22 +37,22 @@ aliases:
 ```mermaid
 graph TD
     M1["M1 · Credential Vault (Done)"]
-    M2["M2 · Snyk Integration"]
+    M2["M2 · Snyk Integration (Done)"]
     M3["M3 · Private Git Repos (Done)"]
     M4["M4 · Private Registries"]
     M5["M5 · Semgrep Pro"]
-    M6["M6 · Notifications"]
-    M7["M7 · Scheduled Scans"]
+    M6["M6 · Notifications (Done)"]
+    M7["M7 · Scheduled Scans (Done)"]
     M8["M8 · Helm Polling"]
-    M9["M9 · Release Reports & API"]
+    M9["M9 · Release Reports & API (Done)"]
     M10["M10 · Vulnerability Triage"]
     M11["M11 · Pass/Fail Policy"]
     M12["M12 · Health Dashboard"]
     M13["M13 · Outbound Webhooks"]
     M14["M14 · Trend Charts"]
-    M15["M15 · CI/CD API"]
+    M15["M15 · CI/CD API (Done)"]
     M16["M16 · License Compliance"]
-    M17["M17 · Audit Log"]
+    M17["M17 · Audit Log (Done)"]
 
     M1 --> M2
     M1 --> M3
@@ -83,14 +83,14 @@ graph TD
 
 ### Core Scopes & Integrations (Milestones 1–9)
 - [[m1-credential-management|M1 · Credential Management]] ✅ *(Completed)*
-- [[m2-snyk-integration|M2 · Snyk Integration]]
+- [[m2-snyk-integration|M2 · Snyk Integration]] ✅ *(Completed)*
 - [[m3-private-source-repository-support|M3 · Private Source Repository Support]] ✅ *(Completed)*
 - [[m4-private-container-registry-support|M4 · Private Container Registry Support]]
 - [[m5-semgrep-pro-authentication|M5 · Semgrep Pro Authentication]]
-- [[m6-notifications|M6 · Notifications System]]
-- [[m7-scheduled-scans|M7 · Scheduled Scans Engine]]
+- [[m6-notifications|M6 · Notifications System]] ✅ *(Completed)*
+- [[m7-scheduled-scans|M7 · Scheduled Scans Engine]] ✅ *(Completed)*
 - [[m8-helm-chart-version-polling|M8 · Helm Chart Version Polling & Auto Promotion]]
-- [[m9-release-reports-and-api|M9 · Release Reports & Export API]]
+- [[m9-release-reports-and-api|M9 · Release Reports & Export API]] ✅ *(Completed)*
 
 ### Operational MVP Gaps (Milestones 10–13)
 - [[m10-vulnerability-triage-and-finding-status|M10 · Vulnerability Triage & Finding Status]]
@@ -100,26 +100,17 @@ graph TD
 
 ### High-Value Additions (Milestones 14–17)
 - [[m14-vulnerability-trend-charts|M14 · Vulnerability Trend Charts]]
-- [[m15-ci-cd-integration-api|M15 · CI/CD Integration API & CLI]]
+- [[m15-ci-cd-integration-api|M15 · CI/CD Integration API & CLI]] ✅ *(Completed)*
 - [[m16-license-compliance|M16 · Open Source License Compliance]]
-- [[m17-audit-log|M17 · Security Audit Log]]
+- [[m17-audit-log|M17 · Security Audit Log]] ✅ *(Completed)*
 
 ---
 
 ### Architectural Engineering Targets (A1 – A7)
-- [[a1-scanner-plugin-interface|A1 · Scanner Plugin Interface]] ✅ *(Completed)*
+- [[a1-scanner-plugin interface|A1 · Scanner Plugin Interface]] ✅ *(Completed)*
 - [[a2-route-decomposition|A2 · Falcon Route Decomposition]] ✅ *(Completed)*
 - [[a3-database-layer-decomposition|A3 · Database Access Layer Decomposition]] ✅ *(Completed)*
 - [[a4-schema-migrations|A4 · SQL Schema Migrations]] ✅ *(Completed)*
 - [[a5-typed-domain-models|A5 · Typed Domain Models]]
 - [[a6-structured-logging|A6 · Structured JSON Logging]]
-- [[a7-concurrent-job-execution|A7 · Concurrent Background Job Execution]]
-
----
-
-## ❓ Open Architecture & Design Decisions
-
-1. **Credential Encryption Key**: Fernet encryption key derivation for local credentials (derive from Authelia `encryption_key` vs generate fresh `ROVER_SECRET_KEY` during `setup.sh`).
-2. **Notification Triggers**: Diff policy for "new vulnerabilities only" (diffing against immediately preceding scan vs net-new CVE IDs never seen before for that release).
-3. **Helm Promotion Approval Gate**: Configuration scope for approval gates (opt-in per release vs opt-out per release vs global admin setting).
-4. **API Authentication**: Token issuance scoping for static bearer API tokens (managing under admin user panel vs standalone token model).
+- [[a7-concurrent-job-execution|A7 · Concurrent Background Job Execution]] ✅ *(Completed)*

@@ -129,6 +129,113 @@ class ReleaseEolResource:
         raise falcon.HTTPFound(referer)
 
 
+class AssetScanResource:
+    @falcon.before(permissions.require_product_read_write)
+    async def on_post(
+        self,
+        req: falcon.asgi.Request,
+        resp: falcon.asgi.Response,
+        release_asset_id: str,
+    ) -> None:
+        """Trigger a scan for a single release asset."""
+        asset = db.get_release_asset_details(release_asset_id)
+        if not asset or not asset.get("asset_name"):
+            resp.status = falcon.HTTP_404
+            resp.media = {"error": "Release asset not found"}
+            return
+
+        scanner = req.get_param("scanner", default="all")
+        if req.content_length:
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                media = await req.get_media()
+                if isinstance(media, dict) and "scanner" in media:
+                    scanner = media["scanner"]
+
+        job_ids = []
+        target_name = asset["asset_name"]
+        asset_type = asset["asset_type"]
+        git_ref = asset.get("git_ref")
+
+        if asset_type == "repo":
+            if scanner in ("trivy", "all"):
+                job_ids.append(
+                    db.create_job(
+                        target_url=target_name,
+                        target_type="repo",
+                        git_ref=git_ref,
+                    )
+                )
+            if scanner in ("semgrep", "all"):
+                job_ids.append(
+                    db.create_semgrep_job(
+                        target_url=target_name,
+                        git_ref=git_ref,
+                    )
+                )
+            if scanner in ("snyk", "all"):
+                job_ids.append(
+                    db.create_snyk_job(
+                        target_url=target_name,
+                        git_ref=git_ref,
+                    )
+                )
+
+        elif asset_type == "image":
+            if scanner in ("trivy", "all"):
+                job_ids.append(
+                    db.create_job(
+                        target_url=target_name,
+                        target_type="image",
+                        git_ref=git_ref,
+                    )
+                )
+            if scanner in ("snyk", "all"):
+                job_ids.append(
+                    db.create_snyk_job(
+                        target_url=target_name,
+                        git_ref=git_ref,
+                    )
+                )
+            if scanner in ("semgrep", "all") and asset.get("source_repo_url"):
+                job_ids.append(
+                    db.create_semgrep_job(
+                        target_url=asset["source_repo_url"],
+                        git_ref=asset.get("image_source_git_ref"),
+                    )
+                )
+
+        elif asset_type == "major_component":
+            if scanner in ("trivy", "all"):
+                job_ids.append(
+                    db.create_job(
+                        target_url=target_name,
+                        target_type="major_component",
+                        git_ref=git_ref,
+                    )
+                )
+
+        accept_header = req.get_header("Accept", default="")
+        content_type = req.get_header("Content-Type", default="")
+        if (
+            "application/json" in accept_header
+            or "application/json" in content_type
+            or req.get_param("format") == "json"
+        ):
+            resp.status = falcon.HTTP_201
+            resp.media = {
+                "status": "queued",
+                "release_asset_id": release_asset_id,
+                "dispatched_jobs": job_ids,
+            }
+        else:
+            referer = req.get_header(
+                "Referer", default=f"/releases/{asset['release_id']}"
+            )
+            raise falcon.HTTPFound(referer)
+
+
 class ReleaseDeleteResource:
     @falcon.before(permissions.require_product_admin)
     async def on_post(

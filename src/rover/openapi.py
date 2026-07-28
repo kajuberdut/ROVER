@@ -153,6 +153,51 @@ def get_openapi_schema() -> dict[str, Any]:
                     },
                 }
             },
+            "/api/assets/{release_asset_id}/scans": {
+                "post": {
+                    "summary": "Dispatch Single Asset Scan",
+                    "description": "Triggers an immediate background security scan for a specific release asset without re-scanning all assets in the release.",
+                    "operationId": "dispatchSingleAssetScan",
+                    "parameters": [
+                        {
+                            "name": "release_asset_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"},
+                            "description": "UUID of the release asset to scan",
+                        },
+                        {
+                            "name": "scanner",
+                            "in": "query",
+                            "required": False,
+                            "schema": {
+                                "type": "string",
+                                "enum": ["all", "trivy", "semgrep", "snyk"],
+                                "default": "all",
+                            },
+                            "description": "Specific scanner plugin to execute (default: all applicable scanners for asset type)",
+                        },
+                    ],
+                    "responses": {
+                        "201": {
+                            "description": "Single asset scan job(s) enqueued successfully",
+                            "content": {
+                                "application/json": {
+                                    "example": {
+                                        "status": "queued",
+                                        "release_asset_id": "123e4567-e89b-12d3-a456-426614174000",
+                                        "dispatched_jobs": ["job-uuid-1", "job-uuid-2"],
+                                    }
+                                }
+                            },
+                        },
+                        "404": {"description": "Release asset not found"},
+                        "401": {
+                            "description": "Unauthorized or invalid authentication"
+                        },
+                    },
+                }
+            },
             "/api/products/{product_id}/schedules": {
                 "get": {
                     "summary": "List Product Scheduled Scans",

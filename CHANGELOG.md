@@ -17,5 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **OpenAPI 3.0 Auto-Documentation & Interactive Swagger UI**: Added `/api/openapi.json` OpenAPI specification generator and interactive Swagger UI explorer at `/api/docs` and `/api/swagger`.
 - **Astro Starlight User Documentation Suite**: Scaffolded and integrated Astro Starlight user documentation under `/docs/guide/`, built via Docker container (`node:24-alpine`) with zero host Node.js/npm dependencies.
 - **RFC 6750 Authentication Standardization**: Standardized public REST API authentication on standard `Authorization: Bearer <token>` headers.
+- **Single Asset Re-run (Per-Widget Trigger)**: Added `POST /api/assets/{id}/scans` endpoint and ⚡ Scan action buttons on individual scanner widgets (Trivy, Semgrep, Snyk) and asset row actions, enabling users to re-evaluate single release assets without triggering full release re-scans.
 
 

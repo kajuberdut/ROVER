@@ -21,6 +21,8 @@ R.O.V.E.R. integrates three security scanners to evaluate container images, sour
 
 ### Triggering Scans
 - **Full Release Evaluation**: Click **⚡ Run All Scanners** on the Release Dashboard to dispatch scans across all defined release assets.
+- **Single Asset Re-run**: Click the **⚡ Scan** button on a specific scanner widget (Trivy, Semgrep, or Snyk) or in the asset action column to re-evaluate just that single asset without re-scanning all assets in the release.
+- **REST API Endpoint**: Programmatically trigger single asset re-runs via `POST /api/assets/{release_asset_id}/scans?scanner={trivy|semgrep|snyk|all}`.
 
 ### Monitoring Scan Status
 Scanner widgets on the Release Assets page display the current state of each evaluation:

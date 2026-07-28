@@ -137,6 +137,10 @@ def create_app() -> falcon.asgi.App:
     app.add_route("/releases/helm", ReleaseHelmResource())
     app.add_route("/releases/{release_id}/assets", ReleaseAssetResource())
     app.add_route("/releases/assets/{release_asset_id}", ReleaseAssetDetailResource())
+    from rover.routes.releases import AssetScanResource
+
+    app.add_route("/releases/assets/{release_asset_id}/scan", AssetScanResource())
+    app.add_route("/api/assets/{release_asset_id}/scans", AssetScanResource())
     app.add_route("/releases/{release_id}/scan", ReleaseScanResource())
     app.add_route("/releases/{release_id}/eol", ReleaseEolResource())
     app.add_route("/releases/{release_id}/delete", ReleaseDeleteResource())

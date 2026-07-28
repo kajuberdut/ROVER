@@ -133,6 +133,9 @@
         {% set is_read_write = user and (user.role == "system_admin" or product_role in ["admin", "read_write"]) %}
         <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if is_read_write %}
+            <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan" style="margin: 0; display: inline;">
+                <button type="submit" class="outline" title="Re-scan all scanners for this asset" style="padding: 0.25rem 0.5rem; margin-bottom: 0; font-size: 0.85em;">⚡ Scan</button>
+            </form>
             <button type="button" class="outline contrast" title="Remove Asset"
                 onclick="openGlobalConfirmModal({
                     title: `Remove Asset: {{ asset.asset_name }}`,
@@ -201,11 +204,18 @@
                     {% endif %}
                 </div>
 
-                {% if badge.latest_scan_id %}
-                <div style="display: flex; justify-content: flex-end; margin-top: 0.1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.1rem;">
+                    {% if is_read_write %}
+                    <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan?scanner={{ badge.scanner_name }}" style="margin: 0;">
+                        <button type="submit" class="outline" title="Re-scan with {{ badge.display_name }}" style="padding: 0.05rem 0.35rem; font-size: 0.72em; margin-bottom: 0; border-radius: 4px; font-weight: 600;">⚡ Scan</button>
+                    </form>
+                    {% else %}
+                    <span></span>
+                    {% endif %}
+                    {% if badge.latest_scan_id %}
                     <a href="/reports/{{ badge.latest_scan_id }}?tab={{ badge.scanner_name }}&back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}#tab-{{ badge.scanner_name }}" style="font-size: 0.75em; text-decoration: none; font-weight: 600; color: var(--pico-primary);">View Details →</a>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
             {% endfor %}
         </div>

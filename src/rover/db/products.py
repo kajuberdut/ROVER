@@ -174,6 +174,33 @@ def get_release_asset(release_asset_id: str) -> dict[str, Any] | None:
         return dict(row._mapping) if row else None
 
 
+def get_release_asset_details(release_asset_id: str) -> dict[str, Any] | None:
+    query = text("""
+    SELECT 
+        pa.id as release_asset_id,
+        pa.release_id,
+        pa.asset_type,
+        pa.asset_id,
+        pa.git_ref,
+        CASE 
+            WHEN pa.asset_type = 'repo' THEN r.url
+            WHEN pa.asset_type = 'image' THEN i.name
+            WHEN pa.asset_type = 'major_component' THEN e.name
+        END as asset_name,
+        ci.repo_uri as source_repo_url,
+        ci.commit_hash as image_source_git_ref
+    FROM release_assets pa
+    LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
+    LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
+    LEFT JOIN ci_image_metadata ci ON pa.asset_type = 'image' AND i.image_hash = ci.image_hash
+    LEFT JOIN major_components e ON pa.asset_type = 'major_component' AND pa.asset_id = e.id
+    WHERE pa.id = :release_asset_id
+    """)
+    with get_db_connection() as conn:
+        row = conn.execute(query, {"release_asset_id": release_asset_id}).fetchone()
+        return dict(row._mapping) if row else None
+
+
 def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]]:
     # Changed IFNULL to COALESCE for cross-database compatibility (PostgreSQL doesn't have IFNULL)
     query = text("""

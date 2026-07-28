@@ -1,15 +1,15 @@
 ---
 id: "202607272318"
 type: Concept
-title: Single Asset Scanner Re-run (Planned Feature)
+title: Single Asset Scanner Re-run
 created: 2026-07-27
-updated: 2026-07-27
+updated: 2026-07-28
 tags:
   - feature
   - scanner
   - roadmap
-status: draft
-feature_status: planned
+status: stable
+feature_status: completed
 stale_after: 2027-07-27
 ---
 
@@ -21,7 +21,7 @@ Allows users to re-trigger a specific security scanner (Trivy, Semgrep, or Snyk)
 ## User Benefit
 When an engineer fixes a vulnerability in a single repository or updates a single container image tag, they can re-evaluate that single asset immediately.
 
-## Planned Implementation
-- REST endpoint: `POST /api/assets/{id}/scans?scanner={trivy|semgrep|snyk}`
-- UI: Individual **⚡ Scan** action button on scanner widgets in `product_release_detail.html`
-- Docs: Update `docs/starlight/src/content/docs/guides/scanners.md` when deployed.
+## Implementation Details
+- REST endpoint: `POST /api/assets/{release_asset_id}/scans?scanner={trivy|semgrep|snyk|all}`
+- UI: Individual **⚡ Scan** action buttons on scanner widgets and action column in `release_assets_table.html`
+- Docs: Updated `docs/starlight/src/content/docs/guides/scanners.md`.
