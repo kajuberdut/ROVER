@@ -36,6 +36,13 @@ export default defineConfig({
 						{ label: 'CI/CD Pipeline Ingestion', slug: 'api/ci-cd-pipelines' },
 					],
 				},
+				{
+					label: 'Project Updates',
+					items: [
+						{ label: 'Changelog', slug: 'changelog' },
+						{ label: 'Product Roadmap', slug: 'roadmap' },
+					],
+				},
 			],
 		}),
 	],
