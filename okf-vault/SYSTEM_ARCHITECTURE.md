@@ -95,3 +95,12 @@ This vault is pre-configured to work with the **Antigravity CLI (AGY)**:
 - **Instructions**: `.gemini/AGENTS.md` provides prompt rules for AGY agents.
 - **Enforcement Rules**: `.gemini/rules/okf-compliance.md` mandates YAML headers and file conventions.
 - **Verification Utility**: Run `python3 scripts/validate_schema.py` to check vault health.
+
+---
+
+## 6. Public REST API & OpenAPI Specifications
+
+ROVER exposes a public REST & machine-to-machine API documented via OpenAPI 3.0:
+- **OpenAPI Schema**: `/api/openapi.json`
+- **Interactive Swagger Explorer**: `/docs` (and `/api/docs`)
+- **Vault Concept Note**: See [`20_concepts/public_api_documentation.md`](file:///home/giblesnot/code/ROVER/okf-vault/20_concepts/public_api_documentation.md) for full endpoint specifications, authentication headers (`X-API-Token`, `Authorization: Bearer`), and CI pipeline integration patterns.

@@ -74,6 +74,18 @@ def create_app() -> falcon.asgi.App:
     static_path = os.path.join(os.path.dirname(__file__), "..", "static")
     app.add_static_route("/static", static_path)
 
+    starlight_dist = os.path.abspath(
+        os.path.join(
+            os.path.dirname(__file__), "..", "..", "..", "docs", "starlight", "dist"
+        )
+    )
+    if os.path.exists(starlight_dist):
+        from rover.routes.api import StarlightDocsResource
+
+        starlight_resource = StarlightDocsResource(starlight_dist)
+        app.add_route("/docs/guide", starlight_resource)
+        app.add_route("/docs/guide/{filepath:path}", starlight_resource)
+
     # Auth routes (handled by rover.auth)
     app.add_route("/login", auth.LoginResource())
     app.add_route("/callback", auth.CallbackResource())
@@ -147,8 +159,15 @@ def create_app() -> falcon.asgi.App:
     app.add_route("/settings/tokens/create", ApiTokenCreateResource())
     app.add_route("/settings/tokens/{token_id}/revoke", ApiTokenRevokeResource())
 
-    # Machine-to-machine JSON API (see rover/routes/api.py for roadmap context)
+    # Machine-to-machine JSON API & Interactive OpenAPI Specs
+    from rover.routes.api import OpenApiDocsResource, OpenApiJsonResource
+
     app.add_route("/api/ci/image-metadata", CiImageMetadataResource())
+    app.add_route("/api/openapi.json", OpenApiJsonResource())
+    app.add_route("/api/docs", OpenApiDocsResource())
+    app.add_route("/api/swagger", OpenApiDocsResource())
+    app.add_route("/docs/swagger", OpenApiDocsResource())
+    app.add_route("/docs", OpenApiDocsResource())
 
     # Schedule management routes
     from rover.routes.schedules import (

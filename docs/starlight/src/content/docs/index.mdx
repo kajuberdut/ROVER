@@ -1,0 +1,36 @@
+---
+title: R.O.V.E.R. Security & Release Management
+description: Release Oriented Vulnerability Evaluation & Reporting platform user documentation and guides.
+template: splash
+hero:
+  tagline: Unified multi-scanner vulnerability evaluation for modern software releases.
+  image:
+    file: ../../assets/houston.webp
+  actions:
+    - text: Getting Started
+      link: /docs/guide/getting-started/overview/
+      icon: right-arrow
+    - text: API Specification (Swagger)
+      link: /api/docs
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## Core Platform Features
+
+<CardGrid stack>
+	<Card title="Multi-Scanner Parallel Engine" icon="rocket">
+		Executes **Trivy**, **Semgrep**, and **Snyk** containers concurrently across container images and git repositories with real-time per-asset progress widgets.
+	</Card>
+	<Card title="Automated Scan Scheduler" icon="clock">
+		Configure automated background scans using flexible cron expressions (`@daily`, `@weekly`, `0 2 * * *`), manual triggers, and execution audit history logs.
+	</Card>
+	<Card title="OpenBao Credential Vault" icon="setting">
+		Store API tokens and private container registry credentials securely in OpenBao Vault with zero-leak environment injection.
+	</Card>
+	<Card title="Unified Vulnerability Reports" icon="open-book">
+		Explore cross-linked vulnerability findings with direct tab deep-linking (`?tab=snyk`, `?tab=semgrep`), container-to-repo image resolution, and EOL component tracking.
+	</Card>
+</CardGrid>

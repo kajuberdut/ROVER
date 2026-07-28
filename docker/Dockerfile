@@ -1,3 +1,12 @@
+# Stage 1: Build Starlight documentation site
+FROM node:24-alpine AS docs-builder
+WORKDIR /app/docs/starlight
+COPY docs/starlight/package*.json ./
+RUN npm ci
+COPY docs/starlight ./
+RUN npm run build
+
+# Stage 2: Main application container
 FROM python:3.12-slim
 
 # Install uv
@@ -16,11 +25,13 @@ COPY pyproject.toml uv.lock ./
 # Install dependencies
 RUN uv sync --frozen --no-install-project --no-dev
 
-# Copy application code
+# Copy application code and documentation
 COPY src ./src
 COPY tests ./tests
 COPY migrations ./migrations
 COPY README.md ./
+COPY docs ./docs
+COPY --from=docs-builder /app/docs/starlight/dist ./docs/starlight/dist
 
 # Sync project
 RUN uv sync --frozen --no-dev

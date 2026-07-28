@@ -74,6 +74,17 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
             if release and release.get("product_id"):
                 return str(release["product_id"])
 
+    # 4. Check via schedule_id
+    schedule_id = params.get("schedule_id")
+    if not schedule_id:
+        body = getattr(req.context, "_body", None) or {}
+        schedule_id = body.get("schedule_id")
+
+    if schedule_id:
+        schedule = db.get_scheduled_scan(schedule_id)
+        if schedule and schedule.get("product_id"):
+            return str(schedule["product_id"])
+
     return None
 
 

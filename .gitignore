@@ -11,6 +11,10 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+node_modules/
+.astro/
+docs/starlight/dist/
+docs/starlight/.astro/
 downloads/
 eggs/
 .eggs/

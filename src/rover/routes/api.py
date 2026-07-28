@@ -62,3 +62,84 @@ class CiImageMetadataResource:
 
         resp.status = falcon.HTTP_201
         resp.media = {"status": "ok"}
+
+
+class OpenApiJsonResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        from rover.openapi import get_openapi_schema
+
+        resp.media = get_openapi_schema()
+        resp.content_type = falcon.MEDIA_JSON
+
+
+class OpenApiDocsResource:
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        from rover.openapi import SWAGGER_UI_HTML
+
+        resp.text = SWAGGER_UI_HTML
+        resp.content_type = falcon.MEDIA_HTML
+
+
+class StarlightDocsResource:
+    def __init__(self, dist_dir: str):
+        import os
+
+        self.dist_dir = os.path.abspath(dist_dir)
+
+    async def on_get(
+        self,
+        req: falcon.asgi.Request,
+        resp: falcon.asgi.Response,
+        filepath: str = "",
+    ) -> None:
+        import os
+
+        clean_path = (filepath or "").lstrip("/")
+        target_path = os.path.join(self.dist_dir, clean_path)
+
+        if os.path.isdir(target_path):
+            target_path = os.path.join(target_path, "index.html")
+
+        abs_target = os.path.abspath(target_path)
+        if not abs_target.startswith(self.dist_dir):
+            raise falcon.HTTPNotFound()
+
+        if not os.path.exists(abs_target) or not os.path.isfile(abs_target):
+            root_index = os.path.join(self.dist_dir, "index.html")
+            if os.path.exists(root_index):
+                abs_target = root_index
+            else:
+                raise falcon.HTTPNotFound()
+
+        if abs_target.endswith(".html"):
+            resp.content_type = falcon.MEDIA_HTML
+        elif abs_target.endswith(".css"):
+            resp.content_type = "text/css"
+        elif abs_target.endswith(".js") or abs_target.endswith(".mjs"):
+            resp.content_type = "application/javascript"
+        elif abs_target.endswith(".webp"):
+            resp.content_type = "image/webp"
+        elif abs_target.endswith(".png"):
+            resp.content_type = "image/png"
+        elif abs_target.endswith(".svg"):
+            resp.content_type = "image/svg+xml"
+        elif abs_target.endswith(".json"):
+            resp.content_type = falcon.MEDIA_JSON
+        else:
+            resp.content_type = "application/octet-stream"
+
+        with open(abs_target, "rb") as f:
+            content = f.read()
+            if (
+                "text" in resp.content_type
+                or "json" in resp.content_type
+                or "javascript" in resp.content_type
+                or "html" in resp.content_type
+            ):
+                resp.text = content.decode("utf-8", errors="ignore")
+            else:
+                resp.data = content

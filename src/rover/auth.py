@@ -65,10 +65,16 @@ class RequireAuthMiddleware:
     async def process_request(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
-        if req.path in ["/login", "/callback"] or req.path.startswith("/static"):
+        if (
+            req.path in ["/login", "/callback", "/api/openapi.json"]
+            or req.path.startswith("/static")
+            or req.path.startswith("/docs")
+            or req.path.startswith("/api/docs")
+            or req.path.startswith("/api/swagger")
+        ):
             return
 
-        # Check for API token first
+        # Check for API token first (Authorization: Bearer <token>)
         auth_header = req.get_header("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ", 1)[1]
