@@ -135,6 +135,18 @@ fi
 info "Setting up OpenBao secrets management..."
 python3 "$REPO_ROOT/bin/setup-openbao.py"
 
+# ── 7. Docker Socket Group GID ───────────────────────────────────────────────
+# Detect the host Docker socket group GID so the web container can reach the
+# daemon. Written to docker/.env because compose interpolates ${DOCKER_GID}
+# in group_add from its project-directory env-file, NOT from .env.local.
+if [ -S /var/run/docker.sock ]; then
+    DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
+    printf '# Host-specific: GID of /var/run/docker.sock (from: stat -c %%g /var/run/docker.sock)\nDOCKER_GID=%s\n' "$DOCKER_GID" > docker/.env
+    info "Docker socket GID ($DOCKER_GID) written to docker/.env"
+else
+    info "WARNING: /var/run/docker.sock not found; scans will fail until DOCKER_GID is set in docker/.env"
+fi
+
 echo ""
 info "Setup complete! Next steps:"
 info "  1. ./bin/rover up"

@@ -38,8 +38,11 @@ services:
     image: rover-web
     user: "${UID:-1000}:${GID:-1000}"
     group_add:
-      # Grant access to /var/run/docker.sock. Run `stat -c %g /var/run/docker.sock`
-      # on the host to find the correct GID, then set DOCKER_GID in .env.local if needed.
+      # Grant access to /var/run/docker.sock. `bin/setup.sh` auto-detects this and
+      # writes DOCKER_GID to docker/.env. To set manually:
+      #   stat -c %g /var/run/docker.sock   # find the host socket's group GID
+      #   echo "DOCKER_GID=<gid>" > docker/.env
+      # NOTE: it must be docker/.env (compose's project-dir env-file), NOT .env.local.
       - "${DOCKER_GID:-962}"
     environment:
       - DATABASE_URL=postgresql+psycopg://rover:${POSTGRES_PASSWORD:-rover_password}@db:5432/rover
