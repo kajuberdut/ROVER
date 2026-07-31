@@ -357,3 +357,30 @@ notification_rule_recipients = Table(
     Column("email", String, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
+
+user_invites = Table(
+    "user_invites",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("email", String, nullable=True),
+    Column("role", String, nullable=False, server_default="viewer"),
+    Column("token", String, nullable=False, unique=True, index=True),
+    Column(
+        "invited_by_sub",
+        String,
+        ForeignKey("users.sub", ondelete="SET NULL"),
+        nullable=True,
+    ),
+    Column("status", String, nullable=False, server_default="pending", index=True),
+    Column("expires_at", TIMESTAMP(timezone=True), nullable=False),
+    Column(
+        "created_at", TIMESTAMP(timezone=True), server_default=func.current_timestamp()
+    ),
+    Column("accepted_at", TIMESTAMP(timezone=True), nullable=True),
+    Column(
+        "accepted_by_sub",
+        String,
+        ForeignKey("users.sub", ondelete="SET NULL"),
+        nullable=True,
+    ),
+)

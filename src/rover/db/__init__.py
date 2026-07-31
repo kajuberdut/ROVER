@@ -119,6 +119,15 @@ from .tokens import (
     revoke_api_token,
     verify_api_token,
 )
+from .user_invites import (
+    accept_user_invite,
+    create_user_invite,
+    get_all_user_invites,
+    get_pending_user_invites,
+    get_user_invite_by_id,
+    get_user_invite_by_token,
+    revoke_user_invite,
+)
 from .users import (
     get_all_users,
     get_product_users,
@@ -214,6 +223,13 @@ __all__ = [
     "set_product_user_role",
     "remove_product_user",
     "get_user_product_ids",
+    "create_user_invite",
+    "get_user_invite_by_id",
+    "get_user_invite_by_token",
+    "get_pending_user_invites",
+    "get_all_user_invites",
+    "revoke_user_invite",
+    "accept_user_invite",
     "create_admin_notification",
     "get_active_admin_notifications",
     "get_all_admin_notifications",

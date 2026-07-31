@@ -15,6 +15,9 @@ from rover.eol_proxy import EolProxyAllResource, EolProxyProductResource
 from rover.routes.admin import (
     AdminAlertsResource,
     AdminDestinationsResource,
+    AdminInvitesCreateResource,
+    AdminInvitesResendResource,
+    AdminInvitesRevokeResource,
     AdminRedirectResource,
     AdminUsersResource,
     ConfigResource,
@@ -39,6 +42,7 @@ from rover.routes.dashboard import (
     QueueTableResource,
 )
 from rover.routes.helm import HelmRepoChartsResource, ReleaseHelmResource
+from rover.routes.invites import AcceptInviteResource
 from rover.routes.products import (
     ProductDashboardResource,
     ProductDeleteResource,
@@ -105,6 +109,10 @@ def create_app() -> falcon.asgi.App:
     app.add_route("/config", ConfigResource())
     app.add_route("/admin", AdminRedirectResource())
     app.add_route("/admin/users", AdminUsersResource())
+    app.add_route("/admin/invites/create", AdminInvitesCreateResource())
+    app.add_route("/admin/invites/{invite_id}/revoke", AdminInvitesRevokeResource())
+    app.add_route("/admin/invites/{invite_id}/resend", AdminInvitesResendResource())
+    app.add_route("/accept-invite", AcceptInviteResource())
     app.add_route("/admin/alerts", AdminAlertsResource())
     app.add_route("/admin/notifications", AdminAlertsResource())
     app.add_route("/admin/notifications/destinations", AdminDestinationsResource())
