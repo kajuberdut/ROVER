@@ -27,6 +27,9 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://rover:${POSTGRES_PASSWORD:-rover_password}@db:5432/rover
+    volumes:
+      - ../migrations:/app/migrations
+      - ../src:/app/src
     command: >
       sh -c "uv pip install -r src/rover/shipship/requirements.txt && 
              PYTHONPATH=src /app/.venv/bin/python -m rover.shipship apply --database $$DATABASE_URL ./migrations --batch"
@@ -60,6 +63,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp:/tmp
       - ../src:/app/src
+      - ../migrations:/app/migrations
       - ../config.toml:/app/config.toml
       - ../docs/starlight/dist:/app/docs/starlight/dist:ro
 
