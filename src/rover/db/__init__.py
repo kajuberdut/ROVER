@@ -53,6 +53,30 @@ from .jobs import (
     update_semgrep_job_status,
     update_snyk_job_status,
 )
+from .notification_destinations import (
+    add_notification_destination,
+    delete_notification_destination,
+    get_default_smtp_destination,
+    get_destination_unmasked_secret,
+    get_notification_destination_by_id,
+    get_notification_destinations,
+    set_default_smtp_destination,
+    update_notification_destination,
+)
+from .notification_logs import (
+    get_notification_logs,
+    log_notification_attempt,
+)
+from .notification_rules import (
+    NotificationEventType,
+    NotificationSeverity,
+    add_notification_rule,
+    delete_notification_rule,
+    evaluate_notification_rules,
+    get_notification_rule_by_id,
+    get_notification_rules,
+    update_notification_rule,
+)
 from .notifications import (
     create_admin_notification,
     dismiss_admin_notification,
@@ -202,4 +226,22 @@ __all__ = [
     "get_unmasked_secret_by_type",
     "get_unmasked_secret_by_type_info",
     "delete_credential",
+    "add_notification_destination",
+    "get_notification_destinations",
+    "get_notification_destination_by_id",
+    "get_default_smtp_destination",
+    "set_default_smtp_destination",
+    "get_destination_unmasked_secret",
+    "update_notification_destination",
+    "delete_notification_destination",
+    "NotificationEventType",
+    "NotificationSeverity",
+    "add_notification_rule",
+    "get_notification_rules",
+    "get_notification_rule_by_id",
+    "update_notification_rule",
+    "delete_notification_rule",
+    "evaluate_notification_rules",
+    "log_notification_attempt",
+    "get_notification_logs",
 ]

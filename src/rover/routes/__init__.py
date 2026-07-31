@@ -13,7 +13,8 @@ import falcon.asgi
 from rover import auth
 from rover.eol_proxy import EolProxyAllResource, EolProxyProductResource
 from rover.routes.admin import (
-    AdminNotificationsResource,
+    AdminAlertsResource,
+    AdminDestinationsResource,
     AdminRedirectResource,
     AdminUsersResource,
     ConfigResource,
@@ -104,7 +105,9 @@ def create_app() -> falcon.asgi.App:
     app.add_route("/config", ConfigResource())
     app.add_route("/admin", AdminRedirectResource())
     app.add_route("/admin/users", AdminUsersResource())
-    app.add_route("/admin/notifications", AdminNotificationsResource())
+    app.add_route("/admin/alerts", AdminAlertsResource())
+    app.add_route("/admin/notifications", AdminAlertsResource())
+    app.add_route("/admin/notifications/destinations", AdminDestinationsResource())
     app.add_route("/admin/credentials", AdminCredentialsResource())
     app.add_route(
         "/admin/credentials/{credential_id}/delete", AdminCredentialDeleteResource()
@@ -158,10 +161,52 @@ def create_app() -> falcon.asgi.App:
     # Helm chart discovery
     app.add_route("/api/helm/repo/charts", HelmRepoChartsResource())
 
-    # Settings; API token management
+    # Settings; API token & Notification management
     app.add_route("/settings/tokens", ApiTokenPageResource())
     app.add_route("/settings/tokens/create", ApiTokenCreateResource())
     app.add_route("/settings/tokens/{token_id}/revoke", ApiTokenRevokeResource())
+
+    from rover.routes.notifications import (
+        NotificationDestinationCreateResource,
+        NotificationDestinationDeleteResource,
+        NotificationDestinationSetDefaultResource,
+        NotificationDestinationTestResource,
+        NotificationDestinationUpdateResource,
+        NotificationRuleCreateResource,
+        NotificationRuleDeleteResource,
+        ProductNotificationsPageResource,
+        UserNotificationsPageResource,
+    )
+
+    app.add_route("/user/settings/notifications", UserNotificationsPageResource())
+    app.add_route(
+        "/products/{product_id}/settings/notifications",
+        ProductNotificationsPageResource(),
+    )
+    app.add_route(
+        "/api/notifications/destinations", NotificationDestinationCreateResource()
+    )
+    app.add_route(
+        "/api/notifications/destinations/{dest_id}/delete",
+        NotificationDestinationDeleteResource(),
+    )
+    app.add_route(
+        "/api/notifications/destinations/{dest_id}/update",
+        NotificationDestinationUpdateResource(),
+    )
+    app.add_route(
+        "/api/notifications/destinations/{dest_id}/set-default",
+        NotificationDestinationSetDefaultResource(),
+    )
+    app.add_route(
+        "/api/notifications/destinations/{dest_id}/test",
+        NotificationDestinationTestResource(),
+    )
+    app.add_route("/api/notifications/rules", NotificationRuleCreateResource())
+    app.add_route(
+        "/api/notifications/rules/{rule_id}/delete",
+        NotificationRuleDeleteResource(),
+    )
 
     # Machine-to-machine JSON API & Interactive OpenAPI Specs
     from rover.routes.api import OpenApiDocsResource, OpenApiJsonResource

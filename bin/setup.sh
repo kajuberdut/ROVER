@@ -128,7 +128,7 @@ fi
 if ! grep -q "rover.local" /etc/hosts 2>/dev/null; then
     echo ""
     warn "Add these entries to /etc/hosts to resolve the local domains:"
-    echo "    127.0.0.1 rover.local auth.rover.local"
+    echo "    127.0.0.1 rover.local auth.rover.local mail.rover.local hooks.rover.local"
 fi
 
 # ── 6. OpenBao Setup ─────────────────────────────────────────────────────────

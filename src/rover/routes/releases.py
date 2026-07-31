@@ -26,6 +26,7 @@ class ReleaseResource:
 
 
 class ReleaseDashboardResource:
+    @falcon.before(permissions.require_product_read)
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, release_id: str
     ) -> None:

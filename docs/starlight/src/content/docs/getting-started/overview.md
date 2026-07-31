@@ -25,6 +25,9 @@ A **Release** represents a specific versioned snapshot of a product (e.g., `v1.4
 ### 4. Automated Evaluations
 **Automated Evaluations** are background scanning tasks triggered manually or via cron schedules. They execute security scanners in parallel, record live progress updates, and generate consolidated reports.
 
+### 5. Event-Driven Notifications & EOL Warnings
+**Notification Rules** connect scan lifecycle events (`vulnerability.found`, `scan.completed`, `scan.failed`, `eol.warning`) to multi-channel transport destinations (Webhooks, Slack, SMTP, AWS SES) with multi-recipient targeting. Learn more in the [Event-Driven Notifications Guide](../guides/notifications/).
+
 ---
 
 ## User Evaluation & Security Workflow
@@ -55,7 +58,13 @@ A **Release** represents a specific versioned snapshot of a product (e.g., `v1.4
                                      |
                                      v
 +-------------------------------------------------------------------------+
-|                      5. Integrate CI/CD Pipelines                       |
+|                 5. Dispatch Event-Driven Notifications                  |
+| Send real-time alerts via Webhook, Slack, SMTP Email, or AWS SES        |
++-------------------------------------------------------------------------+
+                                     |
+                                     v
++-------------------------------------------------------------------------+
+|                      6. Integrate CI/CD Pipelines                       |
 |   Send build metadata automatically via REST API and API Tokens         |
 +-------------------------------------------------------------------------+
 ```

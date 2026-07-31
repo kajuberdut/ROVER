@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<a href="/config">Settings</a>
+<span class="breadcrumb-sep">›</span>
+<span>Notification Destinations</span>
+{% endblock %}
+
+{% block content %}
+<section>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h1 style="margin-bottom: 0.2rem;">System Notification Destinations</h1>
+            <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
+                Configure shared notification destinations (Slack, Webhooks, SMTP Email, AWS SES) and encrypt secret credentials in OpenBao Vault.
+            </p>
+        </div>
+        <div>
+            <button onclick="document.getElementById('create-destination-modal').showModal()" style="width: auto; margin-bottom: 0;">
+                + Add Destination
+            </button>
+        </div>
+    </div>
+
+    <!-- Destinations Section -->
+    <article>
+        <header style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>Configured Destinations</strong>
+            <small style="color: var(--pico-muted-color);">Secrets encrypted in OpenBao Vault</small>
+        </header>
+        <figure>
+            <table role="grid">
+                <thead>
+                    <tr>
+                        <th>Destination Name</th>
+                        <th>Type</th>
+                        <th>Configuration</th>
+                        <th>Scope</th>
+                        <th>Created</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dest in destinations %}
+                    <tr>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                                <strong style="color: var(--pico-color);">{{ dest.name }}</strong>
+                                {% if dest.is_default %}
+                                <span class="role-badge" style="background: #eab308; color: #000; font-weight: bold; font-size: 0.7rem;">⭐ Default System SMTP</span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            <span class="role-badge" style="background: var(--pico-primary-background); color: var(--pico-primary);">
+                                {{ dest.type | upper }}
+                            </span>
+                        </td>
+                        <td>
+                            <small>
+                                {% if dest.type == 'webhook' %}{{ dest.config.url }}
+                                {% elif dest.type == 'slack' %}{{ dest.config.webhook_url }}
+                                {% elif dest.type == 'smtp' %}{{ dest.config.smtp_host }}:{{ dest.config.smtp_port }} (From: {{ dest.config.from_email or 'Default' }})
+                                {% elif dest.type == 'aws_ses' %}{{ dest.config.region }} (From: {{ dest.config.from_email or 'Default' }})
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <small style="text-transform: capitalize; color: var(--pico-muted-color);">{{ dest.scope }}</small>
+                        </td>
+                        <td><small>{{ dest.created_at | humanize_time }}</small></td>
+                        <td style="text-align: right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                            {% if dest.type in ['smtp', 'aws_ses'] and not dest.is_default %}
+                            <form action="/api/notifications/destinations/{{ dest.id }}/set-default" method="POST" style="margin-bottom: 0; display: inline;">
+                                <button type="submit" class="outline secondary" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;" title="Set as Default System SMTP Gateway">
+                                    ⭐ Make Default
+                                </button>
+                            </form>
+                            {% endif %}
+                            <button onclick='openEditDestinationModal({{ dest | tojson }})' class="outline" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
+                                ✏️ Edit
+                            </button>
+                            <button onclick="testDestination('{{ dest.id }}')" class="outline" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
+                                ⚡ Test Ping
+                            </button>
+                            <form action="/api/notifications/destinations/{{ dest.id }}/delete" method="POST" style="margin-bottom: 0; display: inline;">
+                                <button type="submit" class="outline" style="color: var(--pico-del-color); border-color: var(--pico-del-color); padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
+                                    Delete
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--pico-muted-color);">
+                            No shared notification destinations configured yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </figure>
+    </article>
+</section>
+
+<!-- Create Destination Modal -->
+<dialog id="create-destination-modal">
+    <article style="max-width: 600px;">
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('create-destination-modal').close();"></button>
+            <strong>Add Notification Destination</strong>
+        </header>
+        <form action="/api/notifications/destinations" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true" data-form-type="other">
+            <input type="hidden" name="scope" value="system">
+            <fieldset>
+                <label>Destination Name
+                    <input type="text" name="name" placeholder="e.g., Security Webhook" required autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                </label>
+                <label>Transport Type
+                    <select name="type" id="dest-type-select" onchange="toggleTransportFields()" required data-bwignore="true">
+                        <option value="webhook" selected>Webhook (HTTP POST + HMAC)</option>
+                        <option value="slack">Slack / MS Teams Webhook</option>
+                        <option value="smtp">SMTP Email</option>
+                        <option value="aws_ses">AWS SES Email</option>
+                    </select>
+                </label>
+
+                <!-- Webhook fields -->
+                <div id="fields-webhook">
+                    <label>Webhook URL
+                        <input type="url" name="webhook_url" placeholder="https://api.example.com/webhooks" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>HMAC Secret Key (Stored in OpenBao Vault)
+                        <input type="password" name="webhook_secret" placeholder="Secret string for HMAC-SHA256 signature" autocomplete="new-password" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                </div>
+
+                <!-- Slack fields -->
+                <div id="fields-slack" style="display: none;">
+                    <label>Slack / Teams Webhook URL
+                        <input type="url" name="slack_url" placeholder="https://hooks.slack.com/services/..." autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                </div>
+
+                <!-- SMTP fields -->
+                <div id="fields-smtp" style="display: none;">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem;">
+                        <label>SMTP Host
+                            <input type="text" name="smtp_host" placeholder="smtp.gmail.com" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                        </label>
+                        <label>Port
+                            <input type="number" name="smtp_port" value="587" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                        </label>
+                    </div>
+                    <label>SMTP Username
+                        <input type="text" name="smtp_username" placeholder="user@gmail.com" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>SMTP Password (Stored in OpenBao Vault)
+                        <input type="password" name="smtp_password" placeholder="••••••••" autocomplete="new-password" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>From Email Address
+                        <input type="email" name="smtp_from_email" placeholder="noreply@company.com" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="is_default" value="true" data-bwignore="true">
+                        <span>Set as Default System SMTP Gateway</span>
+                    </label>
+                </div>
+
+                <!-- AWS SES fields -->
+                <div id="fields-aws_ses" style="display: none;">
+                    <label>AWS Region
+                        <input type="text" name="aws_region" placeholder="us-east-1" value="us-east-1" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>AWS Access Key ID
+                        <input type="text" name="aws_access_key_id" placeholder="AKIA..." autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>AWS Secret Access Key (Stored in OpenBao Vault)
+                        <input type="password" name="aws_secret_access_key" placeholder="••••••••" autocomplete="new-password" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>From Email Address
+                        <input type="email" name="aws_from_email" placeholder="alerts@company.com" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="is_default" value="true" data-bwignore="true">
+                        <span>Set as Default System SES Gateway</span>
+                    </label>
+                </div>
+
+                <input type="submit" value="Save Destination" style="margin-top: 1rem;">
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+
+<!-- Edit Destination Modal -->
+<dialog id="edit-destination-modal">
+    <article style="max-width: 600px;">
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('edit-destination-modal').close();"></button>
+            <strong>Edit Notification Destination: <span id="edit-dest-title"></span></strong>
+        </header>
+        <form id="edit-dest-form" action="" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true" data-form-type="other">
+            <fieldset>
+                <label>Destination Name
+                    <input type="text" name="name" id="edit-dest-name" required autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                </label>
+
+                <!-- Webhook fields -->
+                <div id="edit-fields-webhook" style="display: none;">
+                    <label>Webhook URL
+                        <input type="url" name="webhook_url" id="edit-webhook-url" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>HMAC Secret Key
+                        <input type="password" name="webhook_secret" placeholder="Leave blank to keep existing secret" autocomplete="new-password" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                </div>
+
+                <!-- Slack fields -->
+                <div id="edit-fields-slack" style="display: none;">
+                    <label>Slack / Teams Webhook URL
+                        <input type="url" name="slack_url" id="edit-slack-url" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                </div>
+
+                <!-- SMTP fields -->
+                <div id="edit-fields-smtp" style="display: none;">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 0.5rem;">
+                        <label>SMTP Host
+                            <input type="text" name="smtp_host" id="edit-smtp-host" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                        </label>
+                        <label>Port
+                            <input type="number" name="smtp_port" id="edit-smtp-port" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                        </label>
+                    </div>
+                    <label>SMTP Username
+                        <input type="text" name="smtp_username" id="edit-smtp-username" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>SMTP Password
+                        <input type="password" name="smtp_password" placeholder="Leave blank to keep existing password" autocomplete="new-password" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>From Email Address
+                        <input type="email" name="smtp_from_email" id="edit-smtp-from-email" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="is_default" id="edit-smtp-is-default" value="true" data-bwignore="true">
+                        <span>Set as Default System SMTP Gateway</span>
+                    </label>
+                </div>
+
+                <!-- AWS SES fields -->
+                <div id="edit-fields-aws_ses" style="display: none;">
+                    <label>AWS Region
+                        <input type="text" name="aws_region" id="edit-aws-region" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>AWS Access Key ID
+                        <input type="text" name="aws_access_key_id" id="edit-aws-access-key-id" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>AWS Secret Access Key
+                        <input type="password" name="aws_secret_access_key" placeholder="Leave blank to keep existing secret" autocomplete="new-password" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label>From Email Address
+                        <input type="email" name="aws_from_email" id="edit-aws-from-email" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    </label>
+                    <label style="margin-top: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" name="is_default" id="edit-aws-is-default" value="true" data-bwignore="true">
+                        <span>Set as Default System SES Gateway</span>
+                    </label>
+                </div>
+
+                <input type="submit" value="Update Destination" style="margin-top: 1rem;">
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+
+<script>
+function toggleTransportFields() {
+    const val = document.getElementById('dest-type-select').value;
+    ['webhook', 'slack', 'smtp', 'aws_ses'].forEach(t => {
+        const el = document.getElementById('fields-' + t);
+        if (el) el.style.display = (t === val) ? 'block' : 'none';
+    });
+}
+
+function openEditDestinationModal(dest) {
+    document.getElementById('edit-dest-title').textContent = dest.name;
+    document.getElementById('edit-dest-form').action = `/api/notifications/destinations/${dest.id}/update`;
+    document.getElementById('edit-dest-name').value = dest.name || '';
+
+    ['webhook', 'slack', 'smtp', 'aws_ses'].forEach(t => {
+        const el = document.getElementById('edit-fields-' + t);
+        if (el) el.style.display = (t === dest.type) ? 'block' : 'none';
+    });
+
+    const cfg = dest.config || {};
+    if (dest.type === 'smtp') {
+        document.getElementById('edit-smtp-host').value = cfg.smtp_host || '';
+        document.getElementById('edit-smtp-port').value = cfg.smtp_port || 587;
+        document.getElementById('edit-smtp-username').value = cfg.smtp_username || '';
+        document.getElementById('edit-smtp-from-email').value = cfg.from_email || '';
+        document.getElementById('edit-smtp-is-default').checked = !!dest.is_default;
+    } else if (dest.type === 'webhook') {
+        document.getElementById('edit-webhook-url').value = cfg.url || '';
+    } else if (dest.type === 'slack') {
+        document.getElementById('edit-slack-url').value = cfg.webhook_url || '';
+    } else if (dest.type === 'aws_ses') {
+        document.getElementById('edit-aws-region').value = cfg.region || 'us-east-1';
+        document.getElementById('edit-aws-access-key-id').value = cfg.aws_access_key_id || '';
+        document.getElementById('edit-aws-from-email').value = cfg.from_email || '';
+        document.getElementById('edit-aws-is-default').checked = !!dest.is_default;
+    }
+
+    document.getElementById('edit-destination-modal').showModal();
+}
+
+async function testDestination(destId) {
+    try {
+        const resp = await fetch(`/api/notifications/destinations/${destId}/test`, { method: 'POST' });
+        const res = await resp.json();
+        if (res.status === 'ok') {
+            alert('✅ Test Ping delivered successfully!');
+        } else {
+            alert('❌ Test Ping failed: ' + (res.error || 'Unknown error'));
+        }
+    } catch (e) {
+        alert('❌ Test Ping network error: ' + e);
+    }
+}
+</script>
+{% endblock %}

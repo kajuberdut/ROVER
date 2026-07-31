@@ -8,23 +8,10 @@ from rover.routes._env import template_env
 
 
 def _check_can_manage_tokens(req: falcon.asgi.Request) -> None:
-    """Raise HTTP 401/403 if the requesting user may not manage API tokens.
-
-    System admins always pass. Any user with a product-level ``admin``
-    role on at least one product also passes.
-    """
+    """Raise HTTP 401 if the requesting user is not authenticated."""
     user = getattr(req.context, "user", None)
     if not user:
-        raise falcon.HTTPUnauthorized()
-    if user.get("role") == "system_admin":
-        return
-    for pid in user.get("product_ids", []):
-        role = db.get_user_product_role(user["sub"], pid)
-        if role == "admin":
-            return
-    raise falcon.HTTPForbidden(
-        description="Only admins and system admins can manage API tokens."
-    )
+        raise falcon.HTTPUnauthorized(description="Authentication required.")
 
 
 class ApiTokenPageResource:

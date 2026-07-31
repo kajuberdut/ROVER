@@ -175,6 +175,17 @@
             padding-bottom: 0.25rem !important;
         }
 
+        .menu-section-header {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--pico-muted-color);
+            padding: 0.45rem 1rem 0.15rem 1rem;
+            opacity: 0.75;
+        }
+
         /* Role badge */
         .role-badge {
             font-size: 0.65rem;
@@ -360,11 +371,11 @@
             {% if user %}
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 {% if user.role == "system_admin" and get_active_notifications_count() > 0 %}
-                <a href="/admin/notifications" 
-                   title="{{ get_active_notifications_count() }} unread system notification{{ 's' if get_active_notifications_count() != 1 else '' }}"
-                   aria-label="System Notifications"
+                <a href="/admin/alerts" 
+                   title="{{ get_active_notifications_count() }} unread system alert{{ 's' if get_active_notifications_count() != 1 else '' }}"
+                   aria-label="System Alerts"
                    style="position: relative; text-decoration: none; font-size: 1.1rem; padding: 0.25rem 0.55rem; border: 1px solid rgba(255, 51, 102, 0.4); border-radius: var(--pico-border-radius); background: rgba(255, 51, 102, 0.12); display: flex; align-items: center; gap: 0.35rem; line-height: 1; transition: background 0.2s ease;">
-                    🔔
+                    🚨
                     <span style="background: #ff3366; color: white; border-radius: 999px; padding: 0.15rem 0.45rem; font-size: 0.75rem; font-weight: bold;">
                         {{ get_active_notifications_count() }}
                     </span>
@@ -381,25 +392,34 @@
                     <div class="user-menu-dropdown" id="user-menu-dropdown" hidden>
                         <span class="menu-label">{{ user.email or user.sub }}</span>
                         <div class="menu-divider"></div>
-                        <a href="/config">⚙️ Settings</a>
+
+                        <span class="menu-section-header">Personal</span>
                         <a href="/settings/tokens">🔑 API Tokens</a>
-                        <a href="/docs/guide/index.html" target="_blank">📚 User Guide</a>
-                        <a href="/docs" target="_blank">📖 API Specification</a>
+                        <a href="/user/settings/notifications">🔔 Subscriptions</a>
+
                         {% if user.role == "system_admin" %}
-                        <a href="/admin/notifications">
-                            🔔 Notifications 
+                        <div class="menu-divider"></div>
+                        <span class="menu-section-header">Administration</span>
+                        <a href="/config">⚙️ System Configuration</a>
+                        <a href="/admin/alerts">
+                            🚨 System Alerts 
                             {% if get_active_notifications_count() > 0 %}
                             <span style="background: #ff3366; color: white; border-radius: 999px; padding: 0.1rem 0.45rem; font-size: 0.75rem; font-weight: bold; margin-left: 0.25rem;">
                                 {{ get_active_notifications_count() }}
                             </span>
                             {% endif %}
                         </a>
+                        <a href="/admin/notifications/destinations">📡 Destinations</a>
                         <a href="/admin/credentials">🔒 Credential Vault</a>
                         <a href="/admin/users">👥 Users</a>
-
                         {% endif %}
-                        <div class="menu-divider"></div>
 
+                        <div class="menu-divider"></div>
+                        <span class="menu-section-header">Documentation</span>
+                        <a href="/docs/guide/index.html" target="_blank">📚 User Guide</a>
+                        <a href="/docs" target="_blank">📖 API Specification</a>
+
+                        <div class="menu-divider"></div>
                         <a href="/logout">↩ Logout</a>
                     </div>
                 </div>

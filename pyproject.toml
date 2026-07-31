@@ -67,13 +67,15 @@ vulture = { cmd = "vulture src/", help = "Find dead code" }
 mypy = { cmd = "mypy src/", help = "Run mypy" }
 verify = { sequence = ["lint", "format", "test", "mypy"], help = "Run lint, format, test, and mypy in sequence" }
 up = { cmd = "docker compose -f docker/docker-compose.yml -p rover up -d --build", help = "Start the compose stack in Docker" }
+dev = { sequence = [{ cmd = "bin/dev-setup.sh" }, { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover up -d --build" }], help = "Start the compose stack with Mailpit & WebhookHub dev mix-in" }
+dev-down = { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down", help = "Stop the development compose stack including Mailpit & WebhookHub" }
 down = { cmd = "docker compose -f docker/docker-compose.yml -p rover down", help = "Stop the compose stack in Docker" }
 restart = { cmd = "docker compose -f docker/docker-compose.yml -p rover restart", help = "Restart the compose stack in Docker" }
 status = { sequence = [{ cmd = "docker compose -f docker/docker-compose.yml -p rover ps -a" }, { cmd = "docker compose -f docker/docker-compose.yml -p rover top" }], help = "Display container status and active processes for the ROVER compose stack" }
 logs = { cmd = "docker compose -f docker/docker-compose.yml -p rover logs -f", help = "Tail container logs from the ROVER compose stack" }
 setup = { cmd = "bin/setup.sh", help = "Run first-time provisioning setup (certs, secrets, OpenBao)" }
 promote-admin = { cmd = "bin/create-admin.sh", help = "Promote a user (by email or sub UUID) to system_admin role" }
-docs-build = { cmd = "docker run --rm -v ${PWD}/docs/starlight:/app -w /app node:24-alpine sh -c \"npm ci && npm run build\"", help = "Build Astro Starlight documentation site inside Docker (no local Node/npm required)" }
+docs-build = { sequence = [{ cmd = "bin/dev-setup.sh" }, { cmd = "docker run --rm -v ${PWD}/docs/starlight:/app -w /app node:24-alpine sh -c \"npm ci && npm run build\"" }], help = "Build Astro Starlight documentation site inside Docker (no local Node/npm required)" }
 docs-dev = { cmd = "docker run --rm -it -p 4321:4321 -v ${PWD}/docs/starlight:/app -w /app node:24-alpine sh -c \"npm ci && npm run dev -- --host 0.0.0.0\"", help = "Start Astro Starlight documentation dev server inside Docker (no local Node/npm required)" }
 
 

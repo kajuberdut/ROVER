@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block breadcrumb %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">›</span>
+<span>Notification Subscriptions</span>
+{% endblock %}
+
+{% block content %}
+<section>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h1 style="margin-bottom: 0.2rem;">{% if scope == 'product' %}Notifications: {{ product.name }}{% else %}Personal Notification Subscriptions{% endif %}</h1>
+            <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
+                Configure notification event rules (scan completion, vulnerability findings, EOL lead time alerts) attached to approved destinations.
+            </p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            {% if user and user.role == 'system_admin' %}
+            <a href="/admin/notifications/destinations" class="button outline" style="width: auto; margin-bottom: 0; text-decoration: none;">
+                ⚙️ Manage System Destinations
+            </a>
+            {% endif %}
+            <button onclick="openRuleModal()" style="width: auto; margin-bottom: 0;">
+                + Add Notification Rule
+            </button>
+        </div>
+    </div>
+
+    <!-- Active Subscription Rules Grid -->
+    <article style="margin-bottom: 2rem;">
+        <header style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>Active Notification Rules</strong>
+            <small style="color: var(--pico-muted-color);">Evaluated on scan completion and vulnerability alerts</small>
+        </header>
+        <div style="padding: 1.5rem;">
+            {% if rules %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.25rem;">
+                {% for rule in rules %}
+                <div style="background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+                    <div>
+                        <!-- Rule Header: Event Pill & Delete Button -->
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                            <span class="role-badge" style="
+                                font-weight: 600;
+                                font-size: 0.75rem;
+                                padding: 0.25rem 0.6rem;
+                                border-radius: 4px;
+                                {% if rule.event_type == 'vulnerability.found' %}
+                                    background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);
+                                {% elif rule.event_type == 'scan.completed' %}
+                                    background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3);
+                                {% elif rule.event_type == 'scan.failed' %}
+                                    background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3);
+                                {% elif rule.event_type == 'eol.warning' %}
+                                    background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);
+                                {% else %}
+                                    background: var(--pico-primary-background); color: var(--pico-primary);
+                                {% endif %}
+                            ">
+                                {{ rule.event_type }}
+                            </span>
+                            <form action="/api/notifications/rules/{{ rule.id }}/delete" method="POST" style="margin-bottom: 0;">
+                                <button type="submit" class="outline" style="color: var(--pico-del-color); border-color: transparent; padding: 0.15rem 0.4rem; font-size: 0.75rem; margin-bottom: 0;" title="Delete Rule">
+                                    ✕
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Rule Target Destination -->
+                        <div style="font-size: 1.05rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--pico-color);">
+                            {{ destination_names.get(rule.destination_id, rule.destination_id) }}
+                        </div>
+
+                        <!-- Event Specific Attributes -->
+                        <div style="font-size: 0.85rem; color: var(--pico-muted-color); display: flex; flex-direction: column; gap: 0.35rem;">
+                            {% if rule.event_type == 'vulnerability.found' %}
+                            <div>
+                                <strong style="color: var(--pico-color);">Min Severity:</strong>
+                                <span class="role-badge" style="
+                                    font-size: 0.7rem; padding: 0.1rem 0.4rem; margin-left: 0.25rem;
+                                    {% if rule.min_severity == 'CRITICAL' %}background: #dc2626; color: #fff;
+                                    {% elif rule.min_severity == 'HIGH' %}background: #ea580c; color: #fff;
+                                    {% elif rule.min_severity == 'MEDIUM' %}background: #d97706; color: #fff;
+                                    {% else %}background: var(--pico-primary-background); color: var(--pico-primary);
+                                    {% endif %}
+                                ">
+                                    {{ rule.min_severity }}
+                                </span>
+                            </div>
+                            {% elif rule.event_type == 'eol.warning' %}
+                            <div>
+                                <strong style="color: var(--pico-color);">Lead Time:</strong>
+                                <span style="color: var(--pico-primary); font-weight: bold;">{{ rule.eol_warning_days or 90 }} Days</span>
+                            </div>
+                            {% elif rule.event_type == 'scan.completed' %}
+                            <div>
+                                <strong style="color: var(--pico-color);">Trigger:</strong> Automated scan finish
+                            </div>
+                            {% elif rule.event_type == 'scan.failed' %}
+                            <div>
+                                <strong style="color: var(--pico-color);">Trigger:</strong> Scanner job execution error
+                            </div>
+                            {% endif %}
+
+                            {% if rule.recipient_emails %}
+                            <div style="margin-top: 0.35rem;">
+                                <strong style="color: var(--pico-color);">Recipients:</strong>
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.2rem;">
+                                    {% for em in rule.recipient_emails %}
+                                    <span class="role-badge" style="font-size: 0.7rem; padding: 0.1rem 0.35rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); color: var(--pico-color);">{{ em }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Footer Timestamp -->
+                    <div style="margin-top: 1rem; padding-top: 0.5rem; border-top: 1px border-dashed var(--pico-border-color); font-size: 0.75rem; color: var(--pico-muted-color);">
+                        Created {{ rule.created_at | humanize_time }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 2.5rem; color: var(--pico-muted-color);">
+                No notification rules configured yet. Click <strong>+ Add Notification Rule</strong> to subscribe to events.
+            </div>
+            {% endif %}
+        </div>
+    </article>
+</section>
+
+<!-- Create Rule Modal -->
+<dialog id="create-rule-modal">
+    <article style="max-width: 600px;">
+        <header>
+            <button aria-label="Close" rel="prev" onclick="document.getElementById('create-rule-modal').close();"></button>
+            <strong>Add Notification Rule</strong>
+        </header>
+        <form action="/api/notifications/rules" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+            <input type="hidden" name="scope" value="{{ scope }}">
+            {% if product %}<input type="hidden" name="product_id" value="{{ product.id }}">{% endif %}
+            <fieldset>
+                {% set is_admin = user and (user.role == 'system_admin' or product_role == 'admin') %}
+                {% if not is_admin %}
+                    {% if default_email_dest %}
+                        <input type="hidden" name="destination_id" value="{{ default_email_dest.id }}">
+                        <label>Delivery Method
+                            <input type="text" value="Email Gateway: {{ default_email_dest.name }} ({{ default_email_dest.type | upper }})" disabled data-bwignore="true">
+                            <small style="color: var(--pico-muted-color);">Personal alerts are delivered via the server's default email gateway.</small>
+                        </label>
+                    {% elif available_destinations %}
+                        <label>Select Email Gateway
+                            <select name="destination_id" required data-bwignore="true">
+                                {% for dest in available_destinations %}
+                                <option value="{{ dest.id }}" {% if dest.is_default %}selected{% endif %}>{{ dest.name }} ({{ dest.type | upper }})</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    {% else %}
+                        <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid #eab308; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                            <strong style="color: #eab308; font-size: 0.95rem;">⚠️ No System Email Gateway Configured</strong>
+                            <p style="margin-bottom: 0; font-size: 0.85rem; color: var(--pico-color);">A System Administrator has not configured a system email gateway (SMTP or AWS SES) yet. Please contact an administrator to configure one under <em>Admin &gt; Shared Destinations</em>.</p>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <label>Select Target Destination
+                        <select name="destination_id" id="rule-destination-select" onchange="toggleRuleFields()" required data-bwignore="true">
+                            {% for dest in available_destinations %}
+                            <option value="{{ dest.id }}" data-type="{{ dest.type }}" {% if dest.is_default %}selected{% endif %}>{{ dest.name }} ({{ dest.type | upper }})</option>
+                            {% else %}
+                            <option disabled selected>No destinations available</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                {% endif %}
+
+                <div id="recipient-fields">
+                    {% if is_admin %}
+                    <label>Target Recipient Users
+                        <select name="recipient_user_subs" multiple style="height: 100px;" data-bwignore="true">
+                            {% for u in all_users %}
+                            <option value="{{ u.sub }}" {% if user and u.sub == user.sub %}selected{% endif %}>
+                                {{ u.name or u.email or u.sub }} ({% if u.email %}{{ u.email }}{% else %}No Email{% endif %})
+                            </option>
+                            {% else %}
+                            <option value="{{ user.sub }}" selected>{{ user.name or user.email or user.sub }}</option>
+                            {% endfor %}
+                        </select>
+                        <small style="color: var(--pico-muted-color);">Hold Ctrl/Cmd to select multiple recipient users.</small>
+                    </label>
+                    <label>Additional Recipient Emails (Optional)
+                        <input type="text" name="custom_recipient_emails" placeholder="e.g., oncall@company.com, pager@company.com" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                        <small style="color: var(--pico-muted-color);">Comma-separated custom email addresses.</small>
+                    </label>
+                    {% else %}
+                    <input type="hidden" name="recipient_user_subs" value="{{ user.sub }}">
+                    <label>Recipient Target
+                        <input type="text" value="{{ user.name or user.email or user.sub }} ({% if user.email %}{{ user.email }}{% else %}Your Email{% endif %})" disabled data-bwignore="true">
+                        <small style="color: var(--pico-muted-color);">Notifications will be delivered to your registered user email address.</small>
+                    </label>
+                    {% endif %}
+                </div>
+                <label>Event Type
+                    <select name="event_type" id="rule-event-type" onchange="toggleRuleFields()" required data-bwignore="true">
+                        <option value="vulnerability.found" selected>Vulnerability Found (vulnerability.found)</option>
+                        <option value="scan.completed">Scan Completed (scan.completed)</option>
+                        <option value="scan.failed">Scan Failed (scan.failed)</option>
+                        <option value="eol.warning">EOL Advance Warning (eol.warning)</option>
+                    </select>
+                </label>
+                <div id="severity-field">
+                    <label>Minimum Severity Threshold
+                        <select name="min_severity" data-bwignore="true">
+                            <option value="ALL" selected>ALL (Any Severity)</option>
+                            <option value="LOW">LOW and higher</option>
+                            <option value="MEDIUM">MEDIUM and higher</option>
+                            <option value="HIGH">HIGH and higher</option>
+                            <option value="CRITICAL">CRITICAL only</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="eol-warning-field" style="display: none;">
+                    <label>EOL Advance Warning Lead Time (Days)
+                        <input type="number" name="eol_warning_days" value="90" placeholder="e.g., 90, 120, 180" autocomplete="off" data-bwignore="true">
+                        <small>Triggers notification when component reaches EOL within this lead time.</small>
+                    </label>
+                </div>
+
+                <input type="submit" value="Save Rule" style="margin-top: 1rem;" {% if not is_admin and not default_email_dest and not available_destinations %}disabled{% elif is_admin and not available_destinations %}disabled{% endif %}>
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+
+<script>
+function openRuleModal() {
+    toggleRuleFields();
+    document.getElementById('create-rule-modal').showModal();
+}
+
+function toggleRuleFields() {
+    var eventTypeSelect = document.getElementById('rule-event-type');
+    if (!eventTypeSelect) return;
+    var eventType = eventTypeSelect.value;
+
+    var sevField = document.getElementById('severity-field');
+    var sevSelect = sevField ? sevField.querySelector('select') : null;
+    var isVuln = (eventType === 'vulnerability.found');
+    if (sevField) sevField.style.display = isVuln ? 'block' : 'none';
+    if (sevSelect) sevSelect.disabled = !isVuln;
+
+    var eolField = document.getElementById('eol-warning-field');
+    var eolInput = eolField ? eolField.querySelector('input') : null;
+    var isEol = (eventType === 'eol.warning');
+    if (eolField) eolField.style.display = isEol ? 'block' : 'none';
+    if (eolInput) eolInput.disabled = !isEol;
+
+    // Toggle Recipient fields for email vs non-email destinations
+    var destSelect = document.getElementById('rule-destination-select');
+    var recipientFields = document.getElementById('recipient-fields');
+    if (recipientFields) {
+        var isEmail = true;
+        if (destSelect && destSelect.options.length > 0) {
+            var selectedOpt = destSelect.options[destSelect.selectedIndex];
+            if (selectedOpt) {
+                var destType = selectedOpt.getAttribute('data-type') || '';
+                if (destType && destType !== 'smtp' && destType !== 'aws_ses') {
+                    isEmail = false;
+                }
+            }
+        }
+        recipientFields.style.display = isEmail ? 'block' : 'none';
+        var inputs = recipientFields.querySelectorAll('input, select');
+        inputs.forEach(function(el) {
+            el.disabled = !isEmail;
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toggleRuleFields();
+});
+
+function testDestination(destId) {
+    fetch('/api/notifications/destinations/' + destId + '/test', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    }).then(function(res) {
+        return res.json();
+    }).then(function(data) {
+        if (data.delivered) {
+            alert("✅ Test Ping delivered successfully!");
+        } else {
+            alert("❌ Test Ping failed: " + (data.error || "Unknown error"));
+        }
+    }).catch(function(err) {
+        alert("❌ Request error: " + err);
+    });
+}
+</script>
+{% endblock %}

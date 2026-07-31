@@ -5,16 +5,16 @@
 <span class="breadcrumb-sep">›</span>
 <a href="/config">Settings</a>
 <span class="breadcrumb-sep">›</span>
-<span>System Notifications</span>
+<span>System Admin Alerts</span>
 {% endblock %}
 
 {% block content %}
 <section class="notifications-container" style="max-width: 900px; margin: 0 auto; padding-top: 1rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
         <div>
-            <h2 style="margin-bottom: 0.25rem;">📣 System Notifications</h2>
+            <h2 style="margin-bottom: 0.25rem;">🚨 System Admin Alerts</h2>
             <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
-                System alerts, scanner updates, and operational notices requiring admin attention.
+                System-level operational notices, version updates, and administrative alerts requiring system admin attention.
             </p>
         </div>
         <div>
@@ -201,7 +201,7 @@ async function updateNotificationStatus(id, actionName) {
         params.append('action', actionName);
         params.append('notification_id', id);
 
-        const resp = await fetch('/admin/notifications', {
+        const resp = await fetch('/admin/alerts', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'

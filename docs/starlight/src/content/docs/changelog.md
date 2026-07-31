@@ -9,6 +9,8 @@ Summary of recent user-facing updates and product enhancements.
 
 ### Recent Additions
 
+- **Notification Destinations**: Multi-channel delivery destination management supporting SMTP Email, Webhook (HMAC-SHA256), AWS SES, MS Teams, and Slack.
+- **Notification Rules**: Event rule configuration supporting `vulnerability.found` (with severity filtering), `scan.completed`, `scan.failed`, and `eol.warning` (with advance lead-time thresholds).
 - **Single Asset Re-runs**: Trigger focused security scans for individual container images or source repositories directly from scanner status widgets without re-evaluating the entire release.
 - **Interactive Swagger UI**: Explore and test R.O.V.E.R. public REST API endpoints directly in your browser at `/api/docs`.
 - **Automated Scan Schedules**: Set up recurring background scan schedules on products and releases using flexible cron patterns and execution history logs.

@@ -253,3 +253,107 @@ credentials = Table(
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
+
+notification_destinations = Table(
+    "notification_destinations",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("name", String, nullable=False),
+    Column("type", String, nullable=False),
+    Column("scope", String, nullable=False),
+    Column(
+        "user_sub",
+        String,
+        ForeignKey("users.sub", ondelete="CASCADE"),
+        default=None,
+    ),
+    Column(
+        "product_id",
+        String,
+        ForeignKey("products.id", ondelete="CASCADE"),
+        default=None,
+    ),
+    Column("is_system", Boolean, nullable=False, server_default="false"),
+    Column("is_default", Boolean, nullable=False, server_default="false"),
+    Column("config_json", String, nullable=False, server_default="{}"),
+    Column("vault_secret_path", String, default=None),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
+)
+
+notification_rules = Table(
+    "notification_rules",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "destination_id",
+        String,
+        ForeignKey("notification_destinations.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("event_type", String, nullable=False),
+    Column("min_severity", String, nullable=False, server_default="ALL"),
+    Column("eol_warning_days", Integer, default=None),
+    Column("scope", String, nullable=False),
+    Column(
+        "user_sub",
+        String,
+        ForeignKey("users.sub", ondelete="CASCADE"),
+        default=None,
+    ),
+    Column(
+        "product_id",
+        String,
+        ForeignKey("products.id", ondelete="CASCADE"),
+        default=None,
+    ),
+    Column("is_enabled", Boolean, nullable=False, server_default="true"),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
+)
+
+notification_logs = Table(
+    "notification_logs",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "rule_id",
+        String,
+        ForeignKey("notification_rules.id", ondelete="SET NULL"),
+        default=None,
+    ),
+    Column(
+        "destination_id",
+        String,
+        ForeignKey("notification_destinations.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("event_type", String, nullable=False),
+    Column("status", String, nullable=False),
+    Column("http_status_code", Integer, default=None),
+    Column("error_message", String, default=None),
+    Column("payload_json", String, default=None),
+    Column("retry_count", Integer, server_default="0"),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+)
+
+notification_rule_recipients = Table(
+    "notification_rule_recipients",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "rule_id",
+        String,
+        ForeignKey("notification_rules.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("recipient_type", String, nullable=False, server_default="user"),
+    Column(
+        "user_sub",
+        String,
+        ForeignKey("users.sub", ondelete="CASCADE"),
+        default=None,
+    ),
+    Column("email", String, default=None),
+    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+)

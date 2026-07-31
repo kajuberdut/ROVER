@@ -101,8 +101,8 @@ class AdminUsersResource:
         resp.media = {"ok": True}
 
 
-class AdminNotificationsResource:
-    """Admin-only notification queue UI."""
+class AdminAlertsResource:
+    """Admin-only system alerts queue UI."""
 
     @falcon.before(permissions.require_system_admin)
     async def on_get(
@@ -110,10 +110,10 @@ class AdminNotificationsResource:
     ) -> None:
         active_notifications = db.get_active_admin_notifications()
         all_notifications = db.get_all_admin_notifications(limit=100)
-        template = template_env.get_template("admin_notifications.html")
+        template = template_env.get_template("admin_alerts.html")
         resp.text = template.render(
             user=getattr(req.context, "user", None),
-            title="System Notifications",
+            title="System Admin Alerts",
             active_notifications=active_notifications,
             all_notifications=all_notifications,
         )
@@ -143,3 +143,20 @@ class AdminNotificationsResource:
         else:
             resp.status = falcon.HTTP_400
             resp.media = {"error": "Invalid action or notification_id"}
+
+
+class AdminDestinationsResource:
+    """Admin-only notification destinations management UI."""
+
+    @falcon.before(permissions.require_system_admin)
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        destinations = db.get_notification_destinations()
+        template = template_env.get_template("admin_destinations.html")
+        resp.text = template.render(
+            user=getattr(req.context, "user", None),
+            title="Notification Destinations Management",
+            destinations=destinations,
+        )
+        resp.content_type = falcon.MEDIA_HTML

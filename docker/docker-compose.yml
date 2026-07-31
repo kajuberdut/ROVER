@@ -61,6 +61,7 @@ services:
       - /tmp:/tmp
       - ../src:/app/src
       - ../config.toml:/app/config.toml
+      - ../docs/starlight/dist:/app/docs/starlight/dist:ro
 
   openbao:
     image: openbao/openbao:latest

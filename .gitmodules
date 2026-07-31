@@ -1,0 +1,3 @@
+[submodule "docker/webhookhub"]
+	path = docker/webhookhub
+	url = https://github.com/Paramoshka/WebhookHub

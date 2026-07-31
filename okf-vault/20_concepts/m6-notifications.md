@@ -3,15 +3,15 @@ id: "202607261122"
 type: Feature
 title: Notifications System & Webhooks Architecture
 milestone: "M6"
-feature_status: planned
+feature_status: completed
 dependencies:
   - M1
 created: "2026-07-26T11:22:00Z"
-updated: "2026-07-28T09:25:00Z"
+updated: "2026-07-31T08:50:00Z"
 tags:
   - roadmap/feature
   - roadmap/m6-notifications
-  - status/planned
+  - status/completed
 status: stable
 stale_after: "2027-01-01"
 aliases:

@@ -22,6 +22,7 @@ class ProductResource:
 
 
 class ProductDashboardResource:
+    @falcon.before(permissions.require_product_read)
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, product_id: str
     ) -> None:

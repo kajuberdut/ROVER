@@ -1,3 +1,4 @@
+import json
 import uuid
 from typing import Any
 
@@ -84,6 +85,146 @@ def update_scanner_job_status(
                 updated_at=func.current_timestamp(),
             )
         )
+
+        if status in ("completed", "failed"):
+            try:
+                from rover.notifications import dispatch_event
+
+                event_type = (
+                    "scan.completed" if status == "completed" else "scan.failed"
+                )
+                prod_id = row._mapping.get("product_id") if row else None
+                target = (
+                    row._mapping.get("target_url")
+                    or row._mapping.get("asset_id")
+                    or job_id
+                    if row
+                    else job_id
+                )
+                scanner_name = (
+                    row._mapping.get("scanner_name") or "scanner" if row else "scanner"
+                )
+
+                dispatch_event(
+                    event_type=event_type,
+                    payload={
+                        "job_id": job_id,
+                        "scanner_name": scanner_name,
+                        "target": target,
+                        "status": status,
+                        "error_message": error_message,
+                        "title": f"Scan {status.title()}: {scanner_name} on {target}",
+                        "message": f"Scanner '{scanner_name}' job {job_id} on '{target}' finished with status '{status}'.",
+                    },
+                    product_id=prod_id,
+                )
+
+                if status == "completed" and results_json:
+                    found_vulns = extract_vulnerabilities_from_results(
+                        scanner_name, results_json
+                    )
+                    seen = set()
+                    unique_vulns = []
+                    for v in found_vulns:
+                        key = (v["id"], v["severity"])
+                        if key not in seen:
+                            seen.add(key)
+                            unique_vulns.append(v)
+
+                    for v in unique_vulns:
+                        dispatch_event(
+                            event_type="vulnerability.found",
+                            severity=v["severity"],
+                            payload={
+                                "job_id": job_id,
+                                "scanner_name": scanner_name,
+                                "target": target,
+                                "cve_id": v["id"],
+                                "severity": v["severity"],
+                                "title": f"Vulnerability Found [{v['severity']}]: {v['id']} ({scanner_name})",
+                                "message": f"Security scanner '{scanner_name}' detected {v['severity']} vulnerability '{v['id']}' on target '{target}'.",
+                            },
+                            product_id=prod_id,
+                        )
+            except Exception as e:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    f"Failed to dispatch notification for job '{job_id}': {e}"
+                )
+
+
+def extract_vulnerabilities_from_results(
+    scanner_name: str, results_json: str | None
+) -> list[dict[str, Any]]:
+    """Parses scan results JSON and extracts standardized vulnerability dictionaries."""
+    if not results_json:
+        return []
+    try:
+        data = json.loads(results_json)
+    except Exception:
+        return []
+
+    vulns: list[dict[str, Any]] = []
+
+    if scanner_name == "trivy" and isinstance(data, dict):
+        for res in data.get("Results", []) or []:
+            if isinstance(res, dict):
+                for v in res.get("Vulnerabilities", []) or []:
+                    sev = (v.get("Severity") or "LOW").upper()
+                    vulns.append(
+                        {
+                            "id": v.get("VulnerabilityID") or "Trivy Vulnerability",
+                            "severity": sev,
+                            "title": v.get("Title")
+                            or v.get("VulnerabilityID")
+                            or "Trivy Vulnerability",
+                            "package": v.get("PkgName") or "",
+                        }
+                    )
+
+    elif scanner_name == "semgrep" and isinstance(data, dict):
+        for r in data.get("results", []) or []:
+            if isinstance(r, dict):
+                r_extra = r.get("extra")
+                raw_sev = (
+                    str(r_extra.get("severity") or "LOW").upper()
+                    if isinstance(r_extra, dict)
+                    else "LOW"
+                )
+                sev_map = {"ERROR": "HIGH", "WARNING": "MEDIUM", "INFO": "LOW"}
+                sev = sev_map.get(raw_sev, raw_sev)
+                check_id = r.get("check_id") or "Semgrep Finding"
+                vulns.append(
+                    {
+                        "id": check_id,
+                        "severity": sev,
+                        "title": check_id,
+                        "package": r.get("path") or "",
+                    }
+                )
+
+    elif scanner_name == "snyk":
+        v_list: list[Any] = []
+        if isinstance(data, dict):
+            v_list = data.get("vulnerabilities", []) or data.get("issues", []) or []
+        elif isinstance(data, list):
+            v_list = data
+        if isinstance(v_list, list):
+            for v in v_list:
+                if isinstance(v, dict):
+                    sev = (v.get("severity") or "LOW").upper()
+                    vid = v.get("id") or v.get("title") or "Snyk Vulnerability"
+                    vulns.append(
+                        {
+                            "id": vid,
+                            "severity": sev,
+                            "title": v.get("title") or vid,
+                            "package": v.get("packageName") or v.get("pkgName") or "",
+                        }
+                    )
+
+    return vulns
 
 
 def claim_next_scanner_job(scanner_name: str | None = None) -> dict[str, Any] | None:

@@ -25,10 +25,10 @@ aliases:
 | Category | Milestone Range | Completed | Planned | Total |
 | :--- | :--- | :---: | :---: | :---: |
 | **Core Features & Scanners** | M1 – M9 | 6 (M1, M2, M3, M6, M7, M9) | 3 | 9 |
-| **Operational MVP Gaps** | M10 – M13 | 0 | 4 | 4 |
+| **Operational MVP Gaps** | M10 – M13 | 1 (M13) | 3 | 4 |
 | **High-Value Additions** | M14 – M17 | 2 (M15, M17) | 2 | 4 |
 | **Architectural Targets** | A1 – A7 | 5 (A1–A4, A7) | 2 | 7 |
-| **Total** | | **13** | **11** | **24** |
+| **Total** | | **14** | **10** | **24** |
 
 ---
 
@@ -48,7 +48,7 @@ graph TD
     M10["M10 · Vulnerability Triage"]
     M11["M11 · Pass/Fail Policy"]
     M12["M12 · Health Dashboard"]
-    M13["M13 · Outbound Webhooks"]
+    M13["M13 · Outbound Webhooks (Done)"]
     M14["M14 · Trend Charts"]
     M15["M15 · CI/CD API (Done)"]
     M16["M16 · License Compliance"]
@@ -96,7 +96,7 @@ graph TD
 - [[m10-vulnerability-triage-and-finding-status|M10 · Vulnerability Triage & Finding Status]]
 - [[m11-pass-fail-policy-rules|M11 · Pass/Fail Policy Rules Engine]]
 - [[m12-cross-product-health-dashboard|M12 · Cross-Product Health Dashboard]]
-- [[m13-outbound-webhooks|M13 · Outbound Webhooks Integration]]
+- [[m13-outbound-webhooks|M13 · Outbound Webhooks Integration]] ✅ *(Completed)*
 
 ### High-Value Additions (Milestones 14–17)
 - [[m14-vulnerability-trend-charts|M14 · Vulnerability Trend Charts]]

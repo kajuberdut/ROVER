@@ -37,6 +37,7 @@
                 vulnerability posture for this product.' }}</h3>
         </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center;">
+{% set is_read = user and (user.role == 'system_admin' or product_role in ['admin', 'read_write', 'read'] or not product_role) %}
             {% if user.role == 'system_admin' %}
             <button type="button" class="outline" onclick="openGlobalConfirmModal({
                 title: `Delete Product: {{ product.name }}`,
@@ -48,8 +49,11 @@
             })"
                 style="margin-bottom: 0; color: #d32f2f; border-color: #d32f2f;">Delete Product</button>
             {% endif %}
+            {% if is_read %}
             <a href="/products/{{ product.id }}/schedules" role="button" class="outline" style="margin-bottom: 0;">Schedules</a>
+            {% endif %}
             {% if user.role == 'system_admin' or product_role == 'admin' %}
+            <a href="/products/{{ product.id }}/settings/notifications" role="button" class="outline" style="margin-bottom: 0;">Notifications</a>
             <a href="/products/{{ product.id }}/permissions" role="button" class="outline" style="margin-bottom: 0;">Permissions</a>
             {% endif %}
             {% if user.role == 'system_admin' or product_role in ['admin', 'read_write'] %}

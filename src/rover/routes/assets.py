@@ -118,9 +118,14 @@ class ReleaseAssetsTableResource:
     ) -> None:
         assets = db.get_release_assets_with_latest_scans(release_id)
         release = db.get_release(release_id)
+        user = getattr(req.context, "user", None)
+        product_role = None
+        if user and release:
+            product_role = db.get_user_product_role(user["sub"], release["product_id"])
+
         template = template_env.get_template("release_assets_table.html")
         resp.text = template.render(
-            user=getattr(req.context, "user", None), assets=assets, release=release
+            user=user, product_role=product_role, assets=assets, release=release
         )
         resp.content_type = falcon.MEDIA_HTML
 
@@ -133,6 +138,16 @@ class ReleaseMajorComponentCardsResource:
         major_component_assets = [
             a for a in assets if a["asset_type"] == "major_component"
         ]
+        release = db.get_release(release_id)
+        user = getattr(req.context, "user", None)
+        product_role = None
+        if user and release:
+            product_role = db.get_user_product_role(user["sub"], release["product_id"])
+
         template = template_env.get_template("release_major_component_cards.html")
-        resp.text = template.render(major_component_assets=major_component_assets)
+        resp.text = template.render(
+            user=user,
+            product_role=product_role,
+            major_component_assets=major_component_assets,
+        )
         resp.content_type = falcon.MEDIA_HTML

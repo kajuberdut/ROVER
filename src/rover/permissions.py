@@ -102,6 +102,12 @@ def _check_product_role(
         return
 
     product_role = db.get_user_product_role(user["sub"], product_id)
+    if not product_role:
+        # If no explicit product ACL restrictions exist for this product, allow default read access
+        product_users = db.get_product_users(product_id)
+        if not product_users and "read" in allowed_roles:
+            return
+
     if not product_role or product_role not in allowed_roles:
         raise falcon.HTTPForbidden(description="Insufficient product permissions.")
 

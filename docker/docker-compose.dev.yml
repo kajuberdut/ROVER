@@ -1,0 +1,34 @@
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: mailpit
+    ports:
+      - "8025:8025" # Web UI: http://localhost:8025
+      - "1025:1025" # SMTP server: mailpit:1025
+    environment:
+      - MP_SMTP_AUTH=${MAILPIT_SMTP_USER:-rover}:${MAILPIT_SMTP_PASS:-rover_smtp_password}
+      - MP_SMTP_AUTH_ALLOW_INSECURE=true
+    restart: unless-stopped
+
+  webhookhub:
+    build:
+      context: ./webhookhub
+      dockerfile: Dockerfile
+      args:
+        - GOTOOLCHAIN=auto
+    container_name: webhookhub
+    ports:
+      - "3000:8080" # Web UI & Webhook receiver: http://localhost:3000
+    environment:
+      - ADMIN_EMAIL=${WEBHOOKHUB_ADMIN_EMAIL:-admin@rover.local}
+      - ADMIN_PASSWORD=${WEBHOOKHUB_ADMIN_PASSWORD:-admin_rover_password}
+      - SESSION_KEY=bTJOMnBxNHI1czZ0N3U4djl3MHgxeTJ6M2E0YjVjNmQ=
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=rover
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-rover_password}
+      - POSTGRES_DB=webhookhub
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped

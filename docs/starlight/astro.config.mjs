@@ -25,6 +25,7 @@ export default defineConfig({
 					items: [
 						{ label: 'Multi-Scanner Engine (Trivy, Semgrep, Snyk)', slug: 'guides/scanners' },
 						{ label: 'Automated Scan Scheduler', slug: 'guides/scheduled-scans' },
+						{ label: 'Event-Driven Notifications', slug: 'guides/notifications' },
 						{ label: 'OpenBao Credential Vault', slug: 'guides/vault-credentials' },
 						{ label: 'Vulnerability Reports & Deep-Linking', slug: 'guides/reports' },
 					],
