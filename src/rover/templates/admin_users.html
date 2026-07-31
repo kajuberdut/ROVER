@@ -16,12 +16,18 @@
             Manage global system roles, invite new users via email or shareable links, and monitor pending invitations.
         </p>
     </div>
+    {% if allow_user_invites %}
     <button onclick="document.getElementById('invite-user-modal').showModal()" style="width: auto; margin-bottom: 0;">
         + Invite User
     </button>
+    {% endif %}
 </div>
 
-{% if not default_email_dest %}
+{% if not allow_user_invites %}
+<div style="background: rgba(148, 163, 184, 0.1); border: 1px solid var(--pico-border-color); padding: 0.75rem 1.25rem; border-radius: 8px; margin-bottom: 2rem;">
+    <small style="color: var(--pico-muted-color);">ℹ️ User invitations are currently disabled by server configuration (<code>[features] allow_user_invites = false</code>).</small>
+</div>
+{% elif not default_email_dest %}
 <div style="background: rgba(234, 179, 8, 0.12); border: 1px solid #eab308; padding: 0.85rem 1.25rem; border-radius: 8px; margin-bottom: 2rem;">
     <div style="display: flex; align-items: center; gap: 0.75rem;">
         <span style="font-size: 1.25rem;">⚠️</span>
@@ -79,6 +85,7 @@
     </div>
 </article>
 
+{% if allow_user_invites %}
 <!-- Pending User Invitations -->
 <article>
     <header style="display: flex; justify-content: space-between; align-items: center;">
@@ -141,6 +148,7 @@
         </table>
     </div>
 </article>
+{% endif %}
 
 <!-- Invite User Modal -->
 <dialog id="invite-user-modal">

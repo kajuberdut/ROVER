@@ -71,6 +71,7 @@ class AdminUsersResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
+        cfg = config.load_config()
         users = db.get_all_users()
         pending_invites = db.get_pending_user_invites()
         default_email_dest = db.get_default_smtp_destination()
@@ -88,6 +89,7 @@ class AdminUsersResource:
             users=users,
             pending_invites=pending_invites,
             default_email_dest=default_email_dest,
+            allow_user_invites=cfg.features.allow_user_invites,
         )
         resp.content_type = falcon.MEDIA_HTML
 
@@ -119,6 +121,14 @@ class AdminInvitesCreateResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
+        cfg = config.load_config()
+        if not cfg.features.allow_user_invites:
+            resp.status = falcon.HTTP_403
+            resp.media = {
+                "error": "User invitations are currently disabled on this system."
+            }
+            return
+
         user = getattr(req.context, "user", None)
         if not user:
             raise falcon.HTTPUnauthorized()
@@ -187,6 +197,14 @@ class AdminInvitesRevokeResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, invite_id: str
     ) -> None:
+        cfg = config.load_config()
+        if not cfg.features.allow_user_invites:
+            resp.status = falcon.HTTP_403
+            resp.media = {
+                "error": "User invitations are currently disabled on this system."
+            }
+            return
+
         success = db.revoke_user_invite(invite_id)
         if success:
             resp.media = {"ok": True}
@@ -202,6 +220,14 @@ class AdminInvitesResendResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, invite_id: str
     ) -> None:
+        cfg = config.load_config()
+        if not cfg.features.allow_user_invites:
+            resp.status = falcon.HTTP_403
+            resp.media = {
+                "error": "User invitations are currently disabled on this system."
+            }
+            return
+
         invite = db.get_user_invite_by_id(invite_id)
         if not invite or invite["status"] != "pending":
             resp.status = falcon.HTTP_404

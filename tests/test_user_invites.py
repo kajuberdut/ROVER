@@ -1,8 +1,10 @@
 """tests/test_user_invites.py — Unit tests for User Invitation Workflow."""
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import pytest
+from falcon import testing
 
 from rover.db import connection, schema
 from rover.db.user_invites import (
@@ -12,6 +14,7 @@ from rover.db.user_invites import (
     get_user_invite_by_token,
     revoke_user_invite,
 )
+from rover.routes import create_app
 
 
 @pytest.fixture
@@ -122,3 +125,44 @@ def test_expired_user_invite(test_user):
 
     fetched = get_user_invite_by_token(inv["token"])
     assert fetched["status"] == "expired"
+
+
+def test_disabled_user_invites_config(test_user):
+    inv = create_user_invite("disabled@co.com", "viewer", test_user)
+
+    app = create_app()
+    client = testing.TestClient(app)
+
+    from rover.auth import COOKIE_NAME, cookie_serializer
+
+    cookie_val = cookie_serializer.dumps(
+        {
+            "sub": test_user,
+            "email": "admin@company.com",
+            "name": "Admin Inviter",
+            "role": "system_admin",
+            "product_ids": [],
+        }
+    )
+    headers = {"Cookie": f"{COOKIE_NAME}={cookie_val}"}
+
+    with patch("rover.config.load_config") as mock_cfg:
+        from rover.config import FeaturesConfig, RoverConfig
+
+        mock_cfg.return_value = RoverConfig(
+            features=FeaturesConfig(allow_user_invites=False)
+        )
+
+        # Existing invite link redemption should fail when config is disabled
+        res_get = client.simulate_get(f"/accept-invite?token={inv['token']}")
+        assert res_get.status_code == 200
+        assert "User invitations are currently disabled on this system." in res_get.text
+
+        # API creation should return HTTP 403 Forbidden
+        res_create = client.simulate_post(
+            "/admin/invites/create",
+            json={"email": "test@co.com", "role": "viewer"},
+            headers=headers,
+        )
+        assert res_create.status_code == 403
+        assert "disabled" in res_create.text

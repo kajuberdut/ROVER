@@ -66,7 +66,7 @@ class RequireAuthMiddleware:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         if (
-            req.path in ["/login", "/callback", "/api/openapi.json"]
+            req.path in ["/login", "/callback", "/accept-invite", "/api/openapi.json"]
             or req.path.startswith("/static")
             or req.path.startswith("/docs")
             or req.path.startswith("/api/docs")

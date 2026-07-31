@@ -40,7 +40,12 @@ snyk_image = "{DEFAULT_SNYK_IMAGE}"
 # The primary navigation tab selected by default on the dashboard.
 # Valid options: "repo" (Source Repositories), "image" (Container Images), "major_components" (Major Components)
 default_tab = "repo"
-"""
+
+[features]
+# Enables or disables the user invitation workflow.
+# When set to false, generating, sending, and accepting user invitation links is disabled.
+allow_user_invites = true
+"""  # noqa: S608
 
 
 @dataclass
@@ -63,10 +68,16 @@ class UIConfig:
 
 
 @dataclass
+class FeaturesConfig:
+    allow_user_invites: bool = True
+
+
+@dataclass
 class RoverConfig:
     scanner: ScannerConfig = field(default_factory=ScannerConfig)
     scanners: ScannersConfig = field(default_factory=ScannersConfig)
     ui: UIConfig = field(default_factory=UIConfig)
+    features: FeaturesConfig = field(default_factory=FeaturesConfig)
 
 
 def load_config() -> RoverConfig:
@@ -82,6 +93,7 @@ def load_config() -> RoverConfig:
     scanner_data = doc.get("scanner", {})
     scanners_data = doc.get("scanners", {})
     ui_data = doc.get("ui", {})
+    features_data = doc.get("features", {})
 
     scanner_config = ScannerConfig(
         timeout_seconds=scanner_data.get("timeout_seconds", 600)
@@ -98,8 +110,16 @@ def load_config() -> RoverConfig:
         snyk_target_files=snyk_targets,
     )
     ui_config = UIConfig(default_tab=ui_data.get("default_tab", "repo"))
+    features_config = FeaturesConfig(
+        allow_user_invites=bool(features_data.get("allow_user_invites", True))
+    )
 
-    return RoverConfig(scanner=scanner_config, scanners=scanners_config, ui=ui_config)
+    return RoverConfig(
+        scanner=scanner_config,
+        scanners=scanners_config,
+        ui=ui_config,
+        features=features_config,
+    )
 
 
 def save_raw_config(raw_toml: str) -> None:

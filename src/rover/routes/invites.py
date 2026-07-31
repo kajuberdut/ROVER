@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import falcon
 import falcon.asgi
 
-from rover import db
+from rover import config, db
 from rover.routes._env import template_env
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,18 @@ class AcceptInviteResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
+        cfg = config.load_config()
+        if not cfg.features.allow_user_invites:
+            template = template_env.get_template("accept_invite.html")
+            resp.text = template.render(
+                user=getattr(req.context, "user", None),
+                title="Accept Invitation",
+                error="User invitations are currently disabled on this system.",
+                valid=False,
+            )
+            resp.content_type = falcon.MEDIA_HTML
+            return
+
         token = req.get_param("token")
         if not token:
             resp.status = falcon.HTTP_400
@@ -102,6 +114,14 @@ class AcceptInviteResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         """Handle authenticated POST redemption."""
+        cfg = config.load_config()
+        if not cfg.features.allow_user_invites:
+            resp.status = falcon.HTTP_403
+            resp.media = {
+                "error": "User invitations are currently disabled on this system."
+            }
+            return
+
         user = getattr(req.context, "user", None)
         if not user or not user.get("sub"):
             raise falcon.HTTPUnauthorized()
