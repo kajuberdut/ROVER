@@ -9,7 +9,7 @@ services:
       - ../src:/app/src
       - ../migrations:/app/migrations
       - ../docs/starlight/dist:/app/docs/starlight/dist:ro
-      - ../authelia:/app/authelia
+      - ../authelia/users_database.yml:/app/authelia/users_database.yml
 
   mailpit:
     image: axllent/mailpit:latest

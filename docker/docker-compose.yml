@@ -60,7 +60,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp:/tmp
       - ../config.toml:/app/config.toml
-      - ../authelia:/app/authelia
+      - ../authelia/users_database.yml:/app/authelia/users_database.yml
 
   openbao:
     image: openbao/openbao:latest
