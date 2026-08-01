@@ -27,7 +27,7 @@ Rather than running a heavy, always-on sidecar daemon, ROVER can leverage an **E
 ```
 ┌─────────────────────────┐          1. Sign & write payload JWT          ┌─────────────────────────┐
 │     ROVER Web App       │──────────────────────────────────────────────>│   /tmp/rover-tokens/    │
-│  (users_database.yml:ro)│                                               │   <token_id>.jwt        │
+│ (NO authelia file mount)│                                               │   <token_id>.jwt        │
 └─────────────────────────┘                                               └─────────────────────────┘
             │                                                                          ▲
             │ 2. Spawns `docker run --rm --network none`                               │ Read & Verify
@@ -42,8 +42,11 @@ Rather than running a heavy, always-on sidecar daemon, ROVER can leverage an **E
 
 ## 2. Key Mechanics & Security Controls
 
-### 2.1 Read-Only Main Service Mount
-The main `web` container mounts `authelia/users_database.yml` in **Read-Only (`:ro`)** mode. If the web container is compromised via RCE or path traversal, an attacker cannot modify or overwrite the user database or elevate privileges.
+### 2.1 Complete Mount Isolation (Zero-Mount for Main Service)
+The main `web` container has **no volume mount** to `users_database.yml` whatsoever. 
+- **OIDC Authentication**: ROVER authenticates users via Authelia's OIDC OAuth endpoints (`/callback`) and verifies JWT tokens against Authelia's public JWKS endpoint (`auth.rover.local`).
+- **RBAC Roles**: User roles and permissions are managed inside ROVER's PostgreSQL database (`users` table).
+- **Data Protection**: Because the `web` container has zero filesystem access to Authelia's user database, an attacker exploiting a web vulnerability (RCE, path traversal) can neither read Argon2id password hashes nor alter user accounts.
 
 ### 2.2 Complete Network Isolation (`--network none`)
 The ephemeral provisioner container is launched with `--network none`. It has no network interface, ensuring zero external data exfiltration capability during its 300ms execution window.
