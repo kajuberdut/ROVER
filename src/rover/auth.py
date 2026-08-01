@@ -163,6 +163,17 @@ def add_authelia_user(
         finally:
             fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
+    # Trigger Authelia container restart so it reloads users_database.yml into memory
+    try:
+        import docker  # type: ignore[import-untyped]
+
+        client = docker.from_env()
+        authelia_container = client.containers.get("authelia")
+        authelia_container.restart()
+        log.info("Restarted authelia container to apply new user configuration.")
+    except Exception as e:
+        log.warning(f"Could not restart authelia container via docker SDK: {e}")
+
 
 class RequireAuthMiddleware:
     """

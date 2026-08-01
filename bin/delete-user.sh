@@ -35,6 +35,10 @@ try:
 except Exception as e:
     print('  [Authelia] Note:', e)
 "
+    if docker ps --format '{{.Names}}' | grep -q "^authelia$"; then
+        docker restart authelia >/dev/null 2>&1 || true
+        info "  [Authelia] Restarted Authelia container to reload user database."
+    fi
 fi
 
 # 2. Remove from ROVER Postgres DB if container is running
