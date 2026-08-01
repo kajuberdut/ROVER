@@ -166,3 +166,49 @@ def test_disabled_user_invites_config(test_user):
         )
         assert res_create.status_code == 403
         assert "disabled" in res_create.text
+
+
+def test_register_user_via_invite(test_user, tmp_path):
+    inv = create_user_invite("newcolleague@co.com", "system_admin", test_user)
+
+    app = create_app()
+    client = testing.TestClient(app)
+
+    db_yaml = tmp_path / "users_database.yml"
+    db_yaml.write_text("users:\n  admin:\n    email: admin@rover.local\n")
+
+    with (
+        patch(
+            "rover.auth.generate_authelia_argon2_hash",
+            return_value="$argon2id$mockhash",
+        ),
+        patch("rover.auth.add_authelia_user"),
+    ):
+        res = client.simulate_post(
+            "/accept-invite",
+            json={
+                "token": inv["token"],
+                "action": "register",
+                "username": "newcolleague",
+                "password": "securepassword123",
+                "display_name": "New Colleague",
+            },
+        )
+        assert res.status_code == 200
+        assert res.json.get("ok") is True
+        assert res.json.get("role") == "system_admin"
+
+        # Verify user was upserted into DB
+        fetched = get_user_invite_by_token(inv["token"])
+        assert fetched["status"] == "accepted"
+
+        # Clean up
+        with connection.get_db_connection() as conn:
+            conn.execute(
+                schema.user_invites.delete().where(
+                    schema.user_invites.c.id == inv["id"]
+                )
+            )
+            conn.execute(
+                schema.users.delete().where(schema.users.c.sub == "newcolleague")
+            )

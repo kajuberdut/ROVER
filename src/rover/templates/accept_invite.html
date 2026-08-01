@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block content %}
-<section style="max-width: 640px; margin: 3rem auto;">
+<section style="max-width: 640px; margin: 2rem auto;">
     <article style="padding: 2.5rem; border-radius: 12px; border: 1px solid var(--pico-border-color); background: var(--pico-card-background-color);">
         <header style="text-align: center; margin-bottom: 2rem;">
             <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
@@ -23,18 +23,20 @@
         <div style="text-align: center; margin-top: 2rem;">
             <a href="/" class="button secondary">Return to Dashboard</a>
         </div>
+
         {% elif redeemed %}
-        <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid #22c55e; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
-            <strong style="color: #22c55e; font-size: 1.1rem;">✅ Invitation Successfully Accepted!</strong>
-            <p style="margin-bottom: 0; margin-top: 0.5rem; font-size: 0.95rem; color: var(--pico-color);">
-                Your account (<strong>{{ user.email or user.name or user.sub }}</strong>) has been granted the <strong>{% if invite and invite.role %}{{ invite.role | replace('_', ' ') | title }}{% else %}Viewer{% endif %}</strong> role.
+        <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid #22c55e; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
+            <strong style="color: #22c55e; font-size: 1.25rem;">✅ Account Activated & Role Granted!</strong>
+            <p style="margin-bottom: 0; margin-top: 0.75rem; font-size: 1rem; color: var(--pico-color);">
+                Your account (<strong>{{ user.email or user.name or user.sub }}</strong>) has been activated with the <strong>{% if invite and invite.role %}{{ invite.role | replace('_', ' ') | title }}{% else %}Viewer{% endif %}</strong> system role.
             </p>
         </div>
         <div style="text-align: center; margin-top: 2rem;">
-            <a href="/" class="button">Go to Dashboard</a>
+            <a href="/" class="button" style="font-size: 1.1rem; padding: 0.75rem 2rem;">🚀 Go to Dashboard</a>
         </div>
+
         {% else %}
-        <div style="background: var(--pico-background-color); border: 1px solid var(--pico-border-color); padding: 1.25rem; border-radius: 8px; margin-bottom: 1.75rem;">
+        <div style="background: var(--pico-background-color); border: 1px solid var(--pico-border-color); padding: 1.25rem; border-radius: 8px; margin-bottom: 2rem;">
             <table style="margin-bottom: 0;">
                 <tr>
                     <td style="font-weight: 600; width: 35%;">Granted Role:</td>
@@ -43,7 +45,7 @@
                 {% if invite and invite.email %}
                 <tr>
                     <td style="font-weight: 600;">Invited Email:</td>
-                    <td>{{ invite.email }}</td>
+                    <td><strong>{{ invite.email }}</strong></td>
                 </tr>
                 {% endif %}
                 <tr>
@@ -64,17 +66,121 @@
                     🚀 Accept & Activate Role
                 </button>
             </form>
-            <small style="display: block; margin-top: 0.75rem; color: var(--pico-muted-color);">Not {{ user.email or user.name or user.sub }}? <a href="/logout">Log in as a different user</a></small>
+            <small style="display: block; margin-top: 0.85rem; color: var(--pico-muted-color);">
+                Not {{ user.email or user.name or user.sub }}? <a href="/logout">Log in as a different user</a>
+            </small>
         </div>
+
         {% else %}
-        <div style="text-align: center;">
-            <p style="font-size: 0.95rem; margin-bottom: 1.5rem; color: var(--pico-muted-color);">
-                Log in or register with your identity provider to complete invitation setup.
+        <!-- Account Registration & Password Setup Form -->
+        <div>
+            <h4 style="margin-bottom: 0.5rem; text-align: center;">Set Up Your Account & Password</h4>
+            <p style="color: var(--pico-muted-color); font-size: 0.875rem; text-align: center; margin-bottom: 1.5rem;">
+                Create your login credentials for the R.O.V.E.R. identity provider to accept this invitation.
             </p>
-            <a href="/login?next=/accept-invite%3Ftoken%3D{{ token }}" class="button" style="width: 100%; font-size: 1.05rem; padding: 0.75rem; text-decoration: none;">
-                🔐 Log in / Register to Accept Invitation
-            </a>
+
+            <div id="register-error-box" style="display: none; background: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1.25rem; font-size: 0.875rem; color: #ef4444;"></div>
+
+            <form id="register-form" onsubmit="submitRegisterForm(event)">
+                <fieldset style="margin-bottom: 0;">
+                    <label>Username
+                        <input type="text" id="reg-username" required
+                            placeholder="e.g. {{ (invite.email.split('@')[0] if invite and invite.email else 'johndoe') }}"
+                            value="{{ (invite.email.split('@')[0] if invite and invite.email else '') }}"
+                            pattern="[a-zA-Z0-9_\.\-]+" title="Letters, numbers, dots, hyphens, and underscores only"
+                            autocomplete="username">
+                    </label>
+
+                    <label>Full Name / Display Name (Optional)
+                        <input type="text" id="reg-display-name"
+                            placeholder="e.g. {{ (invite.email.split('@')[0] | title if invite and invite.email else 'John Doe') }}"
+                            autocomplete="name">
+                    </label>
+
+                    <label>Email Address
+                        <input type="email" id="reg-email" required
+                            value="{{ invite.email if invite and invite.email else '' }}"
+                            {% if invite and invite.email %}readonly style="background: var(--pico-form-element-disabled-background-color);"{% endif %}
+                            autocomplete="email">
+                    </label>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <label>Password
+                            <input type="password" id="reg-password" required minlength="8" placeholder="At least 8 characters" autocomplete="new-password">
+                        </label>
+                        <label>Confirm Password
+                            <input type="password" id="reg-password-confirm" required minlength="8" placeholder="Repeat password" autocomplete="new-password">
+                        </label>
+                    </div>
+
+                    <button type="submit" id="reg-submit-btn" style="width: 100%; font-size: 1.05rem; padding: 0.75rem; margin-top: 0.5rem;">
+                        ✨ Create Account & Activate Role
+                    </button>
+                </fieldset>
+            </form>
+
+            <div style="text-align: center; margin-top: 1.75rem; border-top: 1px dashed var(--pico-border-color); padding-top: 1.25rem;">
+                <p style="font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 0.5rem;">
+                    Already have an Authelia account?
+                </p>
+                <a href="/login?next=/accept-invite%3Ftoken%3D{{ token }}" style="font-size: 0.9rem; font-weight: 600; text-decoration: none;">
+                    🔐 Log in with existing account &rarr;
+                </a>
+            </div>
         </div>
+
+        <script>
+            async function submitRegisterForm(e) {
+                e.preventDefault();
+                const errBox = document.getElementById('register-error-box');
+                errBox.style.display = 'none';
+
+                const username = document.getElementById('reg-username').value.trim();
+                const displayName = document.getElementById('reg-display-name').value.trim();
+                const email = document.getElementById('reg-email').value.trim();
+                const password = document.getElementById('reg-password').value;
+                const passwordConfirm = document.getElementById('reg-password-confirm').value;
+
+                if (password !== passwordConfirm) {
+                    errBox.innerText = '⚠️ Passwords do not match. Please re-enter your password.';
+                    errBox.style.display = 'block';
+                    return;
+                }
+
+                const btn = document.getElementById('reg-submit-btn');
+                btn.disabled = true;
+                btn.innerText = 'Creating Account & Registering...';
+
+                try {
+                    const res = await fetch('/accept-invite', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            token: '{{ token }}',
+                            action: 'register',
+                            username: username,
+                            display_name: displayName,
+                            email: email,
+                            password: password
+                        })
+                    });
+                    const data = await res.json();
+                    if (data.ok) {
+                        window.location.reload();
+                    } else {
+                        errBox.innerText = '⚠️ ' + (data.error || 'Failed to create account.');
+                        errBox.style.display = 'block';
+                        btn.disabled = false;
+                        btn.innerText = '✨ Create Account & Activate Role';
+                    }
+                } catch (err) {
+                    errBox.innerText = '⚠️ Server connection error: ' + err;
+                    errBox.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerText = '✨ Create Account & Activate Role';
+                }
+            }
+        </script>
         {% endif %}
         {% endif %}
     </article>

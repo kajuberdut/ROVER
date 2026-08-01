@@ -56,6 +56,115 @@ def get_jwks() -> dict[str, object]:
     return _cached_jwks
 
 
+def generate_authelia_argon2_hash(password: str) -> str:
+    """Generates an Argon2id password hash for Authelia using container exec or fallback."""
+    import shutil
+    import subprocess
+
+    docker_bin = shutil.which("docker") or "docker"
+
+    # Try container exec first
+    try:
+        res = subprocess.run(  # noqa: S603
+            [
+                docker_bin,
+                "exec",
+                "authelia",
+                "authelia",
+                "crypto",
+                "hash",
+                "generate",
+                "argon2",
+                "--password",
+                password,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if res.returncode == 0 and "$argon2" in res.stdout:
+            for line in res.stdout.splitlines():
+                if "$argon2" in line:
+                    return line.strip().split()[-1]
+    except Exception as e:
+        log.warning(f"Container exec for argon2 hashing failed: {e}")
+
+    # Fallback to docker run
+    try:
+        res = subprocess.run(  # noqa: S603
+            [
+                docker_bin,
+                "run",
+                "--rm",
+                "authelia/authelia:latest",
+                "authelia",
+                "crypto",
+                "hash",
+                "generate",
+                "argon2",
+                "--password",
+                password,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if res.returncode == 0 and "$argon2" in res.stdout:
+            for line in res.stdout.splitlines():
+                if "$argon2" in line:
+                    return line.strip().split()[-1]
+    except Exception as e:
+        log.warning(f"Docker run for argon2 hashing failed: {e}")
+
+    raise RuntimeError("Failed to generate Authelia password hash.")
+
+
+def add_authelia_user(
+    username: str,
+    email: str,
+    password: str,
+    display_name: str | None = None,
+    authelia_db_path: str = "authelia/users_database.yml",
+) -> None:
+    """Registers a new user in Authelia's users_database.yml file."""
+    import os
+
+    import yaml  # type: ignore[import-untyped]
+
+    target_path = authelia_db_path
+    if not os.path.exists(target_path):
+        alt_path = os.path.join(os.getcwd(), "authelia", "users_database.yml")
+        if os.path.exists(alt_path):
+            target_path = alt_path
+
+    data: dict = {"users": {}}
+    if os.path.exists(target_path):
+        try:
+            with open(target_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                data = yaml.safe_load(content) or {"users": {}}
+        except Exception as e:
+            log.error(f"Failed to read Authelia user db at {target_path}: {e}")
+
+    if "users" not in data or not isinstance(data["users"], dict):
+        data["users"] = {}
+
+    username_clean = username.strip().lower()
+    email_clean = email.strip()
+    disp_name = display_name or username_clean.title()
+    password_hash = generate_authelia_argon2_hash(password)
+
+    data["users"][username_clean] = {
+        "displayname": disp_name,
+        "password": password_hash,
+        "email": email_clean,
+        "groups": ["users"],
+    }
+
+    with open(target_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, sort_keys=False)
+
+
 class RequireAuthMiddleware:
     """
     Falcon ASGI Middleware to require authentication on all routes
