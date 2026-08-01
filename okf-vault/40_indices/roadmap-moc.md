@@ -106,7 +106,7 @@ graph TD
 
 ---
 
-### Architectural Engineering Targets (A1 – A7)
+### Architectural Engineering Targets (A1 – A8)
 - [[a1-scanner-plugin interface|A1 · Scanner Plugin Interface]] ✅ *(Completed)*
 - [[a2-route-decomposition|A2 · Falcon Route Decomposition]] ✅ *(Completed)*
 - [[a3-database-layer-decomposition|A3 · Database Access Layer Decomposition]] ✅ *(Completed)*
@@ -114,3 +114,4 @@ graph TD
 - [[a5-typed-domain-models|A5 · Typed Domain Models]]
 - [[a6-structured-logging|A6 · Structured JSON Logging]]
 - [[a7-concurrent-job-execution|A7 · Concurrent Background Job Execution]] ✅ *(Completed)*
+- [[lldap-identity-backend|A8 · LLDAP Identity Provider Integration]]
