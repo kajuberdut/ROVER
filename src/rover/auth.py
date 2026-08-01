@@ -127,6 +127,7 @@ def add_authelia_user(
     authelia_db_path: str = "authelia/users_database.yml",
 ) -> None:
     """Registers a new user in Authelia's users_database.yml file."""
+    import fcntl
     import os
 
     import yaml  # type: ignore[import-untyped]
@@ -137,32 +138,40 @@ def add_authelia_user(
         if os.path.exists(alt_path):
             target_path = alt_path
 
-    data: dict = {"users": {}}
-    if os.path.exists(target_path):
-        try:
-            with open(target_path, "r", encoding="utf-8") as f:
-                content = f.read()
-                data = yaml.safe_load(content) or {"users": {}}
-        except Exception as e:
-            log.error(f"Failed to read Authelia user db at {target_path}: {e}")
-
-    if "users" not in data or not isinstance(data["users"], dict):
-        data["users"] = {}
-
     username_clean = username.strip().lower()
     email_clean = email.strip()
     disp_name = display_name or username_clean.title()
     password_hash = generate_authelia_argon2_hash(password)
 
-    data["users"][username_clean] = {
-        "displayname": disp_name,
-        "password": password_hash,
-        "email": email_clean,
-        "groups": ["users"],
-    }
+    # Open file with exclusive lock to prevent concurrent write corruption
+    flags = os.O_RDWR | os.O_CREAT
+    fd = os.open(target_path, flags, 0o644)
+    with os.fdopen(fd, "r+", encoding="utf-8") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            content = f.read()
+            data = yaml.safe_load(content) if content else {"users": {}}
+            if (
+                not isinstance(data, dict)
+                or "users" not in data
+                or not isinstance(data["users"], dict)
+            ):
+                data = {"users": {}}
 
-    with open(target_path, "w", encoding="utf-8") as f:
-        yaml.safe_dump(data, f, sort_keys=False)
+            data["users"][username_clean] = {
+                "disabled": False,
+                "displayname": disp_name,
+                "password": password_hash,
+                "email": email_clean,
+                "groups": ["users"],
+            }
+
+            f.seek(0)
+            f.truncate()
+            yaml.safe_dump(data, f, sort_keys=False)
+            f.flush()
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
 
 class RequireAuthMiddleware:
