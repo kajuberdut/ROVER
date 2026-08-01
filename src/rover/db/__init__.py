@@ -116,6 +116,7 @@ from .schedules import (
 from .tokens import (
     create_api_token,
     get_user_api_tokens,
+    revoke_all_user_api_tokens,
     revoke_api_token,
     verify_api_token,
 )
@@ -211,6 +212,7 @@ __all__ = [
     "get_release_assets_with_latest_scans",
     "create_api_token",
     "get_user_api_tokens",
+    "revoke_all_user_api_tokens",
     "revoke_api_token",
     "verify_api_token",
     "upsert_user",

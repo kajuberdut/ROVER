@@ -58,6 +58,13 @@ def revoke_api_token(token_id: str, user_sub: str) -> None:
         )
 
 
+def revoke_all_user_api_tokens(user_sub: str) -> int:
+    """Revokes all API tokens belonging to a specified user sub."""
+    with get_db_connection() as conn:
+        res = conn.execute(delete(api_tokens).where(api_tokens.c.user_sub == user_sub))
+        return res.rowcount
+
+
 def verify_api_token(token_string: str) -> dict[str, Any] | None:
     if not (
         token_string.startswith("ro_")

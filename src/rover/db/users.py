@@ -7,21 +7,30 @@ from rover.db.connection import get_db_connection
 from rover.db.schema import product_users, users
 
 
-def upsert_user(sub: str, email: str | None, name: str | None) -> dict[str, Any]:
+def upsert_user(
+    sub: str, email: str | None, name: str | None, role: str | None = None
+) -> dict[str, Any]:
     with get_db_connection() as conn:
         row = conn.execute(select(users).where(users.c.sub == sub)).fetchone()
         if row:
-            conn.execute(
-                update(users)
-                .where(users.c.sub == sub)
-                .values(email=email, name=name, last_login=func.current_timestamp())
-            )
+            update_vals: dict[str, Any] = {
+                "email": email,
+                "name": name,
+                "last_login": func.current_timestamp(),
+            }
+            if role is not None:
+                update_vals["role"] = role
+            conn.execute(update(users).where(users.c.sub == sub).values(**update_vals))
         else:
-            conn.execute(
-                insert(users).values(
-                    sub=sub, email=email, name=name, last_login=func.current_timestamp()
-                )
-            )
+            insert_vals: dict[str, Any] = {
+                "sub": sub,
+                "email": email,
+                "name": name,
+                "last_login": func.current_timestamp(),
+            }
+            if role is not None:
+                insert_vals["role"] = role
+            conn.execute(insert(users).values(**insert_vals))
         row = conn.execute(select(users).where(users.c.sub == sub)).fetchone()
         return dict(row._mapping) if row else {}
 

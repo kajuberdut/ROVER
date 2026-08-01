@@ -110,6 +110,10 @@ class AdminUsersResource:
         if action == "set_role":
             role = form.get("role")
             db.set_user_role(sub, role)
+        elif action == "revoke_api_tokens":
+            count = db.revoke_all_user_api_tokens(sub)
+            resp.media = {"ok": True, "count": count}
+            return
 
         resp.media = {"ok": True}
 

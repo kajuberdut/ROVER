@@ -41,6 +41,19 @@
 </div>
 {% endif %}
 
+<div style="background: rgba(59, 130, 246, 0.08); border: 1px solid #3b82f6; padding: 0.85rem 1.25rem; border-radius: 8px; margin-bottom: 2rem;">
+    <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+        <span style="font-size: 1.25rem; margin-top: 0.1rem;">ℹ️</span>
+        <div>
+            <strong style="color: #3b82f6; font-size: 0.95rem;">Hybrid Identity & Access Governance</strong>
+            <p style="margin-bottom: 0; font-size: 0.85rem; color: var(--pico-color);">
+                User web logins and System Roles (<code>System Admin</code> vs <code>Viewer</code>) are synchronized from your Identity Provider (Authelia / LDAP / JumpCloud) via group claims (e.g. <code>admins</code>).
+                Deactivating a user in LDAP/Authelia prevents web login access immediately. To invalidate a deactivated user's headless CI/CD pipeline API tokens, click <strong>🔑 Revoke API Tokens</strong> below.
+            </p>
+        </div>
+    </div>
+</div>
+
 <!-- Active Registered Users -->
 <article style="margin-bottom: 2.5rem;">
     <header>
@@ -54,6 +67,7 @@
                     <th>Email</th>
                     <th>Global Role</th>
                     <th>Last Login</th>
+                    <th style="text-align: right;">API Token Access</th>
                 </tr>
             </thead>
             <tbody>
@@ -72,10 +86,15 @@
                         </select>
                     </td>
                     <td><small>{{ u.last_login or "never" }}</small></td>
+                    <td style="text-align: right;">
+                        <button onclick="revokeUserApiTokens('{{ u.sub }}', '{{ u.name or u.email or u.sub }}')" class="outline contrast" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; margin-bottom: 0; color: #ef4444; border-color: #ef4444;">
+                            🔑 Revoke API Tokens
+                        </button>
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" style="text-align:center;" class="secondary">
+                    <td colspan="5" style="text-align:center;" class="secondary">
                         No users registered yet.
                     </td>
                 </tr>
@@ -291,6 +310,21 @@
             alert('✅ Invitation email resent successfully!');
         } else {
             alert('❌ Failed to resend email: ' + (data.error || 'Check gateway connection'));
+        }
+    }
+    async function revokeUserApiTokens(sub, username) {
+        if (!confirm(`Are you sure you want to revoke all API tokens for ${username}? This will immediately block their CI/CD pipeline access.`)) return;
+        const resp = await fetch('/admin/users', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({action: 'revoke_api_tokens', sub}).toString()
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            alert(`✅ Revoked ${data.count || 0} API token(s) for ${username}.`);
+            window.location.reload();
+        } else {
+            alert('Failed to revoke API tokens.');
         }
     }
 </script>

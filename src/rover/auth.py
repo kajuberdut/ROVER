@@ -393,8 +393,35 @@ class CallbackResource:
             or claims.get("preferred_username")
         )
 
-        # Upsert user into ROVER's user registry.
-        db_user = db.upsert_user(sub=sub, email=email, name=name)
+        # Determine system role from Identity Provider groups (hybrid model)
+        raw_groups = (
+            claims.get("groups")
+            or userinfo.get("groups")
+            or claims.get("roles")
+            or userinfo.get("roles")
+        )
+        role = None
+        if raw_groups is not None:
+            if isinstance(raw_groups, str):
+                group_list = [raw_groups]
+            elif isinstance(raw_groups, (list, tuple)):
+                group_list = [str(g) for g in raw_groups]
+            else:
+                group_list = []
+
+            admin_groups = {
+                "admins",
+                "admin",
+                "system_admin",
+                "system_admins",
+                "rover_admin",
+                "rover_admins",
+            }
+            is_admin = any(g.lower() in admin_groups for g in group_list)
+            role = "system_admin" if is_admin else "viewer"
+
+        # Upsert user into ROVER's user registry and sync IdP role.
+        db_user = db.upsert_user(sub=sub, email=email, name=name, role=role)
 
         # Build local session; include role and owned products for permission checks.
         user_data = {
