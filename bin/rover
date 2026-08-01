@@ -18,6 +18,7 @@ Usage:
 Available Commands:
   setup                  Run first-time provisioning setup (certs, secrets, OpenBao)
   promote-admin <user>   Promote a user (by email or sub UUID) to system_admin role
+  delete-user <user>     Completely remove a user from Authelia and ROVER database
   up                     Start all ROVER services using Docker Compose
   down                   Stop all ROVER services
   restart                Restart all ROVER services
@@ -44,6 +45,9 @@ case "$CMD" in
         ;;
     promote-admin|create-admin)
         exec "$REPO_ROOT/bin/create-admin.sh" "$@"
+        ;;
+    delete-user|remove-user)
+        exec "$REPO_ROOT/bin/delete-user.sh" "$@"
         ;;
     up)
         info "Starting ROVER service stack..."

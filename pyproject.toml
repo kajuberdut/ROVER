@@ -76,6 +76,7 @@ status = { sequence = [{ cmd = "docker compose -f docker/docker-compose.yml -p r
 logs = { cmd = "docker compose -f docker/docker-compose.yml -p rover logs -f", help = "Tail container logs from the ROVER compose stack" }
 setup = { cmd = "bin/setup.sh", help = "Run first-time provisioning setup (certs, secrets, OpenBao)" }
 promote-admin = { cmd = "bin/create-admin.sh", help = "Promote a user (by email or sub UUID) to system_admin role" }
+delete-user = { cmd = "bin/delete-user.sh", help = "Completely remove a user from Authelia and ROVER database" }
 docs-build = { sequence = [{ cmd = "bin/dev-setup.sh" }, { cmd = "docker run --rm -v ${PWD}/docs/starlight:/app -w /app node:24-alpine sh -c \"npm ci && npm run build\"" }], help = "Build Astro Starlight documentation site inside Docker (no local Node/npm required)" }
 docs-dev = { cmd = "docker run --rm -it -p 4321:4321 -v ${PWD}/docs/starlight:/app -w /app node:24-alpine sh -c \"npm ci && npm run dev -- --host 0.0.0.0\"", help = "Start Astro Starlight documentation dev server inside Docker (no local Node/npm required)" }
 
