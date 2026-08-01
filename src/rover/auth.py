@@ -167,7 +167,7 @@ def add_authelia_user(
     try:
         import docker  # type: ignore[import-untyped]
 
-        client = docker.from_env()
+        client = docker.from_env()  # type: ignore[attr-defined]
         authelia_container = client.containers.get("authelia")
         authelia_container.restart()
         log.info("Restarted authelia container to apply new user configuration.")
