@@ -166,7 +166,7 @@
                     });
                     const data = await res.json();
                     if (data.ok) {
-                        window.location.reload();
+                        window.location.href = '/';
                     } else {
                         errBox.innerText = '⚠️ ' + (data.error || 'Failed to create account.');
                         errBox.style.display = 'block';

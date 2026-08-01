@@ -4,7 +4,7 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.sql import func
 
 from rover.db.connection import get_db_connection
-from rover.db.schema import product_users, users
+from rover.db.schema import api_tokens, product_users, user_invites, users
 
 
 def upsert_user(
@@ -12,15 +12,45 @@ def upsert_user(
 ) -> dict[str, Any]:
     with get_db_connection() as conn:
         row = conn.execute(select(users).where(users.c.sub == sub)).fetchone()
+        if not row and email:
+            row = conn.execute(select(users).where(users.c.email == email)).fetchone()
+
         if row:
+            target_sub = row.sub
+            if target_sub != sub:
+                # Update foreign key references in dependent tables before updating primary key sub
+                conn.execute(
+                    update(product_users)
+                    .where(product_users.c.user_sub == target_sub)
+                    .values(user_sub=sub)
+                )
+                conn.execute(
+                    update(api_tokens)
+                    .where(api_tokens.c.user_sub == target_sub)
+                    .values(user_sub=sub)
+                )
+                conn.execute(
+                    update(user_invites)
+                    .where(user_invites.c.accepted_by_sub == target_sub)
+                    .values(accepted_by_sub=sub)
+                )
+                conn.execute(
+                    update(user_invites)
+                    .where(user_invites.c.invited_by_sub == target_sub)
+                    .values(invited_by_sub=sub)
+                )
+
             update_vals: dict[str, Any] = {
+                "sub": sub,
                 "email": email,
                 "name": name,
                 "last_login": func.current_timestamp(),
             }
             if role is not None:
                 update_vals["role"] = role
-            conn.execute(update(users).where(users.c.sub == sub).values(**update_vals))
+            conn.execute(
+                update(users).where(users.c.sub == target_sub).values(**update_vals)
+            )
         else:
             insert_vals: dict[str, Any] = {
                 "sub": sub,
