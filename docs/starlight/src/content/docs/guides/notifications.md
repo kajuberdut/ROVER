@@ -65,8 +65,10 @@ Attach event rules to any active destination:
 
 ROVER includes a local developer Compose stack ([docker/docker-compose.dev.yml](file:///home/giblesnot/code/ROVER/docker/docker-compose.dev.yml)) pre-provisioned with **Mailpit** (SMTP email capture) and **WebhookHub** (Webhook logging, inspection, and replay).
 
+Executing `poe dev` layers the development Compose mix-in onto the base stack, adding live host volume bind mounts for application source code (`src/`), database migrations (`migrations/`), and documentation assets (`docs/starlight/dist`). In contrast, production deployments using `poe up` execute isolated within built container images without host file bind mounts.
+
 ### 1. Launch Dev Stack
-Run the Poe task runner to provision certificates, OpenBao secrets, and launch all service containers:
+Run the Poe task runner to provision certificates, OpenBao secrets, and launch all dev service containers with live volume bind mounts:
 
 ```bash
 poe dev

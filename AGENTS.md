@@ -9,7 +9,9 @@ This project uses `poe` (Poe the Poet) as its task runner, which is configured i
 Available commands include:
 
 - `poe setup`: Run first-time provisioning setup (certs, secrets, OpenBao)
-- `poe up`: Start the complete service stack using Docker Compose
+- `poe up`: Start the complete production service stack using Docker Compose
+- `poe dev`: Start the development service stack with live volume bind mounts (`src/`, `migrations/`, `docs/`) and Mailpit/WebhookHub dev services
+- `poe dev-down`: Stop the development service stack
 - `poe down`: Stop the Docker Compose service stack
 - `poe status`: Display container health status and process tree
 - `poe restart`: Restart the Docker Compose service stack
