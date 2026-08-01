@@ -56,7 +56,7 @@
         {% if user %}
         <div style="text-align: center;">
             <p style="font-size: 0.95rem; margin-bottom: 1.25rem;">
-                Logged in as <strong>{{ user.name or user.email or user.sub }}</strong>.
+                Logged in as <strong>{{ user.email or user.name or user.sub }}</strong>.
             </p>
             <form action="/accept-invite" method="POST" style="margin-bottom: 0;">
                 <input type="hidden" name="token" value="{{ token }}">
@@ -64,14 +64,15 @@
                     🚀 Accept & Activate Role
                 </button>
             </form>
+            <small style="display: block; margin-top: 0.75rem; color: var(--pico-muted-color);">Not {{ user.email or user.name or user.sub }}? <a href="/logout">Log in as a different user</a></small>
         </div>
         {% else %}
         <div style="text-align: center;">
             <p style="font-size: 0.95rem; margin-bottom: 1.5rem; color: var(--pico-muted-color);">
                 Log in or register with your identity provider to complete invitation setup.
             </p>
-            <a href="/accept-invite?token={{ token }}" class="button" style="width: 100%; font-size: 1.05rem; padding: 0.75rem; text-decoration: none;">
-                🔐 Log in to Accept Invitation
+            <a href="/login?next=/accept-invite%3Ftoken%3D{{ token }}" class="button" style="width: 100%; font-size: 1.05rem; padding: 0.75rem; text-decoration: none;">
+                🔐 Log in / Register to Accept Invitation
             </a>
         </div>
         {% endif %}

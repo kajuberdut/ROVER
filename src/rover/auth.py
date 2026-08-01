@@ -97,7 +97,8 @@ class RequireAuthMiddleware:
 
         session_cookie = req.cookies.get(COOKIE_NAME)
         if not session_cookie:
-            raise falcon.HTTPFound("/login")
+            next_param = urllib.parse.quote(req.relative_uri)
+            raise falcon.HTTPFound(f"/login?next={next_param}")
 
         try:
             session_data = cookie_serializer.loads(session_cookie)
@@ -105,7 +106,8 @@ class RequireAuthMiddleware:
         except BadSignature:
             log.warning("Invalid session cookie detected")
             resp.unset_cookie(COOKIE_NAME)
-            raise falcon.HTTPFound("/login")
+            next_param = urllib.parse.quote(req.relative_uri)
+            raise falcon.HTTPFound(f"/login?next={next_param}")
 
 
 # --- Falcon Resources ---
@@ -115,12 +117,18 @@ class LoginResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
+        next_url = req.get_param("next") or req.get_param("rd") or "/"
+        if not next_url.startswith("/") or next_url.startswith("//"):
+            next_url = "/"
+
         # Generate random state and nonce to prevent CSRF and replay attacks
         state = str(uuid.uuid4())
         nonce = str(uuid.uuid4())
 
-        # We store state and nonce in a temporary cookie so callback can verify them
-        temp_session = cookie_serializer.dumps({"state": state, "nonce": nonce})
+        # We store state, nonce, and target next_url in a temporary cookie
+        temp_session = cookie_serializer.dumps(
+            {"state": state, "nonce": nonce, "next": next_url}
+        )
         resp.set_cookie(
             "rover_auth_state", temp_session, secure=False, http_only=True, path="/"
         )
@@ -291,8 +299,12 @@ class CallbackResource:
             max_age=86400,
         )
 
-        # Redirect to dashboard
-        raise falcon.HTTPFound("/")
+        # Redirect to target page (defaulting to dashboard)
+        next_url = state_data.get("next") or "/"
+        if not next_url.startswith("/") or next_url.startswith("//"):
+            next_url = "/"
+
+        raise falcon.HTTPFound(next_url)
 
 
 class LogoutResource:

@@ -97,7 +97,18 @@ class AcceptInviteResource:
             updated_invite = db.accept_user_invite(token, user["sub"])
             if updated_invite:
                 redeemed = True
-                user["role"] = invite["role"]
+                user["role"] = updated_invite["role"]
+                from rover.auth import COOKIE_NAME, cookie_serializer
+
+                session_token = cookie_serializer.dumps(user)
+                resp.set_cookie(
+                    COOKIE_NAME,
+                    session_token,
+                    secure=False,
+                    http_only=True,
+                    path="/",
+                    max_age=86400,
+                )
 
         template = template_env.get_template("accept_invite.html")
         resp.text = template.render(
@@ -136,6 +147,17 @@ class AcceptInviteResource:
         updated_invite = db.accept_user_invite(token, user["sub"])
         if updated_invite:
             user["role"] = updated_invite["role"]
+            from rover.auth import COOKIE_NAME, cookie_serializer
+
+            session_token = cookie_serializer.dumps(user)
+            resp.set_cookie(
+                COOKIE_NAME,
+                session_token,
+                secure=False,
+                http_only=True,
+                path="/",
+                max_age=86400,
+            )
             resp.media = {"ok": True, "role": updated_invite["role"]}
         else:
             resp.status = falcon.HTTP_400
