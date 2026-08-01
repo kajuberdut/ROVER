@@ -57,13 +57,30 @@ def get_jwks() -> dict[str, object]:
 
 
 def generate_authelia_argon2_hash(password: str) -> str:
-    """Generates an Argon2id password hash for Authelia using container exec or fallback."""
+    """Generates an Argon2id password hash for Authelia using argon2-cffi or container fallback."""
+    try:
+        import argon2  # type: ignore[import-untyped]
+
+        hasher = argon2.PasswordHasher(
+            time_cost=3,
+            memory_cost=65536,
+            parallelism=4,
+            hash_len=32,
+            salt_len=16,
+            type=argon2.Type.ID,
+        )
+        return hasher.hash(password)
+    except Exception as e:
+        log.warning(
+            f"In-process argon2 hashing failed, attempting container fallback: {e}"
+        )
+
     import shutil
     import subprocess
 
     docker_bin = shutil.which("docker") or "docker"
 
-    # Try container exec first
+    # Try container exec fallback
     try:
         res = subprocess.run(  # noqa: S603
             [
@@ -88,33 +105,6 @@ def generate_authelia_argon2_hash(password: str) -> str:
                     return line.strip().split()[-1]
     except Exception as e:
         log.warning(f"Container exec for argon2 hashing failed: {e}")
-
-    # Fallback to docker run
-    try:
-        res = subprocess.run(  # noqa: S603
-            [
-                docker_bin,
-                "run",
-                "--rm",
-                "authelia/authelia:latest",
-                "authelia",
-                "crypto",
-                "hash",
-                "generate",
-                "argon2",
-                "--password",
-                password,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if res.returncode == 0 and "$argon2" in res.stdout:
-            for line in res.stdout.splitlines():
-                if "$argon2" in line:
-                    return line.strip().split()[-1]
-    except Exception as e:
-        log.warning(f"Docker run for argon2 hashing failed: {e}")
 
     raise RuntimeError("Failed to generate Authelia password hash.")
 
