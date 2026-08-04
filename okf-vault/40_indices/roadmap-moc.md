@@ -106,7 +106,7 @@ graph TD
 
 ---
 
-### Architectural Engineering Targets (A1 – A10)
+### Architectural Engineering Targets (A1 – A11)
 - [[a1-scanner-plugin interface|A1 · Scanner Plugin Interface]] ✅ *(Completed)*
 - [[a2-route-decomposition|A2 · Falcon Route Decomposition]] ✅ *(Completed)*
 - [[a3-database-layer-decomposition|A3 · Database Access Layer Decomposition]] ✅ *(Completed)*
@@ -117,3 +117,4 @@ graph TD
 - [[lldap-identity-backend|A8 · LLDAP Identity Provider Integration]]
 - [[ephemeral-authelia-provisioner|A9 · Ephemeral Cryptographic Handoff Authelia Provisioner]]
 - [[hybrid-identity-rbac-architecture|A10 · Hybrid Identity & Access Governance Architecture]] ✅ *(Completed)*
+- [[user-roles-and-product-permissions|A11 · User Roles & Product Permissions Architecture]] ✅ *(Completed)*
