@@ -117,9 +117,21 @@ def get_user_product_role(sub: str, product_id: str) -> str | None:
 
 
 def set_product_user_role(sub: str, product_id: str, role: str) -> None:
-    if role not in ("admin", "read_write", "read"):
+    valid_roles = ("admin", "write", "read_write", "view", "read", "none")
+    if role not in valid_roles:
         raise ValueError(f"Invalid product role: {role!r}")
+
     with get_db_connection() as conn:
+        if role in ("none", "view", "read"):
+            conn.execute(
+                delete(product_users).where(
+                    product_users.c.user_sub == sub,
+                    product_users.c.product_id == product_id,
+                )
+            )
+            return
+
+        normalized_role = "write" if role == "read_write" else role
         row = conn.execute(
             select(product_users.c.role).where(
                 product_users.c.user_sub == sub,
@@ -133,12 +145,12 @@ def set_product_user_role(sub: str, product_id: str, role: str) -> None:
                     product_users.c.user_sub == sub,
                     product_users.c.product_id == product_id,
                 )
-                .values(role=role)
+                .values(role=normalized_role)
             )
         else:
             conn.execute(
                 insert(product_users).values(
-                    user_sub=sub, product_id=product_id, role=role
+                    user_sub=sub, product_id=product_id, role=normalized_role
                 )
             )
 

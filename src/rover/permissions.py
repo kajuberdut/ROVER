@@ -89,45 +89,56 @@ def _resolve_product_id(req: falcon.asgi.Request, params: Any) -> str | None:
 
 
 def _check_product_role(
-    req: falcon.asgi.Request, params: Any, allowed_roles: set[str]
+    req: falcon.asgi.Request, params: Any, required_level: str
 ) -> None:
     user = _get_user(req)
+    # 1. System Admin (boolean true) has implicit full access to everything
     if user.get("role") == "system_admin":
+        return
+
+    # 2. View access is granted by default to all authenticated users
+    if required_level in ("view", "read"):
         return
 
     product_id = _resolve_product_id(req, params)
     if not product_id:
-        # No resolvable product context, allow the request to proceed so the handler
-        # can reject it due to missing parameters.
         return
 
     product_role = db.get_user_product_role(user["sub"], product_id)
-    if not product_role:
-        # If no explicit product ACL restrictions exist for this product, allow default read access
-        product_users = db.get_product_users(product_id)
-        if not product_users and "read" in allowed_roles:
-            return
 
-    if not product_role or product_role not in allowed_roles:
-        raise falcon.HTTPForbidden(description="Insufficient product permissions.")
+    # 3. Product Write permission required
+    if required_level in ("write", "read_write"):
+        if product_role in ("admin", "write", "read_write"):
+            return
+        raise falcon.HTTPForbidden(
+            description="Product write permission required for this action."
+        )
+
+    # 4. Product Admin permission required
+    if required_level == "admin":
+        if product_role == "admin":
+            return
+        raise falcon.HTTPForbidden(
+            description="Product admin permission required for this action."
+        )
 
 
 async def require_product_admin(
     req: falcon.asgi.Request, resp: falcon.asgi.Response, _resource: Any, params: Any
 ) -> None:
-    _check_product_role(req, params, {"admin"})
+    _check_product_role(req, params, "admin")
 
 
 async def require_product_read_write(
     req: falcon.asgi.Request, resp: falcon.asgi.Response, _resource: Any, params: Any
 ) -> None:
-    _check_product_role(req, params, {"admin", "read_write"})
+    _check_product_role(req, params, "write")
 
 
 async def require_product_read(
     req: falcon.asgi.Request, resp: falcon.asgi.Response, _resource: Any, params: Any
 ) -> None:
-    _check_product_role(req, params, {"admin", "read_write", "read"})
+    _check_product_role(req, params, "view")
 
 
 async def require_api_write_token(
