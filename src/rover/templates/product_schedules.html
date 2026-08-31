@@ -182,7 +182,7 @@
                             <button type="button" class="outline" onclick="triggerSchedule('${s.id}')" title="Trigger Now" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; white-space: nowrap;">⚡ Run</button>
                             <button type="button" class="outline secondary" onclick="toggleSchedule('${s.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; min-width: 62px; text-align: center; white-space: nowrap;">${isEnabled ? 'Pause' : 'Enable'}</button>
                             <button type="button" class="outline secondary" onclick="viewLogs('${s.id}', '${escapeHtml(s.name)}')" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; white-space: nowrap;">Logs</button>
-                            <button type="button" class="outline" onclick="deleteSchedule('${s.id}')" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; color: #d32f2f; border-color: #d32f2f; white-space: nowrap;">✕</button>
+                            <button type="button" class="outline" onclick="deleteSchedule('${s.id}', '${escapeHtml(s.name)}')" style="padding: 0.2rem 0.5rem; font-size: 0.8em; margin-bottom: 0; color: #d32f2f; border-color: #d32f2f; white-space: nowrap;">✕</button>
                         </div>
                         <!-- Mobile View: Native Action Dropdown -->
                         <div class="schedule-actions-mobile">
@@ -240,7 +240,7 @@
             form.reset();
             loadSchedules();
         } catch (err) {
-            alert('Error creating schedule: ' + err.message);
+            showToast('Error creating schedule: ' + err.message, false);
         }
     }
 
@@ -250,7 +250,7 @@
             if (!res.ok) throw new Error('Failed to toggle schedule');
             loadSchedules();
         } catch (err) {
-            alert(err.message);
+            showToast(err.message, false);
         }
     }
 
@@ -259,22 +259,20 @@
             const res = await fetch(`/api/schedules/${scheduleId}?action=trigger`, { method: 'POST' });
             if (!res.ok) throw new Error('Failed to trigger schedule');
             const data = await res.json();
-            alert(`Schedule triggered! Dispatched ${data.dispatched || 0} scheduled scan(s).`);
+            showToast(`Schedule triggered! Dispatched ${data.dispatched || 0} scheduled scan(s).`, true);
             loadSchedules();
         } catch (err) {
-            alert(err.message);
+            showToast(err.message, false);
         }
     }
 
-    async function deleteSchedule(scheduleId) {
-        if (!confirm('Are you sure you want to delete this scheduled scan?')) return;
-        try {
-            const res = await fetch(`/api/schedules/${scheduleId}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Failed to delete schedule');
-            loadSchedules();
-        } catch (err) {
-            alert(err.message);
-        }
+    function deleteSchedule(scheduleId, scheduleName) {
+        openGlobalConfirmModal({
+            title: 'Delete Scheduled Scan',
+            message: `Are you sure you want to delete schedule <strong>${scheduleName || 'this scheduled scan'}</strong>?`,
+            actionUrl: `/api/schedules/${scheduleId}`,
+            buttonText: 'Delete Schedule'
+        });
     }
 
     function handleMobileAction(scheduleId, scheduleName, selectEl) {

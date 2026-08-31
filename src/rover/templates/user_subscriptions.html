@@ -68,10 +68,10 @@
         <header style="display: flex; align-items: center; justify-content: space-between;">
             <strong>Active Alert Subscriptions ({{ rules|length }})</strong>
             {% if rules|length > 0 %}
-            <form action="/user/subscriptions/unsubscribe" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to unsubscribe from ALL alerts?');">
-                <input type="hidden" name="all" value="true">
-                <button type="submit" class="secondary outline" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; color: #dc2626; border-color: #fca5a5;">Unsubscribe All</button>
-            </form>
+            <button type="button" class="secondary outline" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; color: #dc2626; border-color: #fca5a5;"
+                onclick="openGlobalConfirmModal({ title: 'Unsubscribe From All Alerts', message: 'Are you sure you want to unsubscribe from <strong>ALL</strong> notification rules?', actionUrl: '/user/subscriptions/unsubscribe', buttonText: 'Unsubscribe All' });">
+                Unsubscribe All
+            </button>
             {% endif %}
         </header>
 

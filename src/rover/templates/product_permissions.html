@@ -62,7 +62,7 @@
             body: new URLSearchParams({sub, role}).toString()
         });
         if (!resp.ok) {
-            alert('Action failed. Please try again.');
+            showToast('Action failed. Please try again.', false);
             window.location.reload();
         }
     }

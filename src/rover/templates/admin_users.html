@@ -151,7 +151,7 @@
                                 ⚡ Resend
                             </button>
                             {% endif %}
-                            <button onclick="revokeInvite('{{ inv.id }}')" class="outline contrast" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; margin-bottom: 0; color: #ef4444; border-color: #ef4444;">
+                            <button onclick="revokeInvite('{{ inv.id }}', '{{ inv.email or '' }}')" class="outline contrast" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; margin-bottom: 0; color: #ef4444; border-color: #ef4444;">
                                 ❌ Revoke
                             </button>
                         </div>
@@ -235,7 +235,7 @@
         if (resp.ok) {
             window.location.reload();
         } else {
-            alert('Action failed. Please try again.');
+            showToast('Action failed. Please try again.', false);
         }
     }
 
@@ -243,38 +243,44 @@
         adminPost({action: 'set_role', sub, role});
     }
 
+    function removeUser(sub) {
+        adminPost({action: 'remove_user', sub});
+    }
+
     async function submitInviteForm(e) {
         e.preventDefault();
-        const email = document.getElementById('invite-email').value;
         const role = document.getElementById('invite-role').value;
-        const sendEmailCheck = document.getElementById('invite-send-email');
-        const send_email = sendEmailCheck ? sendEmailCheck.checked : false;
+        const email = document.getElementById('invite-email').value.trim();
+        const sendEmail = document.getElementById('invite-send-email').checked;
 
         const submitBtn = document.getElementById('invite-submit-btn');
         submitBtn.disabled = true;
-        submitBtn.innerText = 'Creating Invite...';
+        submitBtn.innerText = 'Generating Invitation...';
 
         try {
-            const res = await fetch('/admin/invites/create', {
+            const res = await fetch('/admin/invites', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ email, role, send_email })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, email, send_email: sendEmail })
             });
             const data = await res.json();
             if (data.ok) {
-                document.getElementById('generated-invite-link').value = data.invite_link;
+                document.getElementById('invite-user-form').style.display = 'none';
                 document.getElementById('invite-result-box').style.display = 'block';
-                submitBtn.innerText = 'Invite Generated!';
+                document.getElementById('generated-invite-link').value = data.invite_url;
+                
+                showToast('Invitation created successfully!', true);
+
                 setTimeout(() => {
                     window.location.reload();
                 }, 3000);
             } else {
-                alert('Error: ' + (data.error || 'Failed to create invite'));
+                showToast('Error: ' + (data.error || 'Failed to create invite'), false);
                 submitBtn.disabled = false;
                 submitBtn.innerText = 'Generate & Create Invite';
             }
         } catch (err) {
-            alert('Request failed: ' + err);
+            showToast('Request failed: ' + err, false);
             submitBtn.disabled = false;
             submitBtn.innerText = 'Generate & Create Invite';
         }
@@ -284,9 +290,10 @@
         navigator.clipboard.writeText(text).then(() => {
             const originalText = btn.innerText;
             btn.innerText = '✅ Copied!';
+            showToast('Invite link copied to clipboard!', true);
             setTimeout(() => { btn.innerText = originalText; }, 2000);
         }).catch(err => {
-            prompt("Copy this invite link:", text);
+            showToast('Failed to copy to clipboard automatically.', false);
         });
     }
 
@@ -295,39 +302,33 @@
         copyToClipboard(linkInput.value, btn);
     }
 
-    async function revokeInvite(inviteId) {
-        if (!confirm('Are you sure you want to revoke this invitation?')) return;
-        const res = await fetch('/admin/invites/' + inviteId + '/revoke', { method: 'POST' });
-        if (res.ok) {
-            window.location.reload();
-        } else {
-            alert('Failed to revoke invitation.');
-        }
+    function revokeInvite(inviteId, email) {
+        openGlobalConfirmModal({
+            title: 'Revoke Invitation',
+            message: `Are you sure you want to revoke the invitation${email ? ' for <strong>' + email + '</strong>' : ''}?`,
+            actionUrl: '/admin/invites/' + inviteId + '/revoke',
+            buttonText: 'Revoke Invitation'
+        });
     }
 
     async function resendInvite(inviteId) {
         const res = await fetch('/admin/invites/' + inviteId + '/resend', { method: 'POST' });
         const data = await res.json();
         if (data.ok && data.email_sent) {
-            alert('✅ Invitation email resent successfully!');
+            showToast('Invitation email resent successfully!', true);
         } else {
-            alert('❌ Failed to resend email: ' + (data.error || 'Check gateway connection'));
+            showToast('Failed to resend email: ' + (data.error || 'Check gateway connection'), false);
         }
     }
-    async function revokeUserApiTokens(sub, username) {
-        if (!confirm(`Are you sure you want to revoke all API tokens for ${username}? This will immediately block their CI/CD pipeline access.`)) return;
-        const resp = await fetch('/admin/users', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({action: 'revoke_api_tokens', sub}).toString()
+
+    function revokeUserApiTokens(sub, username) {
+        openGlobalConfirmModal({
+            title: 'Revoke User API Tokens',
+            message: `Are you sure you want to revoke all API tokens for <strong>${username}</strong>? This will immediately block their CI/CD pipeline access.`,
+            actionUrl: '/admin/users',
+            actionValue: 'revoke_api_tokens',
+            buttonText: 'Revoke API Tokens'
         });
-        const data = await resp.json();
-        if (data.ok) {
-            alert(`✅ Revoked ${data.count || 0} API token(s) for ${username}.`);
-            window.location.reload();
-        } else {
-            alert('Failed to revoke API tokens.');
-        }
     }
 </script>
 {% endblock %}

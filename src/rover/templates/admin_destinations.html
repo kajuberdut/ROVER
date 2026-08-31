@@ -321,12 +321,12 @@ async function testDestination(destId) {
         const resp = await fetch(`/api/notifications/destinations/${destId}/test`, { method: 'POST' });
         const res = await resp.json();
         if (res.status === 'ok') {
-            alert('✅ Test Ping delivered successfully!');
+            showToast('Test Ping delivered successfully!', true);
         } else {
-            alert('❌ Test Ping failed: ' + (res.error || 'Unknown error'));
+            showToast('Test Ping failed: ' + (res.error || 'Unknown error'), false);
         }
     } catch (e) {
-        alert('❌ Test Ping network error: ' + e);
+        showToast('Test Ping network error: ' + e, false);
     }
 }
 </script>

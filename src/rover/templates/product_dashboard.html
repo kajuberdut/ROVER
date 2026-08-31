@@ -248,7 +248,7 @@
     document.getElementById('btn_fetch_helm_charts').addEventListener('click', function() {
         const urlParams = document.getElementById('helm_repo_url').value;
         if (!urlParams) {
-            alert('Please enter a Helm Repository URL first.');
+            showToast('Please enter a Helm Repository URL first.', false);
             return;
         }
 
@@ -265,7 +265,7 @@
             .then(data => {
                 btn.removeAttribute('aria-busy');
                 if (data.error) {
-                    alert('Error fetching charts: ' + data.error);
+                    showToast('Error fetching charts: ' + data.error, false);
                     chartSelect.innerHTML = '<option value="" disabled selected>Error loading charts</option>';
                     return;
                 }

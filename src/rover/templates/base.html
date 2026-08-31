@@ -314,6 +314,23 @@
             if (btn) btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
         }
 
+        function showToast(message, isSuccess = false) {
+            const toast = document.getElementById('global-toast');
+            const messageEl = document.getElementById('global-toast-message');
+            if (!toast || !messageEl) return;
+            
+            messageEl.textContent = message;
+            if (isSuccess) {
+                toast.style.backgroundColor = 'var(--pico-ins-color, #10b981)';
+            } else {
+                toast.style.backgroundColor = 'var(--pico-del-color, #ef4444)';
+            }
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4000);
+        }
+
         function openGlobalConfirmModal(options) {
             document.getElementById('global-confirm-title').innerHTML = options.title || 'Confirm Action';
             document.getElementById('global-confirm-message').innerHTML = options.message || 'This action is irreversible.';
