@@ -119,3 +119,4 @@ graph TD
 - [[ephemeral-authelia-provisioner|A9 · Ephemeral Cryptographic Handoff Authelia Provisioner]]
 - [[hybrid-identity-rbac-architecture|A10 · Hybrid Identity & Access Governance Architecture]] ✅ *(Completed)*
 - [[user-roles-and-product-permissions|A11 · User Roles & Product Permissions Architecture]] ✅ *(Completed)*
+- [[design-language-and-ui-standards|A12 · Design System & UI Standards Architecture]] ✅ *(Completed)*
