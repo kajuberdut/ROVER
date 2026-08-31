@@ -19,20 +19,26 @@ Available Commands:
   setup                  Run first-time provisioning setup (certs, secrets, OpenBao)
   promote-admin <user>   Promote a user (by email or sub UUID) to system_admin role
   delete-user <user>     Completely remove a user from Authelia and ROVER database
-  up                     Start all ROVER services using Docker Compose
-  down                   Stop all ROVER services
+  up                     Start all ROVER production services using Docker Compose
+  down                   Stop all ROVER production services
+  dev                    Start development stack with live mounts, Mailpit & WebhookHub
+  dev-down               Stop development stack
+  reset                  Stop containers and purge persistent database volumes
   restart                Restart all ROVER services
   status                 Display health status of all running ROVER services
-  logs [service]         Tail logs from ROVER containers (e.g. ./bin/rover logs worker)
+  logs [service]         Tail logs from ROVER containers (e.g. ./bin/rover logs web)
   test                   Run the pytest test suite
   lint                   Run ruff linter checks
+  verify                 Run full verification suite (lint, format, vulture, test, mypy)
+  clean                  Clean test cache, coverage, and build artifacts
   help                   Show this help message
 
 Examples:
   ./bin/rover setup
-  ./bin/rover up
+  ./bin/rover dev
+  ./bin/rover reset
+  ./bin/rover verify
   ./bin/rover promote-admin admin@rover.local
-  ./bin/rover logs -f falcon
 EOF
 }
 
@@ -52,6 +58,23 @@ case "$CMD" in
     up)
         info "Starting ROVER service stack..."
         exec docker compose -f docker/docker-compose.yml -p rover up -d --build "$@"
+        ;;
+    dev)
+        info "Starting ROVER development service stack..."
+        if command -v poe &>/dev/null; then
+            exec poe dev "$@"
+        else
+            "$REPO_ROOT/bin/dev-setup.sh"
+            exec docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover up -d --build "$@"
+        fi
+        ;;
+    dev-down)
+        info "Stopping ROVER development service stack..."
+        exec docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down "$@"
+        ;;
+    reset)
+        info "Resetting ROVER stack and purging database volumes..."
+        exec docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down -v --remove-orphans "$@"
         ;;
     down)
         info "Stopping ROVER service stack..."
@@ -81,6 +104,20 @@ case "$CMD" in
             exec poe lint "$@"
         else
             exec ruff check . "$@"
+        fi
+        ;;
+    verify)
+        if command -v poe &>/dev/null; then
+            exec poe verify "$@"
+        else
+            ruff check --fix . && ruff format . && pytest tests/ && mypy src/
+        fi
+        ;;
+    clean)
+        if command -v poe &>/dev/null; then
+            exec poe clean "$@"
+        else
+            python3 -c "import shutil, glob; [shutil.rmtree(p, ignore_errors=True) for p in ['.pytest_cache', '.mypy_cache', '.ruff_cache', '.coverage', 'htmlcov', 'dist', 'build'] + glob.glob('**/__pycache__', recursive=True)]"
         fi
         ;;
     help|-h|--help)

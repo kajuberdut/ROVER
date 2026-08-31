@@ -66,11 +66,14 @@ lint = { cmd = "ruff check --fix .", help = "Lint code using ruff" }
 format = { cmd = "ruff format .", help = "Format code using ruff" }
 vulture = { cmd = "vulture src/", help = "Find dead code" }
 mypy = { cmd = "mypy src/", help = "Run mypy" }
-verify = { sequence = ["lint", "format", "test", "mypy"], help = "Run lint, format, test, and mypy in sequence" }
+clean = { cmd = "python -c \"import shutil, glob; [shutil.rmtree(p, ignore_errors=True) for p in ['.pytest_cache', '.mypy_cache', '.ruff_cache', '.coverage', 'htmlcov', 'dist', 'build'] + glob.glob('**/__pycache__', recursive=True)]\"", help = "Clean test cache, coverage, and temporary build artifacts" }
+verify = { sequence = ["lint", "format", "vulture", "test", "mypy"], help = "Run lint, format, vulture, test, and mypy in sequence" }
 up = { cmd = "docker compose -f docker/docker-compose.yml -p rover up -d --build", help = "Start the compose stack in Docker" }
 dev = { sequence = [{ cmd = "bin/dev-setup.sh" }, { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover up -d --build" }], help = "Start the compose stack with Mailpit & WebhookHub dev mix-in" }
 dev-down = { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down", help = "Stop the development compose stack including Mailpit & WebhookHub" }
 down = { cmd = "docker compose -f docker/docker-compose.yml -p rover down", help = "Stop the compose stack in Docker" }
+reset = { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down -v --remove-orphans", help = "Stop containers and purge persistent database volumes for a clean slate reset" }
+db-migrate = { cmd = "python -m rover.shipship apply ./migrations", help = "Apply database migrations via Shipship" }
 restart = { cmd = "docker compose -f docker/docker-compose.yml -p rover restart", help = "Restart the compose stack in Docker" }
 status = { sequence = [{ cmd = "docker compose -f docker/docker-compose.yml -p rover ps -a" }, { cmd = "docker compose -f docker/docker-compose.yml -p rover top" }], help = "Display container status and active processes for the ROVER compose stack" }
 logs = { cmd = "docker compose -f docker/docker-compose.yml -p rover logs -f", help = "Tail container logs from the ROVER compose stack" }
