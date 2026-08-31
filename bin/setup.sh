@@ -57,11 +57,11 @@ else
 
     info "Generating OIDC client secret ..."
     CLIENT_SECRET_PLAIN=$(openssl rand -hex 24)
-    if ! docker image inspect authelia/authelia:latest &>/dev/null; then
-        warn "Docker image 'authelia/authelia:latest' not found locally; pulling now."
+    if ! docker image inspect authelia/authelia:4.38 &>/dev/null; then
+        warn "Docker image 'authelia/authelia:4.38' not found locally; pulling now."
         warn "This may take several minutes depending on your download speed."
     fi
-    CLIENT_SECRET_HASH=$(docker run --rm authelia/authelia:latest \
+    CLIENT_SECRET_HASH=$(docker run --rm authelia/authelia:4.38 \
         authelia crypto hash generate argon2 --password "$CLIENT_SECRET_PLAIN" 2>/dev/null \
         | grep -o '\$argon2.*')
 
@@ -98,11 +98,11 @@ else
     echo ""
 
     info "Hashing password with Argon2 (this may take a moment) ..."
-    if ! docker image inspect authelia/authelia:latest &>/dev/null; then
-        warn "Docker image 'authelia/authelia:latest' not found locally; pulling now."
+    if ! docker image inspect authelia/authelia:4.38 &>/dev/null; then
+        warn "Docker image 'authelia/authelia:4.38' not found locally; pulling now."
         warn "This may take several minutes depending on your download speed."
     fi
-    ADMIN_HASH=$(docker run --rm authelia/authelia:latest \
+    ADMIN_HASH=$(docker run --rm authelia/authelia:4.38 \
         authelia crypto hash generate argon2 --password "$ADMIN_PASS" 2>/dev/null \
         | grep -o '\$argon2.*')
 
