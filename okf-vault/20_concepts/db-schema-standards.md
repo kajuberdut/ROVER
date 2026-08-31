@@ -37,11 +37,13 @@ ROVER uses **`VARCHAR(50)` (or `VARCHAR(255)`)** for enumerated types, categorie
 ```python
 from enum import StrEnum
 
+
 class NotificationEventType(StrEnum):
     SCAN_COMPLETED = "scan.completed"
     SCAN_FAILED = "scan.failed"
     VULNERABILITY_FOUND = "vulnerability.found"
     EOL_WARNING = "eol.warning"
+
 
 class NotificationSeverity(StrEnum):
     CRITICAL = "CRITICAL"

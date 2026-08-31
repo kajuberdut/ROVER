@@ -5,10 +5,10 @@ import tomlkit
 
 CONFIG_FILE = "config.toml"
 
-DEFAULT_TRIVY_IMAGE = "aquasec/trivy@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f"
-DEFAULT_SEMGREP_IMAGE = "semgrep/semgrep@sha256:98c2572fced2474539fd27cab3207ebd8e95e4e7aab4c3b381fdc5e2641d9941"
-DEFAULT_HELM_IMAGE = "alpine/helm@sha256:b97ba4f9b27fe7af16ee3d37e6815783c9d4a51289b6240a9024ec471611ae9b"
-DEFAULT_SNYK_IMAGE = "snyk/snyk:alpine@sha256:4e573b645e9c0c43e515ed9f80e9944322d214a1177ec1227d9b5e4f1ff37d04"
+DEFAULT_TRIVY_IMAGE = "aquasec/trivy@sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9"
+DEFAULT_SEMGREP_IMAGE = "semgrep/semgrep@sha256:155f999d01d02b33aa5a8db9186eb20dcd0154ce1a0ac6fce8d80674d0ace235"
+DEFAULT_HELM_IMAGE = "alpine/helm@sha256:f92964e7ecaa7effe87dd6c3dfed25fa3175e80fe8eb0fc8fd669291dea389d2"
+DEFAULT_SNYK_IMAGE = "snyk/snyk:alpine@sha256:3fe9af4ae66ae714e5e8816ae132d3972dd65db25c261973f1e1778991f90ab6"
 
 
 DEFAULT_CONFIG_TOML = f"""# R.O.V.E.R Configuration File
