@@ -14,22 +14,6 @@ from sqlalchemy.sql import func
 
 metadata = MetaData()
 
-scan_jobs = Table(
-    "scan_jobs",
-    metadata,
-    Column("id", String, primary_key=True),
-    Column("target_url", String, nullable=False),
-    Column("git_ref", String, default=None),
-    Column("status", String, nullable=False),
-    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
-    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
-    Column("results_json", String, default=None),
-    Column("error_message", String, default=None),
-    Column("resolved_commit", String, default=None),
-    Column("resolved_tags", String, default=None),
-    Column("target_type", String, server_default="repo"),
-)
-
 repositories = Table(
     "repositories",
     metadata,
