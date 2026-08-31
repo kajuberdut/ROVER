@@ -4,7 +4,14 @@ from sqlalchemy import delete, insert, select, update
 from sqlalchemy.sql import func
 
 from rover.db.connection import get_db_connection
-from rover.db.schema import api_tokens, product_users, user_invites, users
+from rover.db.schema import (
+    api_tokens,
+    notification_destinations,
+    notification_rules,
+    product_users,
+    user_invites,
+    users,
+)
 
 
 def upsert_user(
@@ -38,6 +45,16 @@ def upsert_user(
                     update(user_invites)
                     .where(user_invites.c.invited_by_sub == target_sub)
                     .values(invited_by_sub=sub)
+                )
+                conn.execute(
+                    update(notification_destinations)
+                    .where(notification_destinations.c.user_sub == target_sub)
+                    .values(user_sub=sub)
+                )
+                conn.execute(
+                    update(notification_rules)
+                    .where(notification_rules.c.user_sub == target_sub)
+                    .values(user_sub=sub)
                 )
 
             update_vals: dict[str, Any] = {
@@ -77,6 +94,29 @@ def get_user_by_email(email: str) -> dict[str, Any] | None:
         return dict(row._mapping) if row else None
 
 
+def ensure_email_only_user(email: str, is_verified: bool = False) -> dict[str, Any]:
+    """Ensures an email_only user account exists for a given email address."""
+    import uuid
+
+    clean_email = email.strip()
+    user = get_user_by_email(clean_email)
+    if not user:
+        sub = f"email_{uuid.uuid4().hex[:12]}"
+        user = upsert_user(
+            sub=sub,
+            email=clean_email,
+            name=clean_email.split("@")[0],
+            role="email_only",
+        )
+        if is_verified:
+            set_user_verified(clean_email, True)
+            user["is_verified"] = True
+    elif is_verified and not user.get("is_verified"):
+        set_user_verified(clean_email, True)
+        user["is_verified"] = True
+    return user
+
+
 def get_all_users() -> list[dict[str, Any]]:
     with get_db_connection() as conn:
         rows = conn.execute(
@@ -86,10 +126,30 @@ def get_all_users() -> list[dict[str, Any]]:
 
 
 def set_user_role(sub: str, role: str) -> None:
-    if role not in ("viewer", "system_admin"):
+    if role not in ("viewer", "system_admin", "email_only"):
         raise ValueError(f"Invalid role: {role!r}")
     with get_db_connection() as conn:
         conn.execute(update(users).where(users.c.sub == sub).values(role=role))
+
+
+def set_user_verified(sub: str, is_verified: bool = True) -> None:
+    """Sets the is_verified status for a user by sub or email."""
+    with get_db_connection() as conn:
+        conn.execute(
+            update(users)
+            .where((users.c.sub == sub) | (users.c.email == sub))
+            .values(is_verified=is_verified)
+        )
+
+
+def update_user_password(sub_or_email: str, password_hash: str) -> None:
+    """Updates the password hash for a user by sub or email."""
+    with get_db_connection() as conn:
+        conn.execute(
+            update(users)
+            .where((users.c.sub == sub_or_email) | (users.c.email == sub_or_email))
+            .values(password_hash=password_hash)
+        )
 
 
 def get_product_users(product_id: str) -> list[dict[str, Any]]:

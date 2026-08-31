@@ -54,7 +54,7 @@ major_components = Table(
     Column("name", String, nullable=False),
     Column("version", String, nullable=False),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
-    Index("sqlite_autoindex_major_components_1", "name", "version", unique=True),
+    Index("idx_major_components_name_version", "name", "version", unique=True),
 )
 
 eol_cache = Table(
@@ -131,6 +131,8 @@ users = Table(
     Column("email", String),
     Column("name", String),
     Column("role", String, nullable=False, server_default="viewer"),
+    Column("is_verified", Boolean, nullable=False, server_default=text("false")),
+    Column("password_hash", String, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("last_login", TIMESTAMP),
 )
@@ -275,6 +277,7 @@ notification_destinations = Table(
     ),
     Column("is_system", Boolean, nullable=False, server_default="false"),
     Column("is_default", Boolean, nullable=False, server_default="false"),
+    Column("is_verified", Boolean, nullable=False, server_default=text("false")),
     Column("config_json", String, nullable=False, server_default="{}"),
     Column("vault_secret_path", String, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),

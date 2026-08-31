@@ -55,8 +55,38 @@ def dispatch_event(
                 f"Destination '{dest_id}' referenced by rule '{rule['id']}' not found."
             )
             continue
+        # 2. Require email verification for SMTP / AWS SES destinations
+        dest_type = (dest.get("type") or "").lower()
+        if dest_type in ("smtp", "email", "aws_ses", "ses"):
+            if (
+                not dest.get("is_verified")
+                and not dest.get("is_default")
+                and not dest.get("is_system")
+            ):
+                logger.warning(
+                    f"Skipping unverified email destination '{dest_id}' (rule '{rule['id']}')."
+                )
+                log_id = db.log_notification_attempt(
+                    destination_id=dest_id,
+                    rule_id=rule["id"],
+                    event_type=event_type,
+                    status="skipped_unverified",
+                    http_status_code=403,
+                    error_message="Email destination requires email verification.",
+                    payload_dict=payload_copy,
+                )
+                results.append(
+                    {
+                        "rule_id": rule["id"],
+                        "destination_id": dest_id,
+                        "status": "skipped_unverified",
+                        "log_id": log_id,
+                        "success": False,
+                    }
+                )
+                continue
 
-        # 2. Retrieve unmasked Vault secret if present
+        # 3. Retrieve unmasked Vault secret if present
         vault_secret: dict[str, Any] | None = None
         if dest.get("vault_secret_path"):
             vault_secret = db.get_destination_unmasked_secret(
@@ -66,7 +96,14 @@ def dispatch_event(
         # 3. Deliver notification payload via appropriate transport
         rule_payload = dict(payload_copy)
         if rule.get("recipient_emails"):
-            rule_payload["recipient_emails"] = rule["recipient_emails"]
+            verified_recipient_emails = []
+            for email_addr in rule["recipient_emails"]:
+                user_rec = db.get_user_by_email(email_addr)
+                if user_rec and user_rec.get("is_verified"):
+                    verified_recipient_emails.append(email_addr)
+                elif not user_rec:
+                    verified_recipient_emails.append(email_addr)
+            rule_payload["recipient_emails"] = verified_recipient_emails
 
         try:
             success = deliver_notification(

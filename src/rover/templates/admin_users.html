@@ -83,6 +83,7 @@
                             data-bwignore="true">
                             <option value="viewer" {% if u.role == "viewer" %}selected{% endif %}>Viewer</option>
                             <option value="system_admin" {% if u.role == "system_admin" %}selected{% endif %}>System Admin</option>
+                            <option value="email_only" {% if u.role == "email_only" %}selected{% endif %}>Email Only</option>
                         </select>
                     </td>
                     <td><small>{{ u.last_login or "never" }}</small></td>
@@ -188,6 +189,7 @@
                     <select id="invite-role" required data-bwignore="true">
                         <option value="viewer" selected>Viewer (Read-only access to products & reports)</option>
                         <option value="system_admin">System Admin (Full system & user management access)</option>
+                        <option value="email_only">Email Only (Restricted to notification alerts & unsubscribe portal)</option>
                     </select>
                 </label>
 

@@ -61,6 +61,7 @@ from .notification_destinations import (
     get_notification_destination_by_id,
     get_notification_destinations,
     set_default_smtp_destination,
+    set_destination_verified,
     update_notification_destination,
 )
 from .notification_logs import (
@@ -130,6 +131,7 @@ from .user_invites import (
     revoke_user_invite,
 )
 from .users import (
+    ensure_email_only_user,
     get_all_users,
     get_product_users,
     get_user,
@@ -139,6 +141,8 @@ from .users import (
     remove_product_user,
     set_product_user_role,
     set_user_role,
+    set_user_verified,
+    update_user_password,
     upsert_user,
 )
 
@@ -215,11 +219,14 @@ __all__ = [
     "revoke_all_user_api_tokens",
     "revoke_api_token",
     "verify_api_token",
+    "ensure_email_only_user",
     "upsert_user",
     "get_user",
     "get_user_by_email",
     "get_all_users",
     "set_user_role",
+    "set_user_verified",
+    "update_user_password",
     "get_product_users",
     "get_user_product_role",
     "set_product_user_role",
@@ -249,6 +256,7 @@ __all__ = [
     "get_notification_destination_by_id",
     "get_default_smtp_destination",
     "set_default_smtp_destination",
+    "set_destination_verified",
     "get_destination_unmasked_secret",
     "update_notification_destination",
     "delete_notification_destination",

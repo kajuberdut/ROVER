@@ -2,8 +2,10 @@ import logging
 import os
 import urllib.parse
 import uuid
+from typing import Any
 
 import falcon
+import falcon.asgi
 import requests  # type: ignore[import-untyped]
 from authlib.jose import jwt  # type: ignore[import-untyped]
 from itsdangerous import BadSignature, URLSafeSerializer
@@ -175,25 +177,146 @@ def add_authelia_user(
         log.warning(f"Could not restart authelia container via docker SDK: {e}")
 
 
+def update_authelia_user_password(
+    username_or_email: str,
+    new_password: str,
+    authelia_db_path: str = "authelia/users_database.yml",
+) -> None:
+    """Updates a user's password in Authelia users_database.yml and local users table."""
+    import fcntl
+    import os
+
+    import yaml  # type: ignore[import-untyped]
+
+    target_path = authelia_db_path
+    if not os.path.exists(target_path):
+        alt_path = os.path.join(os.getcwd(), "authelia", "users_database.yml")
+        if os.path.exists(alt_path):
+            target_path = alt_path
+
+    clean_target = username_or_email.strip().lower()
+    password_hash = generate_authelia_argon2_hash(new_password)
+
+    if os.path.exists(target_path):
+        flags = os.O_RDWR | os.O_CREAT
+        fd = os.open(target_path, flags, 0o644)
+        with os.fdopen(fd, "r+", encoding="utf-8") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                content = f.read()
+                data = yaml.safe_load(content) if content else {"users": {}}
+                if (
+                    isinstance(data, dict)
+                    and "users" in data
+                    and isinstance(data["users"], dict)
+                ):
+                    matched_username = None
+                    for uname, uinfo in data["users"].items():
+                        if (
+                            uname.lower() == clean_target
+                            or str(uinfo.get("email", "")).lower() == clean_target
+                        ):
+                            matched_username = uname
+                            break
+
+                    if matched_username:
+                        data["users"][matched_username]["password"] = password_hash
+                        f.seek(0)
+                        f.truncate()
+                        yaml.safe_dump(data, f, sort_keys=False)
+                        f.flush()
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+        try:
+            import docker  # type: ignore[import-not-found]
+
+            client = docker.from_env()  # type: ignore[attr-defined]
+            authelia_container = client.containers.get("authelia")
+            authelia_container.restart()
+            log.info("Restarted authelia container after updating password.")
+        except Exception as e:
+            log.warning(f"Could not restart authelia container via docker SDK: {e}")
+
+
+def set_user_session_cookie(
+    resp: falcon.asgi.Response,
+    req: falcon.asgi.Request | None,
+    user: dict[str, Any],
+    max_age: int = 86400 * 7,
+) -> dict[str, Any]:
+    """Establishes an authenticated session cookie for a given user dict."""
+    session_data = {
+        "sub": user["sub"],
+        "email": user.get("email") or user["sub"],
+        "name": user.get("name") or str(user.get("email", user["sub"])).split("@")[0],
+        "role": user.get("role") or "viewer",
+        "product_ids": db.get_user_product_ids(user["sub"]),
+    }
+    cookie_val = cookie_serializer.dumps(session_data)
+    resp.set_cookie(
+        COOKIE_NAME,
+        cookie_val,
+        max_age=max_age,
+        path="/",
+        secure=False,
+        http_only=True,
+    )
+    if req is not None:
+        req.context.user = session_data
+    return session_data
+
+
 class RequireAuthMiddleware:
     """
     Falcon ASGI Middleware to require authentication on all routes
-    except login, callback, and static assets.
+    except login, callback, email verification, password reset, and static assets.
+    Enforces restricted portal navigation for 'email_only' users.
     """
 
     async def process_request(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
-        if (
-            req.path in ["/login", "/callback", "/accept-invite", "/api/openapi.json"]
+        # 1. Parse session cookie if present on any route
+        session_cookie = req.cookies.get(COOKIE_NAME)
+        if session_cookie:
+            try:
+                session_data = cookie_serializer.loads(session_cookie)
+                req.context.user = session_data
+                if session_data.get("role") == "email_only" and not (
+                    req.path.startswith("/user/subscriptions")
+                    or req.path
+                    in ["/logout", "/confirm-email", "/user/settings/notifications"]
+                ):
+                    raise falcon.HTTPFound("/user/subscriptions")
+                return
+            except falcon.HTTPFound:
+                raise
+            except (BadSignature, Exception) as e:
+                log.debug("Session cookie unparseable: %s", e)
+
+        # 2. Check for public routes if no session cookie
+        is_public = (
+            req.path
+            in [
+                "/login",
+                "/callback",
+                "/accept-invite",
+                "/confirm-email",
+                "/forgot-password",
+                "/reset-password",
+                "/user/subscriptions",
+                "/api/openapi.json",
+            ]
             or req.path.startswith("/static")
             or req.path.startswith("/docs")
             or req.path.startswith("/api/docs")
             or req.path.startswith("/api/swagger")
-        ):
+        )
+        if is_public:
             return
 
-        # Check for API token first (Authorization: Bearer <token>)
+        # 3. Check for API token (Authorization: Bearer <token>)
         auth_header = req.get_header("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ", 1)[1]
@@ -210,23 +333,15 @@ class RequireAuthMiddleware:
                         "api_token_permission": token_data["permission"],
                         "api_token_id": token_data["id"],
                     }
+                    if db_user["role"] == "email_only" and not req.path.startswith(
+                        "/user/subscriptions"
+                    ):
+                        raise falcon.HTTPFound("/user/subscriptions")
                     return
-            # If token is provided but invalid, reject immediately
             raise falcon.HTTPUnauthorized(description="Invalid API token")
 
-        session_cookie = req.cookies.get(COOKIE_NAME)
-        if not session_cookie:
-            next_param = urllib.parse.quote(req.relative_uri)
-            raise falcon.HTTPFound(f"/login?next={next_param}")
-
-        try:
-            session_data = cookie_serializer.loads(session_cookie)
-            req.context.user = session_data
-        except BadSignature:
-            log.warning("Invalid session cookie detected")
-            resp.unset_cookie(COOKIE_NAME)
-            next_param = urllib.parse.quote(req.relative_uri)
-            raise falcon.HTTPFound(f"/login?next={next_param}")
+        next_param = urllib.parse.quote(req.relative_uri)
+        raise falcon.HTTPFound(f"/login?next={next_param}")
 
 
 # --- Falcon Resources ---
@@ -424,26 +539,8 @@ class CallbackResource:
         # Upsert user into ROVER's user registry and sync IdP role.
         db_user = db.upsert_user(sub=sub, email=email, name=name, role=role)
 
-        # Build local session; include role and owned products for permission checks.
-        user_data = {
-            "sub": db_user["sub"],
-            "email": db_user["email"],
-            "name": db_user["name"],
-            "role": db_user["role"],
-            "product_ids": db.get_user_product_ids(db_user["sub"]),
-        }
-
-        session_token = cookie_serializer.dumps(user_data)
-
         # Set persistent secure cookie for ROVER
-        resp.set_cookie(
-            COOKIE_NAME,
-            session_token,
-            secure=False,
-            http_only=True,
-            path="/",
-            max_age=86400,
-        )
+        set_user_session_cookie(resp, req, db_user, max_age=86400)
 
         # Redirect to target page (defaulting to dashboard)
         next_url = state_data.get("next") or "/"

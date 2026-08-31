@@ -6,6 +6,7 @@ import falcon
 import falcon.asgi
 
 from rover import db, permissions
+from rover.email_tokens import send_verification_email
 from rover.notifications.transports import deliver_notification
 from rover.routes._env import template_env
 
@@ -317,6 +318,16 @@ class NotificationRuleCreateResource:
             custom_emails = [
                 e.strip() for e in str(custom_emails_raw).split(",") if e.strip()
             ]
+            base_url = f"{req.scheme}://{req.forwarded_host or req.host}"
+            for email_addr in custom_emails:
+                target_user = db.ensure_email_only_user(email_addr, is_verified=False)
+                if not target_user.get("is_verified"):
+                    send_verification_email(
+                        email_addr,
+                        target_type="user",
+                        target_id=target_user["sub"],
+                        base_url=base_url,
+                    )
         else:
             recipient_user_subs = [user["sub"]]
             custom_emails = []

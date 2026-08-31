@@ -3,7 +3,7 @@ id: "202608030819"
 type: Concept
 title: User Roles & Product Permissions Architecture
 created: "2026-08-03T08:19:00Z"
-updated: "2026-08-03T08:19:00Z"
+updated: "2026-08-27T21:45:00Z"
 tags:
   - concept/architecture
   - concept/permissions
@@ -17,12 +17,13 @@ aliases:
 
 # User Roles & Product Permissions Architecture
 
-> **Summary**: Documents ROVER's simplified access control model: System Admin as a global boolean privilege, default read access (`view`) across all products for all authenticated users, and optional product-level `write` or `admin` role assignments.
+> **Summary**: Documents ROVER's access control model: global system roles (`system_admin`, `viewer`, `email_only`), default read access (`view`) across products for standard users, restricted portal access for `email_only` users, and optional product-level `write` or `admin` role assignments.
 
 ## 1. Overview
 ROVER decouples global administrative privileges from product-level operational roles:
-- **System Admin (`system_admin` Boolean)**: Managed dynamically via Identity Provider (Authelia / LDAP) group membership. Grants full system management (settings, users, invitations, API token revocation) and implicit administrative rights over all products.
-- **Default View Access (`view`)**: All authenticated users have read-only access to all products, releases, assets, scan schedules, and vulnerability reports by default.
+- **System Admin (`system_admin`)**: Managed dynamically via Identity Provider (Authelia / LDAP) group membership. Grants full system management (settings, destinations, user governance, API token revocation) and implicit administrative rights over all products.
+- **Standard View Access (`viewer`)**: Default role for authenticated users on first login. Grants read-only access to all products, releases, assets, scan schedules, and vulnerability reports.
+- **Email-Only User (`email_only`)**: Restricted role created solely for receiving notification alerts. Middleware restricts `email_only` users exclusively to `/user/subscriptions` and unsubscribe endpoints, preventing access to scanner or product dashboards.
 - **Product-Level Elevated Roles**: Users can be assigned `write` or `admin` roles on specific products to grant operational or administrative capabilities.
 
 ## 2. Product-Level Roles

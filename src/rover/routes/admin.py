@@ -142,7 +142,7 @@ class AdminInvitesCreateResource:
         role = form.get("role", "viewer")
         send_email = form.get("send_email") in (True, "true", "1", "on")
 
-        if role not in ("viewer", "system_admin"):
+        if role not in ("viewer", "system_admin", "email_only"):
             resp.status = falcon.HTTP_400
             resp.media = {"error": "Invalid role"}
             return

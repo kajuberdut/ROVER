@@ -1,32 +1,41 @@
 ---
 title: User Roles & Product Permissions
-description: Comprehensive guide to ROVER's system roles, product-level access control, and hybrid identity governance.
+description: Comprehensive guide to ROVER's system roles, product-level access control, email verification, and hybrid identity governance.
 ---
 
 ## Overview
 
-R.O.V.E.R. implements a clean, intuitive access control model:
+R.O.V.E.R. implements a clean access control model:
 
-1. **System Admin (`System Admin`)**: A global boolean administrative privilege. System Admins have unrestricted access across system configuration, user management, and all products.
-2. **Default View Access**: All authenticated users are granted **View (`view`)** access by default across all products, releases, assets, and vulnerability reports.
-3. **Product-Level Roles**: Users can be assigned elevated roles on specific products to grant write capabilities or product administration rights.
+1. **System Admin (`system_admin`)**: Global administrative privilege. System Admins have unrestricted access across system configuration, user management, notification destinations, and all products.
+2. **Standard Viewer (`viewer`)**: Default role assigned to authenticated users on first login. Grants view access across all product dashboards, release assets, and scan reports.
+3. **Email-Only User (`email_only`)**: Restricted role created solely for receiving notification alerts. Users with this role are restricted to managing their email subscription preferences at `/user/subscriptions` and cannot access product or scanner dashboards.
+4. **Product-Level Roles**: Users can be assigned elevated roles (`write` or `admin`) on specific products to grant operational write capabilities or product administration rights.
 
 ---
 
-## 1. System Administration (`System Admin`)
+## 1. Global System Roles
 
-`System Admin` is a global boolean flag assigned to a user account. It is managed centrally through your Identity Provider (Authelia, JumpCloud, or LDAP).
+Global roles define server-wide application access:
 
-### System Admin Capabilities
-- **Global Settings & Configuration**: Edit system configuration (`config.toml`), manage email destinations, and configure notification rules.
-- **User Governance**: Create and revoke invitation links, view all system users, and invalidate API tokens.
-- **Universal Product Authority**: Implicit `Product Admin` rights across every product in the system without requiring explicit product assignment.
+### `system_admin`
+- **Global Settings & Configuration**: Edit system configuration (`config.toml`), manage transport destinations, and configure server notification rules.
+- **User Governance**: Provision users, create and revoke invitation links, assign global roles, and invalidate API tokens.
+- **Universal Product Authority**: Implicit `admin` rights across every product in the system without requiring explicit product assignment.
 - **Product Deletion**: Only a system admin may delete a product.
+
+### `viewer` (Default)
+- **Dashboard Access**: Access product dashboards, release packages, asset widgets, and multi-scanner reports.
+- **Personal Notifications & API Tokens**: Manage personal notification subscriptions and issue personal API automation tokens.
+
+### `email_only`
+- **Passwordless Magic Links**: `email_only` users do not use passwords and are never added to Authelia's identity store. They access their subscription portal (`/user/subscriptions`) using 24-hour signed magic links emailed to their inbox or generated upon email confirmation.
+- **Dashboard Shielding**: Attempts to access scanner dashboards, releases, or admin pages automatically redirect to `/user/subscriptions`.
 
 ### Identity Provider Group Synchronization
 When a user logs in via OIDC, ROVER checks the user's group claims (`groups` or `roles`):
-- If the user belongs to an admin group (e.g. `admins`, `system_admin`, `rover_admin`), ROVER sets `system_admin = true`.
-- Otherwise, `system_admin = false`.
+- If the user belongs to an admin group (e.g. `admins`, `system_admin`, `rover_admin`), ROVER sets `role = "system_admin"`.
+- Otherwise, the user retains their assigned system role (`viewer` or `email_only`).
 
 ---
 
@@ -42,20 +51,36 @@ For users who are not System Admins, product-level roles define granular permiss
 
 ---
 
-## 3. Hybrid Identity Governance & Token Revocation
+## 3. Email Verification & Password Recovery
 
-### Web Sessions vs. Headless API Tokens
-- **Web Sessions**: User identity and System Admin status are governed by your central Identity Provider. Deactivating a user in LDAP or Authelia blocks web login access immediately.
-- **Headless API Tokens**: CI/CD automation tokens (`X-API-Token`) bypass web session authentication. To revoke headless access for a deactivated employee or service account, System Admins can use the **🔑 Revoke API Tokens** action under **Admin > User Management**.
+### Email Address Verification & Magic Links
+- **Verification Links**: When an email destination or user account is created, ROVER generates a cryptographically signed verification link (`/confirm-email?token=...`) with a 24-hour expiration.
+- **Instant Authentication**: Redeeming a verification link marks the email as verified (`is_verified = true`) and automatically sets a secure session cookie, taking the user directly to `/user/subscriptions`.
+- **Magic Access Links**: Unauthenticated users can visit `/user/subscriptions` to request a passwordless magic access link sent directly to their email address.
+
+### Password Reset Flow (Dashboard Users Only)
+- **Request Link**: Dashboard users (`viewer` or `system_admin`) can visit `/forgot-password` to request a password reset link.
+- **Reset Token**: Clicking the link routes to `/reset-password?token=...` with a 24-hour single-use token bound to the current password hash.
+- **Credential Sync**: Submitting a new password updates Argon2id password hashes in Authelia's user registry (`users_database.yml`) for active dashboard accounts.
 
 ---
 
-## 4. Permission Summary Matrix
+## 4. Hybrid Identity Governance & Token Revocation
 
-| Action / Endpoint | Default View (`view`) | Product Write (`write`) | Product Admin (`admin`) | System Admin |
-| :--- | :---: | :---: | :---: | :---: |
-| View Product, Releases, Assets & Reports | ✅ | ✅ | ✅ | ✅ |
-| Trigger Manual Scans & Add Assets | ❌ | ✅ | ✅ | ✅ |
-| Manage Product Scan Schedules | ❌ | ❌ | ✅ | ✅ |
-| Manage Product User Roles | ❌ | ❌ | ✅ | ✅ |
-| Global System Config & User Management | ❌ | ❌ | ❌ | ✅ |
+### Web Sessions vs. Headless API Tokens
+- **Web Sessions**: User identity and System Admin status are governed by your central Identity Provider. Deactivating a user in LDAP or Authelia blocks web login access immediately.
+- **Headless API Tokens**: CI/CD automation tokens (`Authorization: Bearer <token>`) bypass web session authentication. To revoke headless access for a deactivated employee or service account, System Admins can use the **🔑 Revoke API Tokens** action under **Admin > User Management**.
+
+---
+
+## 5. Permission Summary Matrix
+
+| Action / Endpoint | Email-Only (`email_only`) | Default View (`viewer`) | Product Write (`write`) | Product Admin (`admin`) | System Admin |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| Access Self-Service Portal (`/user/subscriptions`) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Email Verification & Password Reset | ✅ | ✅ | ✅ | ✅ | ✅ |
+| View Product, Releases, Assets & Reports | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Trigger Manual Scans & Add Assets | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Manage Product Scan Schedules | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Manage Product User Roles | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Global System Config & User Management | ❌ | ❌ | ❌ | ❌ | ✅ |

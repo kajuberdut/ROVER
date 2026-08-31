@@ -28,16 +28,20 @@ ROVER implements a **Hybrid Identity Architecture**:
 
 ## 2. Key Mechanisms
 
-### 2.1 System Role Synchronization from IdP Groups
+### 2.1 System Role Synchronization & Provisioning
 On every successful OIDC authentication callback (`/callback`), ROVER inspects the `groups` or `roles` claim in the OIDC ID Token or UserInfo response:
 - **Admin Group Detection**: If `groups` contains `admins`, `admin`, `system_admin`, or `rover_admin`, ROVER automatically sets `users.role = "system_admin"`.
-- **Standard User Default**: If `groups` does not contain an admin group, ROVER sets `users.role = "viewer"`.
-- **Dynamic Role Updates**: Promoting or revoking admin status in the IdP (e.g. JumpCloud LDAP) takes effect in ROVER immediately upon the user's next login.
+- **Standard User Default**: If `groups` does not contain an admin group and user is not an `email_only` user, ROVER sets `users.role = "viewer"`.
+- **Email-Only Role**: Users provisioned strictly for notifications are assigned `users.role = "email_only"`, shielding dashboard routes and restricting web sessions to `/user/subscriptions`.
 
-### 2.2 Account Deactivation & Access Revocation
+### 2.2 Self-Service Password Reset & Credential Sync
+- When a user submits a password reset via `/forgot-password` and redeems a single-use token via `/reset-password?token=...`, ROVER generates an Argon2id password hash and updates Authelia's `users_database.yml` directly while restarting the Authelia container service.
+- Local account records are simultaneously updated with `is_verified = true`.
+
+### 2.3 Account Deactivation & Access Revocation
 When a user is disabled or removed in the central directory (e.g. JumpCloud / LDAP):
 1. **Web Authentication Revocation**: Authelia/LDAP immediately rejects OIDC login attempts. The user can no longer establish a web session.
-2. **Headless API Token Invalidation**: Because CI/CD pipeline automation relies on static API tokens (`X-API-Token`) that bypass OIDC, ROVER provides System Admins with an explicit **"Revoke API Tokens"** action in `/admin/users` to immediately terminate all active tokens for a deactivated user.
+2. **Headless API Token Invalidation**: Because CI/CD pipeline automation relies on static API tokens (`Authorization: Bearer <token>`) that bypass OIDC, ROVER provides System Admins with an explicit **"Revoke API Tokens"** action in `/admin/users` to immediately terminate all active tokens for a deactivated user.
 
 ## 3. Relationships & Context
 - **Parent Index**: [[roadmap-moc]]

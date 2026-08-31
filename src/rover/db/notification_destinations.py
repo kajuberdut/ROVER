@@ -59,6 +59,7 @@ def add_notification_destination(
     product_id: str | None = None,
     is_system: bool = False,
     is_default: bool = False,
+    is_verified: bool | None = None,
     vault_client: OpenBaoClient | None = None,
 ) -> dict[str, Any]:
     """Creates a new notification destination record in DB and stores sensitive credentials in OpenBao Vault."""
@@ -87,6 +88,14 @@ def add_notification_destination(
             secret_data = secret_value
         client.write_secret(vault_path, secret_data)
 
+    if is_verified is None:
+        is_verified = (
+            destination_type not in ("smtp", "aws_ses")
+            or is_system
+            or is_default
+            or scope == "system"
+        )
+
     with get_db_connection() as conn:
         conn.execute(
             notification_destinations.insert().values(
@@ -98,6 +107,7 @@ def add_notification_destination(
                 product_id=product_id if scope == "product" else None,
                 is_system=is_system or (scope == "system"),
                 is_default=is_default,
+                is_verified=is_verified,
                 config_json=config_json,
                 vault_secret_path=vault_path,
             )
@@ -107,6 +117,16 @@ def add_notification_destination(
     if res is None:
         raise RuntimeError(f"Failed to retrieve newly created destination {dest_id}")
     return res
+
+
+def set_destination_verified(dest_id: str, is_verified: bool = True) -> None:
+    """Sets the is_verified flag for a notification destination."""
+    with get_db_connection() as conn:
+        conn.execute(
+            update(notification_destinations)
+            .where(notification_destinations.c.id == dest_id)
+            .values(is_verified=is_verified)
+        )
 
 
 def get_notification_destinations(

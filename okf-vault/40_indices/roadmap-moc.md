@@ -88,6 +88,7 @@ graph TD
 - [[m4-private-container-registry-support|M4 · Private Container Registry Support]]
 - [[m5-semgrep-pro-authentication|M5 · Semgrep Pro Authentication]]
 - [[m6-notifications|M6 · Notifications System]] ✅ *(Completed)*
+  - [[email-verification-and-unsubscribe-portal|Email Verification & Unsubscribe Portal Architecture]]
 - [[m7-scheduled-scans|M7 · Scheduled Scans Engine]] ✅ *(Completed)*
 - [[m8-helm-chart-version-polling|M8 · Helm Chart Version Polling & Auto Promotion]]
 - [[m9-release-reports-and-api|M9 · Release Reports & Export API]] ✅ *(Completed)*

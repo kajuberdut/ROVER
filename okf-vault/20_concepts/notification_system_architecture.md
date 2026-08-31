@@ -32,6 +32,8 @@ The R.O.V.E.R. Notification Framework connects system evaluation events (scan co
 3. **Advance EOL Warning Engine**: EOL notifications support configurable advance lead times (e.g. 90, 120, 180 days prior to EOL date) allowing teams to plan component upgrades before support deprecation.
 4. **Asynchronous Dispatch**: Notification delivery is executed asynchronously via background worker tasks to avoid blocking scanner loops or web requests.
 5. **Pluggable Transports**: Transport adapters isolate provider-specific payload formatting (Slack Blocks, Teams Adaptive Cards, AWS SES, SMTP, Webhook HMAC signatures).
+6. **Email Verification Gate**: Email destinations and user email addresses require confirmation via signed 24-hour verification tokens (`/confirm-email?token=...`) before active email alerts are dispatched.
+7. **Self-Service Subscription Portal**: Users (including `email_only` users) can manage email verification status, resend confirmation links, and execute single or bulk (**Unsubscribe All**) subscription removals at `/user/subscriptions`.
 
 ---
 

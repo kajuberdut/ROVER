@@ -91,10 +91,28 @@ def create_app() -> falcon.asgi.App:
         app.add_route("/docs/guide", starlight_resource)
         app.add_route("/docs/guide/{filepath:path}", starlight_resource)
 
-    # Auth routes (handled by rover.auth)
+    # Auth & Email Verification / Password Reset routes (handled by rover.auth & rover.routes.email_verification)
     app.add_route("/login", auth.LoginResource())
     app.add_route("/callback", auth.CallbackResource())
     app.add_route("/logout", auth.LogoutResource())
+
+    from rover.routes.email_verification import (
+        ConfirmEmailResource,
+        ForgotPasswordResource,
+        ResendVerificationResource,
+        ResetPasswordResource,
+        UnsubscribeResource,
+        UserSubscriptionsResource,
+    )
+
+    app.add_route("/confirm-email", ConfirmEmailResource())
+    app.add_route("/forgot-password", ForgotPasswordResource())
+    app.add_route("/reset-password", ResetPasswordResource())
+    app.add_route("/user/subscriptions", UserSubscriptionsResource())
+    app.add_route(
+        "/user/subscriptions/resend-verification", ResendVerificationResource()
+    )
+    app.add_route("/user/subscriptions/unsubscribe", UnsubscribeResource())
 
     # EOL proxy routes (handled by rover.eol_proxy)
     app.add_route("/api/eol/all", EolProxyAllResource())

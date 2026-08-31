@@ -44,6 +44,14 @@ ROVER decouples transport gateways (destinations) from target recipients:
 - Standard users can subscribe to personal email alerts. Their recipient target is locked to their registered user email address, delivered via the server's **Default System Email Gateway**.
 - If no system email gateway has been configured by a System Admin, an informative warning alert (`⚠️ No System Email Gateway Configured`) instructs the user to contact an administrator.
 
+### Email Verification Requirements
+- **Verification Links**: When an email destination or user account is created, ROVER sends a confirmation link (`/confirm-email?token=...`) with a 24-hour token.
+- **Dispatch Protection**: The notification dispatch engine checks verification status (`is_verified`). Active email notification dispatches are skipped for unverified custom email destinations until deliverability is confirmed.
+
+### Self-Service Unsubscribe Portal
+- **Subscriptions Page (`/user/subscriptions`)**: Users (including `email_only` users) can access their personal subscription portal to view verification status, resend verification links, or remove subscriptions.
+- **Unsubscribe Actions**: Users can unsubscribe from individual alert rules or execute an **Unsubscribe All** action to immediately remove themselves from notification delivery.
+
 ### Product & Team Subscriptions
 - Product Admins configure product notification rules under **Product Dashboard** → **Notifications** (`/products/{product_id}/settings/notifications`).
 - Rules support **multi-user recipient targeting** (`recipient_user_subs`) AND/OR **custom email addresses** (`custom_recipient_emails`), delivering alerts to multiple team members simultaneously in a single delivery session.

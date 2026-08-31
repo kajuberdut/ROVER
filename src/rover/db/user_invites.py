@@ -1,7 +1,6 @@
 """src/rover/db/user_invites.py — User Invitation Data Access Layer."""
 
 import logging
-import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -10,6 +9,7 @@ from sqlalchemy import select, update
 
 from rover.db.connection import get_db_connection
 from rover.db.schema import user_invites, users
+from rover.tokens import generate_invite_token
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def create_user_invite(
         raise ValueError(f"Invalid role for invite: {role!r}")
 
     invite_id = str(uuid.uuid4())
-    token = secrets.token_urlsafe(32)
+    token = generate_invite_token()
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=expires_in_days)
     email_clean = email.strip() if email and email.strip() else None

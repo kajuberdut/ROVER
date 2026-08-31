@@ -31,7 +31,11 @@ def build_email_message(
           <h2 style="color: #0f172a; border-bottom: 2px solid #3b82f6; padding-bottom: 8px;">🛡️ {subject}</h2>
           <pre style="background: #f8fafc; padding: 12px; border-radius: 4px; font-family: monospace; white-space: pre-wrap;">{message_text}</pre>
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 20px;" />
-          <p style="font-size: 12px; color: #64748b;">Sent automatically by R.O.V.E.R. Notification Engine.</p>
+          <p style="font-size: 12px; color: #64748b;">
+            Sent automatically by R.O.V.E.R. Notification Engine.
+            <br />
+            <a href="https://rover.local/user/subscriptions" style="color: #2563eb; text-decoration: underline;">Manage Subscriptions & Unsubscribe</a>
+          </p>
         </div>
       </body>
     </html>
