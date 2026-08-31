@@ -447,7 +447,7 @@
         <article>
             <header>
                 <button aria-label="Close" rel="prev"
-                    onclick="document.getElementById('add-product-modal').close();"></button>
+                    onclick="this.closest('dialog').close();"></button>
                 <strong>Create Product</strong>
             </header>
             <form action="/products" method="POST" style="margin-bottom: 0;">
@@ -468,7 +468,7 @@
         <article>
             <header>
                 <button aria-label="Close" rel="prev"
-                    onclick="document.getElementById('global-confirm-modal').close();"></button>
+                    onclick="this.closest('dialog').close();"></button>
                 <strong style="color: #d32f2f;" id="global-confirm-title">Confirm Action</strong>
             </header>
             <p id="global-confirm-message"></p>
@@ -492,6 +492,32 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // Global backdrop click-to-close listener for HTML5 <dialog> modals
+            document.addEventListener('click', (e) => {
+                if (e.target.tagName === 'DIALOG' && e.target.hasAttribute('open')) {
+                    const article = e.target.querySelector('article');
+                    if (article) {
+                        const rect = article.getBoundingClientRect();
+                        const inArticle = (
+                            rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+                            rect.left <= e.clientX && e.clientX <= rect.left + rect.width
+                        );
+                        if (!inArticle) {
+                            e.target.close();
+                        }
+                    }
+                }
+            });
+
+            // Automatically reset forms inside dialogs when modal is closed
+            document.querySelectorAll('dialog').forEach(dialog => {
+                dialog.addEventListener('close', () => {
+                    const form = dialog.querySelector('form');
+                    if (form && dialog.id !== 'global-confirm-modal') {
+                        form.reset();
+                    }
+                });
+            });
             // Toast logic
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('error')) {

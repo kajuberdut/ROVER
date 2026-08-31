@@ -136,7 +136,7 @@
 <dialog id="create-rule-modal">
     <article style="max-width: 600px;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('create-rule-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <strong>Add Notification Rule</strong>
         </header>
         <form action="/api/notifications/rules" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true">

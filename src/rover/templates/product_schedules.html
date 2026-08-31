@@ -75,7 +75,7 @@
 <dialog id="add-schedule-modal">
     <article style="max-width: 550px;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('add-schedule-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <h3>Create Scheduled Scan</h3>
         </header>
         <form id="create-schedule-form" onsubmit="handleCreateSchedule(event);">
@@ -113,7 +113,7 @@
             </label>
 
             <footer style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1.5rem;">
-                <button type="button" class="secondary" onclick="document.getElementById('add-schedule-modal').close();">Cancel</button>
+                <button type="button" class="secondary" onclick="this.closest('dialog').close();">Cancel</button>
                 <button type="submit">Save Schedule</button>
             </footer>
         </form>
@@ -124,7 +124,7 @@
 <dialog id="schedule-logs-modal">
     <article style="max-width: 650px;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('schedule-logs-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <h3 id="logs-modal-title">Execution Audit Logs</h3>
         </header>
         <div id="logs-modal-body" style="max-height: 400px; overflow-y: auto;">

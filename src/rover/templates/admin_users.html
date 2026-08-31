@@ -174,7 +174,7 @@
 <dialog id="invite-user-modal">
     <article style="max-width: 540px; width: 100%;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('invite-user-modal').close()"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
             <strong>Invite New User</strong>
         </header>
 

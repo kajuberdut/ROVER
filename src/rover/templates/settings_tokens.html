@@ -98,7 +98,7 @@
 <dialog id="create-token-modal">
     <article>
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('create-token-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <strong>Generate New API Token</strong>
         </header>
         <form action="/settings/tokens/create" method="POST" style="margin-bottom: 0;">

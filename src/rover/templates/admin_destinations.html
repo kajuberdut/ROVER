@@ -109,7 +109,7 @@
 <dialog id="create-destination-modal">
     <article style="max-width: 600px;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('create-destination-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <strong>Add Notification Destination</strong>
         </header>
         <form action="/api/notifications/destinations" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true" data-form-type="other">
@@ -199,7 +199,7 @@
 <dialog id="edit-destination-modal">
     <article style="max-width: 600px;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('edit-destination-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <strong>Edit Notification Destination: <span id="edit-dest-title"></span></strong>
         </header>
         <form id="edit-dest-form" action="" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true" data-form-type="other">

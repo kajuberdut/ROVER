@@ -110,7 +110,7 @@
     <article>
         <header>
             <button aria-label="Close" rel="prev"
-                onclick="document.getElementById('add-asset-modal').close();"></button>
+                onclick="this.closest('dialog').close();"></button>
             <strong>Add Asset to Release</strong>
         </header>
         <form action="/releases/{{ release.id }}/assets" method="POST" style="margin-bottom: 0;" id="add-asset-form">
