@@ -18,7 +18,7 @@
         <div style="display: flex; gap: 0.5rem;">
             {% if user and user.role == 'system_admin' %}
             <a href="/admin/notifications/destinations" role="button" class="secondary outline" style="width: auto; margin-bottom: 0;">
-                ⚙️ Manage System Destinations
+                {{ icon('settings') }} Manage System Destinations
             </a>
             {% endif %}
             <button onclick="openRuleModal()" style="width: auto; margin-bottom: 0;">

@@ -88,3 +88,7 @@ def _get_active_notifications_count() -> int:
 
 
 template_env.globals["get_active_notifications_count"] = _get_active_notifications_count
+
+from rover.icons import render_icon
+
+template_env.globals["icon"] = render_icon

@@ -10,14 +10,14 @@
 <section style="max-width: 640px; margin: 2rem auto;">
     <article style="padding: 2.5rem; border-radius: 12px; border: 1px solid var(--pico-border-color); background: var(--pico-card-background-color);">
         <header style="text-align: center; margin-bottom: 2rem;">
-            <div style="font-size: 3rem; margin-bottom: 0.5rem;">🎉</div>
+            <div style="font-size: 3rem; margin-bottom: 0.5rem; color: var(--pico-primary);">{{ icon('party-popper', size=42) }}</div>
             <h2 style="margin-bottom: 0.5rem;">Join R.O.V.E.R. Security Platform</h2>
             <p style="color: var(--pico-muted-color); margin-bottom: 0;">Release Oriented Vulnerability Evaluation & Reporting</p>
         </header>
 
         {% if error %}
         <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid #ef4444; padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
-            <strong style="color: #ef4444; font-size: 1rem;">⚠️ {{ error }}</strong>
+            <strong style="color: #ef4444; font-size: 1rem;">{{ icon('alert-triangle') }} {{ error }}</strong>
             <p style="margin-bottom: 0; font-size: 0.875rem; margin-top: 0.25rem; color: var(--pico-color);">Please ask a System Administrator to send you a fresh invitation link.</p>
         </div>
         <div style="text-align: center; margin-top: 2rem;">
@@ -26,13 +26,13 @@
 
         {% elif redeemed %}
         <div style="background: rgba(34, 197, 94, 0.12); border: 1px solid #22c55e; padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: center;">
-            <strong style="color: #22c55e; font-size: 1.25rem;">✅ Account Activated & Role Granted!</strong>
+            <strong style="color: #22c55e; font-size: 1.25rem;">{{ icon('check-circle') }} Account Activated & Role Granted!</strong>
             <p style="margin-bottom: 0; margin-top: 0.75rem; font-size: 1rem; color: var(--pico-color);">
                 Your account (<strong>{{ user.email or user.name or user.sub }}</strong>) has been activated with the <strong>{% if invite and invite.role %}{{ invite.role | replace('_', ' ') | title }}{% else %}Viewer{% endif %}</strong> system role.
             </p>
         </div>
         <div style="text-align: center; margin-top: 2rem;">
-            <a href="/" role="button" class="contrast" style="font-size: 1.1rem; padding: 0.75rem 2rem;">🚀 Go to Dashboard</a>
+            <a href="/" role="button" class="contrast" style="font-size: 1.1rem; padding: 0.75rem 2rem;">{{ icon('rocket') }} Go to Dashboard</a>
         </div>
 
         {% else %}
@@ -63,7 +63,7 @@
             <form action="/accept-invite" method="POST" style="margin-bottom: 0;">
                 <input type="hidden" name="token" value="{{ token }}">
                 <button type="submit" style="width: 100%; font-size: 1.05rem; padding: 0.75rem;">
-                    🚀 Accept & Activate Role
+                    {{ icon('rocket') }} Accept & Activate Role
                 </button>
             </form>
             <small style="display: block; margin-top: 0.85rem; color: var(--pico-muted-color);">
@@ -114,7 +114,7 @@
                     </div>
 
                     <button type="submit" id="reg-submit-btn" style="width: 100%; font-size: 1.05rem; padding: 0.75rem; margin-top: 0.5rem;">
-                        ✨ Create Account & Activate Role
+                        {{ icon('zap') }} Create Account & Activate Role
                     </button>
                 </fieldset>
             </form>
@@ -124,7 +124,7 @@
                     Already have an Authelia account?
                 </p>
                 <a href="/login?next=/accept-invite%3Ftoken%3D{{ token }}" style="font-size: 0.9rem; font-weight: 600; text-decoration: none;">
-                    🔐 Log in with existing account &rarr;
+                    {{ icon('lock') }} Log in with existing account &rarr;
                 </a>
             </div>
         </div>

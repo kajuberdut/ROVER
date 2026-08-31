@@ -53,6 +53,20 @@
 
         @media (min-width: 600px) { .brand-subtitle { display: block; } }
 
+        /* ── Lucide Vector SVG Icon Styling ── */
+        .lucide-icon {
+            width: 1.1em;
+            height: 1.1em;
+            vertical-align: -0.15em;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
         /* ── Universal Tooltip Formatting ── */
         [data-tooltip]::before,
         [data-tooltip]::after {
@@ -392,7 +406,7 @@
                    title="{{ get_active_notifications_count() }} unread system alert{{ 's' if get_active_notifications_count() != 1 else '' }}"
                    aria-label="System Alerts"
                    style="position: relative; text-decoration: none; font-size: 1.1rem; padding: 0.25rem 0.55rem; border: 1px solid rgba(255, 51, 102, 0.4); border-radius: var(--pico-border-radius); background: rgba(255, 51, 102, 0.12); display: flex; align-items: center; gap: 0.35rem; line-height: 1; transition: background 0.2s ease;">
-                    🚨
+                    {{ icon('alert-triangle') }}
                     <span style="background: #ff3366; color: white; border-radius: 999px; padding: 0.15rem 0.45rem; font-size: 0.75rem; font-weight: bold;">
                         {{ get_active_notifications_count() }}
                     </span>
@@ -402,42 +416,42 @@
                 <div class="user-menu" id="user-menu">
                     <button class="user-menu-trigger" id="user-menu-btn"
                         onclick="toggleUserMenu(event)" type="button">
-                        👤 {{ user.name or user.email or "User" }}
+                        {{ icon('users') }} {{ user.name or user.email or "User" }}
                         <span class="role-badge {{ user.role }}">{{ user.role | replace('_', ' ') }}</span>
-                        <span class="user-menu-chevron" id="user-menu-chevron">▾</span>
+                        <span class="user-menu-chevron" id="user-menu-chevron">{{ icon('chevron-down') }}</span>
                     </button>
                     <div class="user-menu-dropdown" id="user-menu-dropdown" hidden>
                         <span class="menu-label">{{ user.email or user.sub }}</span>
                         <div class="menu-divider"></div>
 
                         <span class="menu-section-header">Personal</span>
-                        <a href="/settings/tokens">🔑 API Tokens</a>
-                        <a href="/user/settings/notifications">🔔 Subscriptions</a>
+                        <a href="/settings/tokens">{{ icon('key') }} API Tokens</a>
+                        <a href="/user/settings/notifications">{{ icon('bell') }} Subscriptions</a>
 
                         {% if user.role == "system_admin" %}
                         <div class="menu-divider"></div>
                         <span class="menu-section-header">Administration</span>
-                        <a href="/config">⚙️ System Configuration</a>
+                        <a href="/config">{{ icon('settings') }} System Configuration</a>
                         <a href="/admin/alerts">
-                            🚨 System Alerts 
+                            {{ icon('alert-triangle') }} System Alerts 
                             {% if get_active_notifications_count() > 0 %}
                             <span style="background: #ff3366; color: white; border-radius: 999px; padding: 0.1rem 0.45rem; font-size: 0.75rem; font-weight: bold; margin-left: 0.25rem;">
                                 {{ get_active_notifications_count() }}
                             </span>
                             {% endif %}
                         </a>
-                        <a href="/admin/notifications/destinations">📡 Destinations</a>
-                        <a href="/admin/credentials">🔒 Credential Vault</a>
-                        <a href="/admin/users">👥 Users</a>
+                        <a href="/admin/notifications/destinations">{{ icon('radio') }} Destinations</a>
+                        <a href="/admin/credentials">{{ icon('lock') }} Credential Vault</a>
+                        <a href="/admin/users">{{ icon('users') }} Users</a>
                         {% endif %}
 
                         <div class="menu-divider"></div>
                         <span class="menu-section-header">Documentation</span>
-                        <a href="/docs/guide/index.html" target="_blank">📚 User Guide</a>
-                        <a href="/docs" target="_blank">📖 API Specification</a>
+                        <a href="/docs/guide/index.html" target="_blank">{{ icon('book-open') }} User Guide</a>
+                        <a href="/docs" target="_blank">{{ icon('file-text') }} API Specification</a>
 
                         <div class="menu-divider"></div>
-                        <a href="/logout">↩ Logout</a>
+                        <a href="/logout">{{ icon('log-out') }} Logout</a>
                     </div>
                 </div>
             </div>

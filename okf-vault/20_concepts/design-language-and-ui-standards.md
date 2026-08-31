@@ -31,6 +31,12 @@ Hyperlinks acting as action controls must use explicit `role="button"` combined 
 - **Outline Action**: `<a href="..." role="button" class="secondary outline">` (e.g., Manage System Destinations).
 - **High-Contrast Action**: `<a href="..." role="button" class="contrast">` (e.g., Log In).
 
+### 3. Self-Hosted Lucide Icon System
+
+- **Zero-CDN Architecture**: Vector SVG files stored in `src/rover/static/icons/*.svg` (ISC License FOSS).
+- **Jinja2 Global Helper**: Templates call `{{ icon('name', size=18) }}` (`src/rover/icons.py`).
+- **Inline Vector Rendering**: SVGs render inline for 0 HTTP requests and inherit CSS theme colors via `stroke: currentColor`.
+
 ---
 
 ## 🌈 Color Tokens & Severity Palette

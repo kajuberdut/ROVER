@@ -75,15 +75,15 @@
                             {% if dest.type in ['smtp', 'aws_ses'] and not dest.is_default %}
                             <form action="/api/notifications/destinations/{{ dest.id }}/set-default" method="POST" style="margin-bottom: 0; display: inline;">
                                 <button type="submit" class="outline secondary" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;" title="Set as Default System SMTP Gateway">
-                                    ⭐ Make Default
+                                    Make Default
                                 </button>
                             </form>
                             {% endif %}
                             <button onclick='openEditDestinationModal({{ dest | tojson }})' class="outline" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
-                                ✏️ Edit
+                                {{ icon('settings') }} Edit
                             </button>
                             <button onclick="testDestination('{{ dest.id }}')" class="outline" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
-                                ⚡ Test Ping
+                                {{ icon('zap') }} Test Ping
                             </button>
                             <form action="/api/notifications/destinations/{{ dest.id }}/delete" method="POST" style="margin-bottom: 0; display: inline;">
                                 <button type="submit" class="outline" style="color: var(--pico-del-color); border-color: var(--pico-del-color); padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">

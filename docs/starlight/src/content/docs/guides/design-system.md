@@ -56,6 +56,46 @@ Buttons and action links must use standard Pico CSS button classes and ARIA role
 
 ---
 
+## 🎨 Self-Hosted FOSS Vector Icon System (Lucide Icons)
+
+ROVER uses **Lucide Icons** (ISC License, 100% Permissive Open Source) for crisp, professional UI iconography across the application interface and documentation.
+
+### 1. Zero-CDN Self-Hosted Architecture
+- Icons are stored as local vector SVG files in `src/rover/static/icons/*.svg`.
+- No external network or CDN calls are made. ROVER operates 100% self-contained in air-gapped environments.
+- Jinja templates embed icons inline using the `{{ icon('name', size=18) }}` Jinja global helper (`src/rover/icons.py`).
+- Inline SVG vectors inherit CSS text colors (`stroke: currentColor`) for seamless theme dark-mode adaptability.
+
+### 2. Icon Usage in Templates
+
+```jinja
+<!-- Default 18px Icon -->
+{{ icon('shield') }} Security Overview
+
+<!-- Custom Size (e.g. 24px Header Icon) -->
+{{ icon('rocket', size=24) }} Launch Scan
+
+<!-- Icon with Custom CSS Class -->
+{{ icon('alert-triangle', class_name='text-danger') }} Warning
+```
+
+### 3. Core Icon Set Reference
+
+| Icon Name | Symbol Code | Application Usage |
+| :--- | :--- | :--- |
+| `shield` | `{{ icon('shield') }}` | ROVER brand, posture overview, security. |
+| `rocket` | `{{ icon('rocket') }}` | Scan execution, activation, deployment. |
+| `settings` | `{{ icon('settings') }}` | System configuration, edit settings. |
+| `users` | `{{ icon('users') }}` | User management, team members, user dropdown. |
+| `key` / `lock` | `{{ icon('key') }}` / `{{ icon('lock') }}` | API tokens, credential vault, authentication. |
+| `bell` / `radio` | `{{ icon('bell') }}` / `{{ icon('radio') }}` | Alert subscriptions, notification destinations. |
+| `book-open` | `{{ icon('book-open') }}` | Documentation and user guides. |
+| `alert-triangle` | `{{ icon('alert-triangle') }}` | System alerts, errors, critical warnings. |
+| `check-circle` | `{{ icon('check-circle') }}` | Success state, verified email, scan passed. |
+| `clock` / `calendar` | `{{ icon('clock') }}` / `{{ icon('calendar') }}` | Scheduled scan triggers, releases. |
+
+---
+
 ## 🏷️ Custom ROVER Utility Classes
 
 | Class Name | Description & Usage |
