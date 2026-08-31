@@ -72,7 +72,7 @@ up = { cmd = "docker compose -f docker/docker-compose.yml -p rover up -d --build
 dev = { sequence = [{ cmd = "bin/dev-setup.sh" }, { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover up -d --build" }], help = "Start the compose stack with Mailpit & WebhookHub dev mix-in" }
 dev-down = { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down", help = "Stop the development compose stack including Mailpit & WebhookHub" }
 down = { cmd = "docker compose -f docker/docker-compose.yml -p rover down", help = "Stop the compose stack in Docker" }
-reset = { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down -v --remove-orphans", help = "Stop containers and purge persistent database volumes for a clean slate reset" }
+reset = { cmd = "bin/reset.sh", help = "Stop containers and purge persistent database volumes (requires confirmation or --force)" }
 db-migrate = { cmd = "python -m rover.shipship apply ./migrations", help = "Apply database migrations via Shipship" }
 restart = { cmd = "docker compose -f docker/docker-compose.yml -p rover restart", help = "Restart the compose stack in Docker" }
 status = { sequence = [{ cmd = "docker compose -f docker/docker-compose.yml -p rover ps -a" }, { cmd = "docker compose -f docker/docker-compose.yml -p rover top" }], help = "Display container status and active processes for the ROVER compose stack" }

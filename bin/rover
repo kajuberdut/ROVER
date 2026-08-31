@@ -73,8 +73,7 @@ case "$CMD" in
         exec docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down "$@"
         ;;
     reset)
-        info "Resetting ROVER stack and purging database volumes..."
-        exec docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover down -v --remove-orphans "$@"
+        exec "$REPO_ROOT/bin/reset.sh" "$@"
         ;;
     down)
         info "Stopping ROVER service stack..."
