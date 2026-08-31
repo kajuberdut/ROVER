@@ -149,6 +149,6 @@ fi
 
 echo ""
 info "Setup complete! Next steps:"
-info "  1. ./bin/rover up"
+info "  1. poe dev (or poe up / ./bin/rover dev)"
 info "  2. Navigate to https://rover.local and log in with your Authelia 'admin' credentials."
-info "  3. Run: ./bin/rover promote-admin admin@rover.local"
+info "  3. Run: poe promote-admin admin@rover.local (or ./bin/rover promote-admin admin@rover.local)"
