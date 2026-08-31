@@ -140,3 +140,80 @@ When creating or updating templates in `src/rover/templates/`:
    ```
 
 3. **Forms & Modals**: Wrap form controls inside native `<fieldset>` and `<label>` tags provided by Pico CSS for automatic vertical alignment.
+
+---
+
+## 🪟 Modal Dialog Architecture & Design Standards
+
+ROVER utilizes native HTML5 `<dialog>` elements integrated with Pico CSS modal styling and encapsulated JavaScript handlers.
+
+### 1. Form & Content Modals (`<dialog>`)
+
+Custom content modals (e.g. Create Product, Create Release, Add Asset, Create Notification Rule, Generate Token) follow a unified, self-contained structure:
+
+```html
+<dialog id="create-rule-modal">
+    <article style="max-width: 600px;">
+        <header>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
+            <strong>Add Notification Rule</strong>
+        </header>
+        <form action="/api/notifications/rules" method="POST" style="margin-bottom: 0;">
+            <fieldset>
+                <label>Rule Name
+                    <input type="text" name="name" required placeholder="e.g. Production Security Alerts">
+                </label>
+                <!-- Additional form fields -->
+                <button type="submit">Save Rule</button>
+            </fieldset>
+        </form>
+    </article>
+</dialog>
+```
+
+#### Key Rules for Custom Modals:
+- **Encapsulated Close Button**: Header close buttons MUST use `onclick="this.closest('dialog').close();"` rather than hardcoded element IDs.
+- **Card Wrapper**: Direct child of `<dialog>` MUST be an `<article>` to enforce card padding, dark-mode background, and backdrop bounds.
+- **Global Backdrop Dismissal**: Global listener in `base.html` automatically detects clicks outside `<article>` on the backdrop and closes the dialog.
+- **Automatic Form Reset**: Global listener in `base.html` catches the dialog `'close'` event and clears form fields so modals open with fresh state.
+
+---
+
+### 2. Programmatic Confirmation Modal (`openGlobalConfirmModal`)
+
+For destructive or critical confirmation steps (Delete Product, Delete Release, Delete Asset, Revoke API Token), ROVER provides a centralized programmatic modal (`#global-confirm-modal` in `base.html`).
+
+#### Programmatic Invocation:
+
+```javascript
+// Simple Confirmation
+openGlobalConfirmModal({
+    title: 'Delete Asset',
+    message: 'Are you sure you want to remove asset <strong>v1.2.0</strong> from this release?',
+    actionUrl: '/releases/rel_123/assets/ast_456/delete',
+    buttonText: 'Delete Asset'
+});
+
+// Destructive Action with Mandatory Verification Typing
+openGlobalConfirmModal({
+    title: 'Delete Product',
+    message: 'This will permanently purge this product and all associated releases and scan history.',
+    actionUrl: '/products/prod_123/delete',
+    buttonText: 'Permanently Delete',
+    requireTyping: true,
+    expectedText: 'core-api-service'
+});
+```
+
+#### Modal Options Schema:
+
+| Property | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `title` | `string` | `'Confirm Action'` | Header text displayed in red highlight. |
+| `message` | `string` | `'This action is irreversible.'` | HTML message body describing consequences. |
+| `actionUrl` | `string` | *(Required)* | Form submission target endpoint URL. |
+| `actionValue` | `string` | `'delete'` | Value assigned to hidden `name="action"` field. |
+| `buttonText` | `string` | `'Confirm'` | Label for the red submit button. |
+| `requireTyping` | `boolean` | `false` | When `true`, disables the submit button until the user types `expectedText`. |
+| `expectedText` | `string` | `'I understand'` | Exact text the user must type to unlock confirmation. |
+

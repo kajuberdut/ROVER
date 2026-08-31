@@ -54,3 +54,14 @@ Hyperlinks acting as action controls must use explicit `role="button"` combined 
 - `--pico-color`: Primary body text (`#f8fafc`).
 - `--pico-muted-color`: Subtitles, timestamps, muted annotations (`#94a3b8`).
 - `--pico-primary`: Primary blue accent (`#3b82f6`).
+
+---
+
+## 🪟 Modal Dialog Architecture
+
+1. **HTML5 `<dialog>` Standard**: All modal popups use standard `<dialog>` elements styled by Pico CSS.
+2. **Encapsulated Close Button**: Modal headers standard close button: `<button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>`.
+3. **Global Backdrop Dismissal**: Global listener in `base.html` automatically detects clicks outside `<article>` on the backdrop and closes the dialog.
+4. **Automated Form State Reset**: Global `'close'` listener automatically resets internal form inputs when modals are dismissed.
+5. **Programmatic Global Confirmation (`openGlobalConfirmModal`)**: Reusable helper for destructive confirmation prompts (`openGlobalConfirmModal(options)`) with support for mandatory typing verification (`requireTyping: true`).
+
