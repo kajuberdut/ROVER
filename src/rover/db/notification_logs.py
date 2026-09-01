@@ -22,7 +22,7 @@ def log_notification_attempt(
 ) -> str:
     """Logs a notification delivery attempt to notification_logs."""
     log_id = str(uuid.uuid4())
-    payload_json = json.dumps(payload_dict) if payload_dict else None
+    payload_json = payload_dict if payload_dict else None
 
     with get_db_connection() as conn:
         conn.execute(

@@ -65,7 +65,7 @@ def add_notification_destination(
     """Creates a new notification destination record in DB and stores sensitive credentials in OpenBao Vault."""
     dest_id = str(uuid.uuid4())
     config_dict = config_dict or {}
-    config_json = json.dumps(config_dict)
+    config_json = config_dict
 
     if destination_type not in ("smtp", "aws_ses"):
         is_default = False
@@ -236,7 +236,7 @@ def update_notification_destination(
     if name is not None:
         values["name"] = name
     if config_dict is not None:
-        values["config_json"] = json.dumps(config_dict)
+        values["config_json"] = config_dict
 
     if is_default is True:
         if dest.get("type") in ("smtp", "aws_ses"):

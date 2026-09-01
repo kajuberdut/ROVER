@@ -263,7 +263,7 @@ notification_destinations = Table(
     Column("is_system", Boolean, nullable=False, server_default="false"),
     Column("is_default", Boolean, nullable=False, server_default="false"),
     Column("is_verified", Boolean, nullable=False, server_default=text("false")),
-    Column("config_json", String, nullable=False, server_default="{}"),
+    Column("config_json", JSON, nullable=False, server_default="{}"),
     Column("vault_secret_path", String, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
@@ -320,7 +320,7 @@ notification_logs = Table(
     Column("status", String, nullable=False),
     Column("http_status_code", Integer, default=None),
     Column("error_message", String, default=None),
-    Column("payload_json", String, default=None),
+    Column("payload_json", JSON, default=None),
     Column("retry_count", Integer, server_default="0"),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
