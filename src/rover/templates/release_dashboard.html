@@ -714,8 +714,12 @@
     if (eolNameInput) {
         // Fetch all components to populate the names datalist
         fetch('/api/eol/all')
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
             .then(data => {
+                if (!Array.isArray(data)) return;
                 const fragment = document.createDocumentFragment();
                 data.forEach(name => {
                     const opt = document.createElement('option');
@@ -724,7 +728,7 @@
                 });
                 namesList.appendChild(fragment);
             })
-            .catch(err => console.error("Failed to fetch EOL names", err));
+            .catch(err => console.warn("Failed to fetch EOL names:", err.message));
 
         // When a name is entered or selected, fetch its versions
         eolNameInput.addEventListener('change', (e) => {
@@ -741,6 +745,7 @@
                     return res.json();
                 })
                 .then(data => {
+                    if (!Array.isArray(data)) return;
                     const fragment = document.createDocumentFragment();
                     data.forEach(item => {
                         const opt = document.createElement('option');
@@ -749,7 +754,7 @@
                     });
                     versionsList.appendChild(fragment);
                 })
-                .catch(err => console.log("No version data for this component", err));
+                .catch(err => console.warn("No version data for component:", err.message));
         });
     }
 

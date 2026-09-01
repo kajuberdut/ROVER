@@ -1,3 +1,4 @@
+import asyncio
 import json
 import urllib.error
 import urllib.request
@@ -5,6 +6,16 @@ import urllib.request
 import falcon.asgi
 
 from rover import db
+
+
+def _fetch_url(url: str) -> str:
+    req_url = urllib.request.Request(  # noqa: S310
+        url,
+        headers={"User-Agent": "ROVER Scanner"},
+    )
+    with urllib.request.urlopen(req_url, timeout=10) as response:  # noqa: S310
+        content: bytes = response.read()
+        return content.decode("utf-8")
 
 
 class EolProxyAllResource:
@@ -22,24 +33,35 @@ class EolProxyAllResource:
 
         # Fetch, cache, and serve
         try:
-            req_url = urllib.request.Request(
-                "https://endoflife.date/api/all.json",
-                headers={"User-Agent": "ROVER Scanner"},
+            data = await asyncio.to_thread(
+                _fetch_url, "https://endoflife.date/api/all.json"
             )
-            with urllib.request.urlopen(req_url) as response:  # noqa: S310
-                data = response.read().decode("utf-8")
 
-                # Verify it's valid JSON before caching
-                json.loads(data)
+            # Verify it's valid JSON before caching
+            json.loads(data)
 
-                db.set_cached_eol_data("ALL", "list", data)
+            db.set_cached_eol_data("ALL", "list", data)
 
-                resp.text = data
-                resp.content_type = falcon.MEDIA_JSON
+            resp.text = data
+            resp.content_type = falcon.MEDIA_JSON
 
         except urllib.error.HTTPError as e:
-            raise falcon.HTTPNotFound(
-                title="API Error", description=f"HTTP Error {e.code}"
+            if e.code == 404:
+                raise falcon.HTTPNotFound(
+                    title="API Not Found", description="All components list not found"
+                )
+            raise falcon.HTTPBadGateway(
+                title="Upstream API Error", description=f"HTTP Error {e.code}"
+            )
+        except urllib.error.URLError as e:
+            raise falcon.HTTPBadGateway(
+                title="Upstream Connection Error",
+                description=f"Could not connect to endoflife.date: {e.reason}",
+            )
+        except TimeoutError:
+            raise falcon.HTTPGatewayTimeout(
+                title="Upstream Timeout",
+                description="Request to endoflife.date timed out",
             )
         except Exception as e:
             raise falcon.HTTPInternalServerError(
@@ -62,20 +84,17 @@ class EolProxyProductResource:
 
         # Fetch, cache, and serve
         try:
-            req_url = urllib.request.Request(
-                f"https://endoflife.date/api/{product}.json",
-                headers={"User-Agent": "ROVER Scanner"},
+            data = await asyncio.to_thread(
+                _fetch_url, f"https://endoflife.date/api/{product}.json"
             )
-            with urllib.request.urlopen(req_url) as response:  # noqa: S310
-                data = response.read().decode("utf-8")
 
-                # Verify it's valid JSON before caching
-                json.loads(data)
+            # Verify it's valid JSON before caching
+            json.loads(data)
 
-                db.set_cached_eol_data(product, "cycles", data)
+            db.set_cached_eol_data(product, "cycles", data)
 
-                resp.text = data
-                resp.content_type = falcon.MEDIA_JSON
+            resp.text = data
+            resp.content_type = falcon.MEDIA_JSON
 
         except urllib.error.HTTPError as e:
             if e.code == 404:
@@ -84,7 +103,17 @@ class EolProxyProductResource:
                     description=f"The component '{product}' was not found on endoflife.date",
                 )
             raise falcon.HTTPBadGateway(
-                title="API Error", description=f"HTTP Error {e.code}"
+                title="Upstream API Error", description=f"HTTP Error {e.code}"
+            )
+        except urllib.error.URLError as e:
+            raise falcon.HTTPBadGateway(
+                title="Upstream Connection Error",
+                description=f"Could not connect to endoflife.date: {e.reason}",
+            )
+        except TimeoutError:
+            raise falcon.HTTPGatewayTimeout(
+                title="Upstream Timeout",
+                description="Request to endoflife.date timed out",
             )
         except Exception as e:
             raise falcon.HTTPInternalServerError(
