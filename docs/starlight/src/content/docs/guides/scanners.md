@@ -41,8 +41,10 @@ R.O.V.E.R. uses intelligent caching to optimize scan performance and prevent unn
 
 ### Git Commit Hash Caching (Scanners)
 - **What is Cached**: Security scan results for Trivy, Semgrep, and Snyk for repository assets.
-- **How It Works**: Before launching containerized scanners, R.O.V.E.R. resolves the repository target ref (`git_ref` or `HEAD`) to its 40-character Git commit SHA-1 hash via `git ls-remote`. If a successful (`completed`) scan job already exists in the database for the exact same scanner name and commit SHA-1, R.O.V.E.R. reuses the existing scan report.
-- **Cache Duration**: **Permanent per Git Commit SHA-1**. Because Git commits are immutable by design, scan findings for a specific commit SHA-1 remain valid indefinitely.
+- **How It Works**: Before launching containerized scanners, R.O.V.E.R. resolves the repository target ref (`git_ref` or `HEAD`) to its 40-character Git commit SHA-1 hash via `git ls-remote`. If a successful (`completed`) scan job within the configured Time-To-Live (TTL) window already exists for the exact same scanner name and commit SHA-1, R.O.V.E.R. reuses the existing scan report.
+- **Cache Duration & Expiration**:
+  - **Configurable TTL**: Defaults to **8 hours**. The cache retention window is fully configurable via `[scanner.cache_ttl_hours]` in `config.toml` (or via the Web UI at `/config`).
+  - **Automatic Expiration**: Scan results older than `cache_ttl_hours` (8 hours by default) expire automatically. Re-running a scan on an asset whose cached results have expired will trigger a fresh scanner container execution, picking up newly published CVE vulnerability definitions or updated rule sets even if the Git commit SHA-1 remains unchanged.
 - **Cache Invalidation & Triggers**:
   - Pushing new commits to the repository/branch updates the commit SHA-1, automatically triggering a fresh scan.
   - Required API tokens (such as Snyk tokens) are validated *before* cache lookup. If authentication or credentials are invalid or missing, cache lookups are bypassed and an explicit failure is reported.

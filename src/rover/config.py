@@ -20,6 +20,10 @@ DEFAULT_CONFIG_TOML = f"""# R.O.V.E.R Configuration File
 # Default: 600 (10 minutes). Recommended range: 60 to 3600 seconds.
 timeout_seconds = 600
 
+# Duration in hours that a completed scan report is cached for a specific Git commit SHA-1.
+# Default: 8 hours. Recommended range: 1 to 72 hours.
+cache_ttl_hours = 8
+
 [scanners]
 # Pinned container image references used by ROVER worker plugins for security scanning.
 # To update a scanner tool, replace the tag or sha256 digest below after inspecting official release notes.
@@ -51,6 +55,7 @@ allow_user_invites = true
 @dataclass
 class ScannerConfig:
     timeout_seconds: int = 600
+    cache_ttl_hours: int = 8
 
 
 @dataclass
@@ -96,7 +101,8 @@ def load_config() -> RoverConfig:
     features_data = doc.get("features", {})
 
     scanner_config = ScannerConfig(
-        timeout_seconds=scanner_data.get("timeout_seconds", 600)
+        timeout_seconds=int(scanner_data.get("timeout_seconds", 600)),
+        cache_ttl_hours=int(scanner_data.get("cache_ttl_hours", 8)),
     )
     raw_snyk_targets = scanners_data.get("snyk_target_files", [])
     snyk_targets = (
