@@ -67,12 +67,22 @@ def update_scanner_job_status(
                     now = datetime.datetime.now()
                 duration = max(0, int((now - started).total_seconds()))
 
+        parsed_results = (
+            (
+                json.loads(results_json)
+                if isinstance(results_json, str)
+                else results_json
+            )
+            if results_json
+            else None
+        )
+
         conn.execute(
             update(scanner_jobs)
             .where(scanner_jobs.c.id == job_id)
             .values(
                 status=status,
-                results_json=results_json,
+                results_json=parsed_results,
                 error_message=error_message,
                 resolved_commit=resolved_commit,
                 resolved_tags=resolved_tags,

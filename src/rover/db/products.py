@@ -252,7 +252,10 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         pa.id as release_asset_id,
         pa.asset_type,
         pa.asset_id,
-        pa.git_ref,
+        CASE 
+            WHEN pa.asset_type = 'major_component' THEN COALESCE(pa.git_ref, e.version)
+            ELSE pa.git_ref
+        END as git_ref,
         CASE 
             WHEN pa.asset_type = 'repo' THEN r.url
             WHEN pa.asset_type = 'image' THEN i.name
@@ -274,7 +277,7 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
     LEFT JOIN LatestScans ls ON 
         (ls.rn = 1) AND 
         (ls.target_url = CASE WHEN pa.asset_type = 'repo' THEN r.url WHEN pa.asset_type = 'image' THEN i.name WHEN pa.asset_type = 'major_component' THEN e.name END) AND
-        (COALESCE(ls.git_ref, '') = COALESCE(pa.git_ref, ''))
+        (COALESCE(ls.git_ref, '') = COALESCE(pa.git_ref, e.version, ''))
     WHERE pa.release_id = :release_id
     ORDER BY pa.created_at DESC
     """)
