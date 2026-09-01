@@ -34,33 +34,33 @@
             <table role="grid">
                 <thead>
                     <tr>
-                        <th>Destination Name</th>
-                        <th>Type</th>
-                        <th>Host (port)</th>
-                        <th>From</th>
-                        <th>Scope</th>
-                        <th>Created</th>
-                        <th style="text-align: right;">Actions</th>
+                        <th style="white-space: nowrap;">Destination Name</th>
+                        <th style="white-space: nowrap;">Type</th>
+                        <th style="white-space: nowrap;">Host:Port</th>
+                        <th style="white-space: nowrap;">From</th>
+                        <th style="white-space: nowrap;">Scope</th>
+                        <th style="white-space: nowrap;">Created</th>
+                        <th style="text-align: right; white-space: nowrap;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for dest in destinations %}
                     <tr>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                        <td style="white-space: nowrap;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
                                 <strong style="color: var(--pico-color);">{{ dest.name }}</strong>
                                 {% if dest.is_default %}
-                                <span class="role-badge" style="background: #eab308; color: #000; font-weight: bold; font-size: 0.7rem;">⭐ Default System SMTP</span>
+                                <span class="role-badge" style="background: #eab308; color: #000; font-weight: bold; font-size: 0.7rem; white-space: nowrap;">⭐ Default System SMTP</span>
                                 {% endif %}
                             </div>
                         </td>
-                        <td>
-                            <span class="role-badge" style="background: var(--pico-primary-background); color: var(--pico-primary);">
+                        <td style="white-space: nowrap;">
+                            <span class="role-badge" style="background: var(--pico-primary-background); color: var(--pico-primary); white-space: nowrap;">
                                 {{ dest.type | upper }}
                             </span>
                         </td>
-                        <td>
-                            <small>
+                        <td style="white-space: nowrap;">
+                            <small style="white-space: nowrap;">
                                 {% if dest.type == 'webhook' %}{{ dest.config.url }}
                                 {% elif dest.type == 'slack' %}{{ dest.config.webhook_url }}
                                 {% elif dest.type == 'smtp' %}{{ dest.config.smtp_host }}:{{ dest.config.smtp_port }}
@@ -68,8 +68,8 @@
                                 {% endif %}
                             </small>
                         </td>
-                        <td>
-                            <small>
+                        <td style="white-space: nowrap;">
+                            <small style="white-space: nowrap;">
                                 {% if dest.type in ['smtp', 'aws_ses'] %}
                                     {{ dest.config.from_email or '—' }}
                                 {% else %}
@@ -77,10 +77,10 @@
                                 {% endif %}
                             </small>
                         </td>
-                        <td>
-                            <small style="text-transform: capitalize; color: var(--pico-muted-color);">{{ dest.scope }}</small>
+                        <td style="white-space: nowrap;">
+                            <small style="text-transform: capitalize; color: var(--pico-muted-color); white-space: nowrap;">{{ dest.scope }}</small>
                         </td>
-                        <td><small>{{ dest.created_at | humanize_time }}</small></td>
+                        <td style="white-space: nowrap;"><small style="white-space: nowrap;">{{ dest.created_at | humanize_time }}</small></td>
                         <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
                             <div style="display: inline-flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
                                 {% if dest.type in ['smtp', 'aws_ses'] and not dest.is_default %}
