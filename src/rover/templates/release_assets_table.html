@@ -19,12 +19,11 @@
 <tr>
     <td style="text-align: center; vertical-align: middle;">
         {% if asset.asset_type == 'repo' %}
-        <span style="white-space: nowrap; color: var(--pico-primary); font-size: 1.25rem;" title="Repository">📦</span>
+        <span style="white-space: nowrap; color: var(--pico-primary);" title="Repository">{{ icon('git-branch', size=18) }}</span>
         {% elif asset.asset_type == 'major_component' %}
-        <span style="white-space: nowrap; font-size: 1.25rem;" title="Major Component">⏳</span>
+        <span style="white-space: nowrap; color: var(--pico-color);" title="Major Component">{{ icon('layers', size=18) }}</span>
         {% else %}
-        <span style="white-space: nowrap; color: var(--pico-ins-color); font-size: 1.25rem;"
-            title="Container Image">🐳</span>
+        <span style="white-space: nowrap; color: var(--pico-ins-color);" title="Container Image">{{ icon('box', size=18) }}</span>
         {% endif %}
     </td>
     <td>
@@ -43,12 +42,12 @@
         {% if asset.asset_type == 'image' %}
             {% if asset.source_repo_url %}
             <div style="font-size: 0.8em; color: var(--pico-muted-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
-                <span title="Linked to Source Code">🔗</span>
+                <span title="Linked to Source Code">{{ icon('link', size=13) }}</span>
                 <a href="{{ asset.source_repo_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ asset.source_repo_url | short_url }}</a>
             </div>
             {% else %}
             <div style="font-size: 0.8em; color: var(--pico-del-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
-                <span title="Missing Source Code Annotations for Semgrep">⚠️</span>
+                <span title="Missing Source Code Annotations for Semgrep">{{ icon('alert-triangle', size=13) }}</span>
                 <span>Missing Source Link</span>
                 <button class="outline" style="padding: 0.1rem 0.3rem; font-size: 0.8em; border-color: var(--pico-del-color); color: var(--pico-del-color); margin-bottom: 0; margin-left: 0.5rem; border-radius: 4px;" onclick="openLinkRepoModal('{{ asset.asset_id }}', '{{ asset.asset_name }}')">Link</button>
             </div>
@@ -83,13 +82,13 @@
 
     <td>
         {% if asset.latest_scan_status == 'queued' %}
-        <span style="white-space: nowrap;">⏳ Queued</span>
+        <span style="white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">{{ icon('clock', size=14) }} Queued</span>
         {% elif asset.latest_scan_status == 'running' %}
         <span aria-busy="true" style="white-space: nowrap;">Running...</span>
         {% elif asset.latest_scan_status == 'completed' %}
-        <span style="white-space: nowrap;">✅ Completed</span>
+        <span style="white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">{{ icon('check-circle', size=14) }} Completed</span>
         {% elif asset.latest_scan_status == 'failed' %}
-        <span style="white-space: nowrap; color: #d32f2f;">❌ Failed</span>
+        <span style="white-space: nowrap; color: #d32f2f; display: inline-flex; align-items: center; gap: 0.25rem;">{{ icon('x-circle', size=14) }} Failed</span>
         {% else %}
         <span style="white-space: nowrap; color: grey;">Not Scanned</span>
         {% endif %}
@@ -114,12 +113,12 @@
             {% endif %}
 
             {% if ns.total_vulns > 0 %}
-                <kbd style="background-color: {% if ns.has_critical %}#d32f2f{% elif ns.has_high %}#f57c00{% else %}#6200ee{% endif %}; border: none; color: white; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem;">
-                    {% if ns.has_critical %}🔴{% elif ns.has_high %}🟠{% else %}⚠️{% endif %} {{ ns.total_vulns }} Findings
+                <kbd style="background-color: {% if ns.has_critical %}#d32f2f{% elif ns.has_high %}#f57c00{% else %}#6200ee{% endif %}; border: none; color: white; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+                    {{ icon('shield-alert', size=13) }} {{ ns.total_vulns }} Findings
                 </kbd>
             {% elif ns.any_scanned and ns.all_clean %}
-                <kbd style="background-color: transparent; border: 1px solid #388e3c; color: #388e3c; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem;">
-                    🟢 All Clean
+                <kbd style="background-color: transparent; border: 1px solid #388e3c; color: #388e3c; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+                    {{ icon('shield-check', size=13) }} All Clean
                 </kbd>
             {% elif asset.latest_scan_status in ['queued', 'running'] %}
                 <span aria-busy="true" style="font-size: 0.85em; color: var(--pico-muted-color);">Scanning...</span>
@@ -131,11 +130,19 @@
 
     <td>
         {% set is_read_write = user and (user.role == "system_admin" or product_role in ["admin", "read_write"]) %}
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <div style="display: flex; gap: 0.4rem; align-items: center; justify-content: flex-start;">
             {% if is_read_write %}
-            <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan" style="margin: 0; display: inline;">
-                <button type="submit" class="outline" title="Re-scan all scanners for this asset" style="padding: 0.25rem 0.5rem; margin-bottom: 0; font-size: 0.85em;">⚡ Scan</button>
+            <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan" style="margin: 0; display: inline-flex;">
+                <button type="submit" class="outline" title="Re-scan all scanners for this asset" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap;">{{ icon('zap', size=14) }} Scan</button>
             </form>
+            {% endif %}
+            {% if asset.latest_scan_id %}
+            <a href="/reports/{{ asset.latest_scan_id }}?back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}" role="button" class="outline"
+                style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap;">{{ icon('file-text', size=14) }} View Report</a>
+            {% else %}
+            <span style="color: grey; font-size: 0.82em; margin-right: 0.2rem;">No Report</span>
+            {% endif %}
+            {% if is_read_write %}
             <button type="button" class="outline contrast" title="Remove Asset"
                 onclick="openGlobalConfirmModal({
                     title: `Remove Asset: {{ asset.asset_name }}`,
@@ -144,13 +151,7 @@
                     requireTyping: false,
                     buttonText: `Permanently Remove`
                 })"
-                style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.2rem 0.5rem; margin-bottom: 0; line-height: 1; border-radius: 6px; font-weight: bold;" aria-label="Remove Asset">✕</button>
-            {% endif %}
-            {% if asset.latest_scan_id %}
-            <a href="/reports/{{ asset.latest_scan_id }}?back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}" role="button" class="outline"
-                style="padding: 0.25rem 0.75rem; margin-bottom: 0;">View Report</a>
-            {% else %}
-            <span style="color: grey; margin-right: 0.5rem; font-size: 0.85em;">No Report</span>
+                style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; border-color: var(--pico-del-color); color: var(--pico-del-color);" aria-label="Remove Asset">{{ icon('trash-2', size=14) }} Remove</button>
             {% endif %}
         </div>
     </td>
@@ -165,8 +166,8 @@
             {% for badge in asset.badges %}
             <div style="background: var(--pico-card-background-color, #1e293b); border: 1px solid var(--pico-border-color, #334155); border-radius: 8px; padding: 0.55rem 0.75rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.35rem;">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;">
-                    <div style="font-weight: 600; font-size: 0.85em; display: flex; align-items: center; gap: 0.3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        <span>{{ badge.icon }}</span>
+                    <div style="font-weight: 600; font-size: 0.85em; display: flex; align-items: center; gap: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <span>{{ icon(badge.icon, size=15) if badge.icon else '' }}</span>
                         <span>{{ badge.display_name }}</span>
                     </div>
                     {% if badge.status != 'none' %}
@@ -207,7 +208,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.1rem;">
                     {% if is_read_write %}
                     <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan?scanner={{ badge.scanner_name }}" style="margin: 0;">
-                        <button type="submit" class="outline" title="Re-scan with {{ badge.display_name }}" style="padding: 0.05rem 0.35rem; font-size: 0.72em; margin-bottom: 0; border-radius: 4px; font-weight: 600;">⚡ Scan</button>
+                        <button type="submit" class="outline" title="Re-scan with {{ badge.display_name }}" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.4rem; font-size: 0.72em; margin-bottom: 0; border-radius: 4px; font-weight: 600;">{{ icon('zap', size=12) }} Scan</button>
                     </form>
                     {% else %}
                     <span></span>

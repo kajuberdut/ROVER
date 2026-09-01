@@ -5,14 +5,14 @@
     <header style="padding: 0.75rem; margin-bottom: 0;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600;">
-                <span title="Major Component">⏳</span>
+                <span title="Major Component" style="color: var(--pico-color); display: inline-flex;">{{ icon('layers', size=18) }}</span>
                 <span title="{{ asset.asset_name }}">{{ asset.asset_name | short_url }} v{{ asset.git_ref }}</span>
             </div>
 
             {% if is_read_write %}
             <button type="button" class="outline" title="Remove Component"
-                style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.1rem 0.4rem; margin-bottom: 0;"
-                onclick="openGlobalConfirmModal({ title: 'Remove Major Component', message: 'Are you sure you want to remove <strong>{{ asset.asset_name }} v{{ asset.git_ref }}</strong> from this release?', actionUrl: '/releases/assets/{{ asset.release_asset_id }}', buttonText: 'Remove Component' });">✕</button>
+                style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.15rem 0.4rem; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center;"
+                onclick="openGlobalConfirmModal({ title: 'Remove Major Component', message: 'Are you sure you want to remove <strong>{{ asset.asset_name }} v{{ asset.git_ref }}</strong> from this release?', actionUrl: '/releases/assets/{{ asset.release_asset_id }}', buttonText: 'Remove Component' });">{{ icon('trash-2', size=14) }}</button>
             {% endif %}
         </div>
     </header>
@@ -45,11 +45,11 @@
     </div>
 
     <footer style="padding: 0.5rem; text-align: right; background-color: var(--pico-card-sectioning-background-color);">
-        <small style="color: var(--pico-muted-color);" {% if eol_data.get('latest')
+        <small style="color: var(--pico-muted-color); display: inline-flex; align-items: center; gap: 0.25rem;" {% if eol_data.get('latest')
             %}title="Latest Release: {{ eol_data.latest }}" {% endif %}>
             {% if asset.latest_scan_time %}Updated: {{ asset.latest_scan_time | humanize_time }}{% else %}Never
             checked{% endif %}
-            {% if eol_data.get('latest') %}&nbsp;ℹ️{% endif %}
+            {% if eol_data.get('latest') %}&nbsp;{{ icon('info', size=14) }}{% endif %}
         </small>
     </footer>
 </article>

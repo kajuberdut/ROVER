@@ -20,9 +20,9 @@ class SemgrepScannerPlugin:
 
     name = "semgrep"
     display_name = "Semgrep SAST"
-    icon = "🔍"
-    description = "Semgrep Static Application Security Testing (SAST)"
-    template_name: str | None = "report_semgrep.html"
+    icon = "search"
+    description = "Static Application Security Testing (SAST)"
+    template_name: str | None = None
     supported_asset_types = {"semgrep", "repo", "image"}
 
     def can_handle(self, target_type: str) -> bool:
@@ -36,36 +36,18 @@ class SemgrepScannerPlugin:
         duration_seconds: int | None = None,
         avg_duration_seconds: int | None = None,
     ) -> dict[str, Any]:
-        duration_str = (
-            f"{duration_seconds}s"
-            if (duration_seconds is not None and duration_seconds < 60)
-            else (
-                f"{duration_seconds // 60}m {duration_seconds % 60:02d}s"
-                if duration_seconds is not None
-                else None
-            )
-        )
-        avg_str = (
-            f"{int(avg_duration_seconds)}s"
-            if (avg_duration_seconds is not None and avg_duration_seconds < 60)
-            else (
-                f"{int(avg_duration_seconds) // 60}m {int(avg_duration_seconds) % 60:02d}s"
-                if avg_duration_seconds is not None
-                else None
-            )
-        )
+        duration_str = f"{duration_seconds}s" if duration_seconds is not None else None
+        avg_str = f"{int(avg_duration_seconds)}s" if avg_duration_seconds else None
 
         time_label = ""
-        if status == "running" and duration_str:
+        if duration_str:
             time_label = f" ({duration_str}" + (f", avg {avg_str})" if avg_str else ")")
-        elif status == "queued" and avg_str:
+        elif avg_str:
             time_label = f" (avg {avg_str})"
-        elif status == "completed" and duration_str:
-            time_label = f" [{duration_str}]"
 
         if status == "failed":
             return {
-                "label": f"🔍 ⚠️ SAST Failed{time_label}",
+                "label": f"SAST Failed{time_label}",
                 "status": "failed",
                 "bg": "#d32f2f",
                 "border": "#b71c1c",
@@ -76,7 +58,7 @@ class SemgrepScannerPlugin:
             }
         if status in ("queued", "running"):
             return {
-                "label": f"🔍 ⏳ SAST {status}{time_label}",
+                "label": f"SAST {status.title()}{time_label}",
                 "status": status,
                 "bg": "#ff9800",
                 "border": "#e65100",
@@ -89,7 +71,7 @@ class SemgrepScannerPlugin:
             findings = results.get("results", [])
             if len(findings) > 0:
                 return {
-                    "label": f"🔍 {len(findings)} SAST{time_label}",
+                    "label": f"{len(findings)} SAST{time_label}",
                     "status": "has_vulns",
                     "count": len(findings),
                     "bg": "#6200ee",
@@ -99,7 +81,7 @@ class SemgrepScannerPlugin:
                     "avg_str": avg_str,
                 }
             return {
-                "label": f"🔍 SAST Clean{time_label}",
+                "label": f"SAST Clean{time_label}",
                 "status": "clean",
                 "bg": "transparent",
                 "border": "#6200ee",
@@ -108,7 +90,7 @@ class SemgrepScannerPlugin:
                 "avg_str": avg_str,
             }
         return {
-            "label": "🔍 No SAST Data",
+            "label": "No SAST Data",
             "status": "none",
             "duration_str": duration_str,
             "avg_str": avg_str,
