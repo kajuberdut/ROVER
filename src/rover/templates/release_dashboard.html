@@ -33,7 +33,7 @@
             {% if not release.is_end_of_life and is_read %}
             <form action="/releases/{{ release.id }}/scan" method="POST" style="margin-bottom: 0; display: inline;">
                 <button type="submit" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
-                    {{ icon('rocket', size=16) }} Scan All Assets
+                    {{ icon('search', size=16) }} Scan All Assets
                 </button>
             </form>
             {% endif %}

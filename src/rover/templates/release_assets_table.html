@@ -133,7 +133,7 @@
         <div style="display: inline-flex; gap: 0.4rem; align-items: center; justify-content: flex-start;">
             {% if is_read_write %}
             <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan" style="margin: 0; display: inline-flex;">
-                <button type="submit" class="outline" title="Re-scan all scanners for this asset" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; flex-shrink: 0;">{{ icon('zap', size=14) }} Scan</button>
+                <button type="submit" class="outline" title="Re-scan all scanners for this asset" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; flex-shrink: 0;">{{ icon('search', size=14) }} Scan</button>
             </form>
             {% endif %}
             {% if asset.latest_scan_id %}
@@ -208,7 +208,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.1rem;">
                     {% if is_read_write %}
                     <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan?scanner={{ badge.scanner_name }}" style="margin: 0;">
-                        <button type="submit" class="outline" title="Re-scan with {{ badge.display_name }}" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.4rem; font-size: 0.72em; margin-bottom: 0; border-radius: 4px; font-weight: 600;">{{ icon('zap', size=12) }} Scan</button>
+                        <button type="submit" class="outline" title="Re-scan with {{ badge.display_name }}" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.4rem; font-size: 0.72em; margin-bottom: 0; border-radius: 4px; font-weight: 600;">{{ icon('search', size=12) }} Scan</button>
                     </form>
                     {% else %}
                     <span></span>
