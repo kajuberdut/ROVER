@@ -21,6 +21,16 @@ def parse_snyk_oss_output(json_text: str) -> tuple[list[dict[str, Any]], str | N
     """Parses Snyk OSS test JSON output into a tuple of (vulnerabilities, manifest_error_msg)."""
     if not json_text or not json_text.strip():
         return [], None
+    lower_txt = json_text.lower()
+    if (
+        "auth" in lower_txt
+        or "unauthorized" in lower_txt
+        or "invalid token" in lower_txt
+        or "snyk auth" in lower_txt
+    ):
+        raise Exception(
+            "Snyk authentication failed: Invalid or expired Snyk API token."
+        )
     try:
         json_start = json_text.find("{")
         json_end = json_text.rfind("}") + 1
@@ -44,10 +54,17 @@ def parse_snyk_oss_output(json_text: str) -> tuple[list[dict[str, Any]], str | N
                 for item in data:
                     vulns.extend(item.get("vulnerabilities", []))
                 return vulns, None
+        else:
+            raise Exception(f"Snyk returned non-JSON output: {json_text[:200]}")
     except Exception as e:
-        if "Snyk error:" in str(e):
+        if (
+            "Snyk error:" in str(e)
+            or "Snyk authentication failed:" in str(e)
+            or "Snyk returned non-JSON" in str(e)
+        ):
             raise
         logger.warning(f"Failed to parse Snyk OSS JSON output: {e}")
+        raise Exception(f"Failed to parse Snyk report: {e}") from e
     return [], None
 
 
@@ -204,13 +221,16 @@ class SnykScannerPlugin:
         if not snyk_token:
             snyk_token = os.getenv("SNYK_TOKEN")
 
+        if not snyk_token:
+            raise Exception(
+                "Snyk API token is not configured. Please add a Snyk Token credential in Settings -> Credentials."
+            )
+
         from rover import config
 
         snyk_img = config.get_scanner_image("snyk")
         container = dock_cls(snyk_img)
-
-        if snyk_token:
-            container.with_env("SNYK_TOKEN", snyk_token)
+        container.with_env("SNYK_TOKEN", snyk_token)
 
         commit_hash = "latest"
         tags_str = None
