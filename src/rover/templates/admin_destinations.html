@@ -71,22 +71,22 @@
                             <small style="text-transform: capitalize; color: var(--pico-muted-color);">{{ dest.scope }}</small>
                         </td>
                         <td><small>{{ dest.created_at | humanize_time }}</small></td>
-                        <td style="text-align: right; display: flex; gap: 0.5rem; justify-content: flex-end;">
+                        <td style="text-align: right; display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center; white-space: nowrap;">
                             {% if dest.type in ['smtp', 'aws_ses'] and not dest.is_default %}
                             <form action="/api/notifications/destinations/{{ dest.id }}/set-default" method="POST" style="margin-bottom: 0; display: inline;">
-                                <button type="submit" class="outline secondary" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;" title="Set as Default System SMTP Gateway">
+                                <button type="submit" class="outline secondary" style="height: 32px; padding: 0 0.65rem; font-size: 0.8rem; width: auto; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; white-space: nowrap; flex-shrink: 0;" title="Set as Default System SMTP Gateway">
                                     Make Default
                                 </button>
                             </form>
                             {% endif %}
-                            <button onclick='openEditDestinationModal({{ dest | tojson }})' class="outline" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
-                                {{ icon('settings') }} Edit
+                            <button onclick='openEditDestinationModal({{ dest | tojson }})' class="outline" style="height: 32px; width: 32px; min-width: 32px; padding: 0; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; flex-shrink: 0;" title="Edit Destination">
+                                {{ icon('settings', size=16) }}
                             </button>
-                            <button onclick="testDestination('{{ dest.id }}')" class="outline" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
-                                {{ icon('zap') }} Test Ping
+                            <button onclick="testDestination('{{ dest.id }}')" class="outline" style="height: 32px; padding: 0 0.65rem; font-size: 0.8rem; width: auto; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; white-space: nowrap; flex-shrink: 0;" title="Send Test Ping">
+                                Send Test
                             </button>
                             <form action="/api/notifications/destinations/{{ dest.id }}/delete" method="POST" style="margin-bottom: 0; display: inline;">
-                                <button type="submit" class="outline" style="color: var(--pico-del-color); border-color: var(--pico-del-color); padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
+                                <button type="submit" class="outline" style="color: var(--pico-del-color); border-color: var(--pico-del-color); height: 32px; padding: 0 0.65rem; font-size: 0.8rem; width: auto; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; white-space: nowrap; flex-shrink: 0;" title="Delete Destination">
                                     Delete
                                 </button>
                             </form>
