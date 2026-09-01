@@ -29,30 +29,45 @@ This guide defines the official design language, component conventions, Pico CSS
 | `<dialog>` | Native modal dialog windows (e.g. Add Rule, Test Destination, Invitation Modals). |
 | `<details>` & `<summary>` | Collapsible accordion sections (e.g., Quick Scan panel, Raw Scan JSON output). |
 
-### Interactive Buttons & Links
+### Interactive Buttons & Action Controls
 
-Buttons and action links must use standard Pico CSS button classes and ARIA roles:
+Buttons and action links adhere to standardized heights, compact padding, and flexbox alignment to maintain a refined visual presentation across toolbars, forms, and data tables:
 
 ```html
-<!-- Primary Action Button -->
-<button type="submit">🚀 Create Product</button>
+<!-- Primary CTA Header Button (Height: 36px, Lucide Icon) -->
+<button type="button" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+    {{ icon('plus', size=16) }} Create Release
+</button>
 
-<!-- Secondary Action Link Button -->
-<a href="/products/123" role="button" class="secondary">View Details</a>
+<!-- Secondary Neutral Toolbar Link (Height: 36px) -->
+<a href="/schedules" role="button" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+    {{ icon('clock', size=16) }} Schedules
+</a>
 
-<!-- Outline / Subtle Action Button -->
-<a href="/admin/notifications" role="button" class="secondary outline">⚙️ Manage Destinations</a>
+<!-- Icon-Only Table Row Action Button (32px x 32px Square) -->
+<button onclick="openEditModal()" class="outline" style="height: 32px; width: 32px; min-width: 32px; padding: 0; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; flex-shrink: 0;" title="Edit Settings">
+    {{ icon('settings', size=16) }}
+</button>
 
-<!-- High-Contrast Action Button -->
-<a href="/login" role="button" class="contrast">Log In</a>
+<!-- Text-Only Compact Table Button (Height: 32px) -->
+<button onclick="testPing()" class="outline" style="height: 32px; padding: 0 0.65rem; font-size: 0.8rem; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; white-space: nowrap; flex-shrink: 0;">
+    Send Test
+</button>
+
+<!-- Destructive Action Button (Far Right, Red Outline) -->
+<button type="button" class="outline" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); white-space: nowrap;">
+    {{ icon('trash-2', size=16) }} Delete Product
+</button>
 ```
 
-| Component Syntax | Purpose & Visual Style |
-| :--- | :--- |
-| `<button>` / `<button class="primary">` | High-visibility primary action (Submit, Scan, Save). |
-| `role="button" class="secondary"` | Standard neutral action button (Cancel, Back, View). |
-| `role="button" class="secondary outline"` | Bordered outline button for secondary toolbar actions. |
-| `role="button" class="contrast"` | High-contrast prominent button for authentication entry points. |
+| Component Category | Dimension & Syntax Standards | Visual Guidelines |
+| :--- | :--- | :--- |
+| **Primary Toolbar CTA** | `height: 36px`, `padding: 0 0.85rem`, `font-size: 0.85rem`, `border-radius: 6px` | Positioned first at the left of header action groups (`+ Create Release`, `+ Add Destination`). |
+| **Secondary Toolbar Actions** | `role="button" class="outline secondary"`, `height: 36px` | Neutral outline buttons for navigation links (`Schedules`, `Notifications`, `Permissions`). |
+| **Destructive Header Action** | `height: 36px`, `color: #ef4444`, `border-color: rgba(...)` | Positioned at the far right of action groups, distinct from standard workflows. |
+| **Compact Table Action** | `height: 32px`, `padding: 0 0.65rem`, `font-size: 0.8rem` | Compact text buttons inside table row cells (`Send Test`, `Make Default`). |
+| **Icon-Only Action** | `height: 32px`, `width: 32px`, `min-width: 32px`, `padding: 0` | Square icon-only button for row settings/edits (`{{ icon('settings', size=16) }}`) with tooltip `title="..."`. |
+| **Non-Wrapping Rule** | `white-space: nowrap; flex-shrink: 0;` | Mandatory on all buttons to prevent multi-word button labels from wrapping vertically. |
 
 ---
 
@@ -96,11 +111,11 @@ ROVER uses **Lucide Icons** (ISC License, 100% Permissive Open Source) for crisp
 
 ---
 
-## 🏷️ Custom ROVER Utility Classes
+## 🏷️ Custom ROVER Utility Classes & Status Badges
 
 | Class Name | Description & Usage |
 | :--- | :--- |
-| `.role-badge` | Compact pill badge for system roles (`system_admin`, `viewer`, `email_only`), notification scopes, and event rules. |
+| `.role-badge` | Compact pill badge for system roles (`system_admin`, `viewer`), scopes, risk status, and notification rules. |
 | `.status-pill` | Status indicator badge for scanner execution state (`running`, `completed`, `failed`, `queued`). |
 | `.finding-badge` | Count badge for vulnerability severity levels (`CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `UNKNOWN`). |
 | `.breadcrumb-row` | Top breadcrumb navigation wrapper. |
@@ -109,55 +124,53 @@ ROVER uses **Lucide Icons** (ISC License, 100% Permissive Open Source) for crisp
 | `.user-menu-dropdown` | User profile avatar dropdown menu. |
 | `.sticky-table` | Data table container with fixed headers for scan report listings. |
 
----
+### Status Pill & Microcopy Standards
 
-## 🎨 Color System & Palette Reference
+Status indicators and risk badges adhere to clean title-case microcopy, explicit non-wrapping, and inline vector icons:
 
-ROVER uses a centralized, semantic color palette for vulnerability posture, notification alert tiers, and lifecycle states.
-
-```mermaid
-graph LR
-    A["Vulnerability Severity"] --> B["🔴 CRITICAL / HIGH"]
-    A --> C["🟡 MEDIUM"]
-    A --> D["🟢 LOW / UNKNOWN"]
-
-    E["Notification Event"] --> F["🔴 vulnerability.found"]
-    E --> G["🟢 scan.completed"]
-    E --> H["🟡 scan.failed"]
-    E --> I["🟣 eol.warning"]
+```html
+<!-- Refined Status Pill Badge (Size 16 Icon, Title-Case Text, Non-Wrapping) -->
+<span class="role-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+    {{ icon('shield-alert', size=16) }} Critical Risk
+</span>
 ```
 
-### 1. Severity & Status Colors
-
-| Tier / State | Hex Color | Translucent Background (`rgba`) | Applied To |
-| :--- | :--- | :--- | :--- |
-| **Critical / Emergency** | `#ef4444` / `#f87171` | `rgba(239, 68, 68, 0.15)` | `CRITICAL` severity, `scan.failed`, error alerts, account removal. |
-| **High Severity** | `#ea580c` / `#f97316` | `rgba(234, 88, 12, 0.15)` | `HIGH` severity vulnerabilities, urgent warnings. |
-| **Medium / Warning** | `#f59e0b` / `#fbbf24` | `rgba(245, 158, 11, 0.15)` | `MEDIUM` severity, pending invitations, unverified alerts. |
-| **Low / Pass / Verified**| `#10b981` / `#34d399` | `rgba(16, 185, 129, 0.15)` | `LOW` severity, `scan.completed`, deliverability verified state. |
-| **EOL Lifecycle** | `#a855f7` / `#c084fc` | `rgba(168, 85, 247, 0.15)` | `eol.warning` lead-time rules, component lifecycle deprecations. |
-| **Info / System Roles** | `#3b82f6` / `#60a5fa` | `rgba(59, 130, 246, 0.15)` | `system_admin` role badges, product scopes, active tab indicators. |
-
-### 2. Pico CSS Theme Variable Tokens
-
-ROVER leverages standard Pico CSS design tokens to maintain seamless dark-mode themes:
-
-| CSS Variable | Default Value | Purpose |
-| :--- | :--- | :--- |
-| `--pico-background-color` | `#0f172a` / Dark Surface | Overall application body background. |
-| `--pico-card-background-color` | `#1e293b` / Slate Surface | Background color for `<article>` cards and modals. |
-| `--pico-border-color` | `#334155` / Muted Border | Divider lines, card outlines, table borders. |
-| `--pico-color` | `#f8fafc` / Bright Text | Primary readable body text color. |
-| `--pico-muted-color` | `#94a3b8` / Slate Muted | Subtitles, timestamps, secondary labels. |
-| `--pico-primary` | `#3b82f6` / Accent Blue | Primary buttons, active tabs, highlights. |
+1. **Title-Case Microcopy**: Use concise title-case labels (`Critical Risk`, `High Risk`, `Medium Risk`, `Low Risk`, `Clean (No Vulnerabilities)`). Avoid long all-caps text.
+2. **Disabling Uppercase Transformation**: Override badge uppercase styling (`text-transform: none; font-weight: 600; font-size: 0.8rem;`) to preserve clean geometry.
+3. **Integrated Iconography (`size=16`)**: Embed `16px` vector icons (`shield-alert`, `shield-check`, `check-circle`, `zap`, `x-circle`, `calendar`) inline with gap spacing (`gap: 0.45rem`).
+4. **Mandatory Non-Wrapping**: Declare `white-space: nowrap;` on all status badges to ensure pills remain single-line across grid cards and tables.
 
 ---
 
-## 📐 Layout & Template Conventions
+## 📐 Layout, Table Alignment & Empty State Conventions
 
 When creating or updating templates in `src/rover/templates/`:
 
-1. **Breadcrumbs**: Include a standard breadcrumb block at the top of the content block:
+1. **HTML Table Cell Display Rules (`<td>` vs Flexbox)**:
+   - **Rule**: Never set `display: flex` directly on a `<td>` element! Doing so overrides default `display: table-cell`, detaching the cell from the HTML table layout grid and producing vertical height misalignment ("step" / notch artifacts).
+   - **Correct Pattern**: Keep `<td>` as standard table-cell (`<td style="text-align: right; vertical-align: middle; white-space: nowrap;">`) and wrap action buttons in an internal flex container `<div style="display: inline-flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">`.
+
+2. **Table Header & Data Cell Non-Wrapping**:
+   - Apply `white-space: nowrap;` across table headers (`<th>`) and timestamp / cell text (`<td>`) to ensure compact, horizontal table rows.
+
+3. **Standard Empty State Pattern**:
+   - When a table or card grid contains 0 items, render a styled empty-state box instead of plain text:
+   ```html
+   <div style="grid-column: 1 / -1; text-align: center; padding: 3.5rem 1.5rem; color: var(--pico-muted-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); border-radius: 8px;">
+       <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--pico-border-color); border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; color: var(--pico-muted-color);">
+           {{ icon('box', size=26) }}
+       </div>
+       <div style="font-weight: 600; font-size: 1.05rem; color: var(--pico-color);">No Items Found</div>
+       <p style="margin: 0; font-size: 0.85rem; max-width: 440px; color: var(--pico-muted-color);">
+           Descriptive explanation text explaining what to do next.
+       </p>
+       <button type="button" style="width: auto; font-size: 0.8rem; padding: 0.35rem 0.85rem; margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 6px;">
+           {{ icon('plus', size=14) }} Create Item
+       </button>
+   </div>
+   ```
+
+4. **Breadcrumbs**: Include a standard breadcrumb block at the top of content blocks:
    ```html
    {% block breadcrumb %}
    <a href="/">Dashboard</a>

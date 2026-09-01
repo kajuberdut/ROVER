@@ -22,16 +22,27 @@ R.O.V.E.R. implements a standardized, accessible design system built on **Pico C
 - **Collapsible Panels**: `<details>` and `<summary>` handle expandable logs, raw JSON results, and quick actions.
 - **Modals**: Native `<dialog>` elements handle popup forms (e.g. Add Rule, Test Destination).
 
-### 2. Action Controls & Buttons
+### 2. Action Controls & Button Sizing Standards
 
-Hyperlinks acting as action controls must use explicit `role="button"` combined with modifier classes:
+- **Primary Toolbar CTA**: `height: 36px`, `padding: 0 0.85rem`, `font-size: 0.85rem`, `border-radius: 6px`. Placed first at the left edge of toolbar action groups (e.g. `[+ Create Release]`, `[+ Add Destination]`).
+- **Secondary Toolbar Actions**: `role="button" class="outline secondary"`, `height: 36px`. Neutral outline buttons for navigation (`[🕒 Schedules]`, `[🔔 Notifications]`).
+- **Destructive Header Actions**: `height: 36px`, red outline (`color: #ef4444`, `border-color: rgba(...)`). Positioned at the far right of action groups, distinct from standard workflows.
+- **Compact Table Actions**: `height: 32px`, `padding: 0 0.65rem`, `font-size: 0.8rem` (`Send Test`, `Make Default`).
+- **Icon-Only Table Actions**: `height: 32px`, `width: 32px`, `min-width: 32px`, `padding: 0`. Square icon-only button for row settings/edits (`{{ icon('settings', size=16) }}`) with tooltip `title="..."`.
+- **Non-Wrapping Standard**: All action controls and badges MUST include `white-space: nowrap; flex-shrink: 0;` to prevent vertical text wrapping.
 
-- **Primary Action**: `<button>` or `<button class="primary">` (e.g., Submit, Create Product).
-- **Secondary Action**: `<a href="..." role="button" class="secondary">` (e.g., View Details, Cancel).
-- **Outline Action**: `<a href="..." role="button" class="secondary outline">` (e.g., Manage System Destinations).
-- **High-Contrast Action**: `<a href="..." role="button" class="contrast">` (e.g., Log In).
+### 3. Refined Status Pills & Microcopy
 
-### 3. Self-Hosted Lucide Icon System
+- **Title-Case Microcopy**: Status badges use title-case concise labels (`Critical Risk`, `High Risk`, `Medium Risk`, `Low Risk`, `Clean (No Vulnerabilities)`).
+- **Disabling Uppercase Transformation**: Override badge uppercase styling (`text-transform: none; font-weight: 600; font-size: 0.8rem;`) to preserve clean geometry.
+- **Integrated Iconography (`size=16`)**: Embed `16px` vector icons (`shield-alert`, `shield-check`, `check-circle`, `zap`, `x-circle`, `calendar`) inline with text.
+
+### 4. Table Alignment & Empty States
+
+- **HTML Table Cell Display Rules**: Never set `display: flex` directly on a `<td>` element (overrides `display: table-cell` and causes row "step" / height misalignment). Always keep `<td>` as standard table cell and wrap buttons in an internal `display: inline-flex` container.
+- **Empty State Component**: Empty states use a centered layout, circular icon badge (`56px` × `56px`), clear title, concise subtext, and an inline primary CTA button.
+
+### 5. Self-Hosted Lucide Icon System
 
 - **Zero-CDN Architecture**: Vector SVG files stored in `src/rover/static/icons/*.svg` (ISC License FOSS).
 - **Jinja2 Global Helper**: Templates call `{{ icon('name', size=18) }}` (`src/rover/icons.py`).
