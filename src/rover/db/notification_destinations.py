@@ -159,9 +159,12 @@ def get_notification_destinations(
             elif d.get("updated_at") is not None:
                 d["updated_at"] = str(d["updated_at"])
 
-            if isinstance(d.get("config_json"), str):
+            c_raw = d.get("config_json")
+            if isinstance(c_raw, (dict, list)):
+                d["config"] = c_raw
+            elif isinstance(c_raw, (str, bytes)):
                 try:
-                    d["config"] = json.loads(d["config_json"])
+                    d["config"] = json.loads(c_raw)
                 except Exception:
                     d["config"] = {}
             else:
@@ -190,9 +193,12 @@ def get_notification_destination_by_id(dest_id: str) -> dict[str, Any] | None:
         elif d.get("updated_at") is not None:
             d["updated_at"] = str(d["updated_at"])
 
-        if isinstance(d.get("config_json"), str):
+        c_raw = d.get("config_json")
+        if isinstance(c_raw, (dict, list)):
+            d["config"] = c_raw
+        elif isinstance(c_raw, (str, bytes)):
             try:
-                d["config"] = json.loads(d["config_json"])
+                d["config"] = json.loads(c_raw)
             except Exception:
                 d["config"] = {}
         else:

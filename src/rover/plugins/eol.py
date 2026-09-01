@@ -76,8 +76,13 @@ class EolComponentScannerPlugin:
         cached_json = db_ref.get_cached_eol_data(target_name, target_version)
         if cached_json:
             logger.info(f"Using cached EOL data for {target_name} v{target_version}")
+            parsed_cached = (
+                json.loads(cached_json)
+                if isinstance(cached_json, (str, bytes))
+                else cached_json
+            )
             return ScanResult(
-                results=json.loads(cached_json),
+                results=parsed_cached,
                 source="eol_cache",
                 status="cached",
             )

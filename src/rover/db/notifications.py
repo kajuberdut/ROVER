@@ -64,9 +64,12 @@ def get_active_admin_notifications() -> list[dict[str, Any]]:
         results = []
         for row in rows:
             data = dict(row._mapping)
-            if isinstance(data.get("metadata_json"), str):
+            m_raw = data.get("metadata_json")
+            if isinstance(m_raw, (dict, list)):
+                data["metadata"] = m_raw
+            elif isinstance(m_raw, (str, bytes)):
                 try:
-                    data["metadata"] = json.loads(data["metadata_json"])
+                    data["metadata"] = json.loads(m_raw)
                 except Exception:
                     data["metadata"] = {}
             else:
@@ -86,9 +89,12 @@ def get_all_admin_notifications(limit: int = 50) -> list[dict[str, Any]]:
         results = []
         for row in rows:
             data = dict(row._mapping)
-            if isinstance(data.get("metadata_json"), str):
+            m_raw = data.get("metadata_json")
+            if isinstance(m_raw, (dict, list)):
+                data["metadata"] = m_raw
+            elif isinstance(m_raw, (str, bytes)):
                 try:
-                    data["metadata"] = json.loads(data["metadata_json"])
+                    data["metadata"] = json.loads(m_raw)
                 except Exception:
                     data["metadata"] = {}
             else:

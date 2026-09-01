@@ -224,7 +224,10 @@ async def process_snyk_job(
             cached = get_completed_snyk_job_by_commit(commit_hash)
             if cached and cached.get("results_json"):
                 try:
-                    cdata = json.loads(cached["results_json"])
+                    c_raw = cached["results_json"]
+                    cdata = (
+                        json.loads(c_raw) if isinstance(c_raw, (str, bytes)) else c_raw
+                    )
                     if isinstance(cdata, dict) and (
                         "snyk_oss" in cdata or "vulnerabilities" in cdata
                     ):

@@ -165,15 +165,18 @@ def update_scanner_job_status(
 
 
 def extract_vulnerabilities_from_results(
-    scanner_name: str, results_json: str | None
+    scanner_name: str, results_json: Any
 ) -> list[dict[str, Any]]:
     """Parses scan results JSON and extracts standardized vulnerability dictionaries."""
     if not results_json:
         return []
-    try:
-        data = json.loads(results_json)
-    except Exception:
-        return []
+    if isinstance(results_json, (dict, list)):
+        data = results_json
+    else:
+        try:
+            data = json.loads(results_json)
+        except Exception:
+            return []
 
     vulns: list[dict[str, Any]] = []
 
