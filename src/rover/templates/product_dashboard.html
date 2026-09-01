@@ -30,14 +30,32 @@
     }
 </style>
 <section>
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
         <hgroup style="margin-bottom: 0; flex: 1; min-width: 0; overflow-wrap: anywhere;">
-            <h2 style="margin-bottom: 0;">{{ product.name }}</h2>
-            <h3 style="margin-bottom: 0; margin-top: 0.25rem;">{{ product.description or 'Manage releases and
-                vulnerability posture for this product.' }}</h3>
+            <h1 style="margin-bottom: 0.25rem;">{{ product.name }}</h1>
+            <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">{{ product.description or 'Manage releases and vulnerability posture for this product.' }}</p>
         </hgroup>
-        <div style="display: flex; gap: 0.5rem; align-items: center;">
-{% set is_read = user and (user.role == 'system_admin' or product_role in ['admin', 'read_write', 'read'] or not product_role) %}
+        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            {% set is_read = user and (user.role == 'system_admin' or product_role in ['admin', 'read_write', 'read'] or not product_role) %}
+            {% if user.role == 'system_admin' or product_role in ['admin', 'read_write'] %}
+            <button type="button" onclick="document.getElementById('add-release-modal').showModal();"
+                style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+                {{ icon('plus', size=16) }} Create Release
+            </button>
+            {% endif %}
+            {% if is_read %}
+            <a href="/products/{{ product.id }}/schedules" role="button" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+                {{ icon('clock', size=16) }} Schedules
+            </a>
+            {% endif %}
+            {% if user.role == 'system_admin' or product_role == 'admin' %}
+            <a href="/products/{{ product.id }}/settings/notifications" role="button" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+                {{ icon('bell', size=16) }} Notifications
+            </a>
+            <a href="/products/{{ product.id }}/permissions" role="button" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+                {{ icon('shield-check', size=16) }} Permissions
+            </a>
+            {% endif %}
             {% if user.role == 'system_admin' %}
             <button type="button" class="outline" onclick="openGlobalConfirmModal({
                 title: `Delete Product: {{ product.name }}`,
@@ -47,24 +65,15 @@
                 expectedText: `I understand`,
                 buttonText: `Permanently Delete`
             })"
-                style="margin-bottom: 0; color: #d32f2f; border-color: #d32f2f;">Delete Product</button>
-            {% endif %}
-            {% if is_read %}
-            <a href="/products/{{ product.id }}/schedules" role="button" class="outline" style="margin-bottom: 0;">Schedules</a>
-            {% endif %}
-            {% if user.role == 'system_admin' or product_role == 'admin' %}
-            <a href="/products/{{ product.id }}/settings/notifications" role="button" class="outline" style="margin-bottom: 0;">Notifications</a>
-            <a href="/products/{{ product.id }}/permissions" role="button" class="outline" style="margin-bottom: 0;">Permissions</a>
-            {% endif %}
-            {% if user.role == 'system_admin' or product_role in ['admin', 'read_write'] %}
-            <button type="button" class="outline" onclick="document.getElementById('add-release-modal').showModal();"
-                style="margin-bottom: 0;">Create Release</button>
+                style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); white-space: nowrap;">
+                {{ icon('trash-2', size=16) }} Delete Product
+            </button>
             {% endif %}
         </div>
     </div>
 
     <!-- Active Releases Grid -->
-    <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem;">
         {% for release in releases %}
         {% set assets = db.get_release_assets_with_latest_scans(release.id) %}
         {% set ns = namespace(highest_severity='clean', is_scanning=false, is_failed=false, not_scanned=false) %}
@@ -98,68 +107,81 @@
         {% endfor %}
         {% endif %}
 
-        {# Determine card border styling #}
-        {% set border_style = "var(--pico-muted-color)" %}
-        {% if ns.highest_severity == 'critical' %}
-        {% set border_style = "2px solid #d32f2f" %}
-        {% elif ns.highest_severity == 'high' %}
-        {% set border_style = "2px solid #f57c00" %}
-        {% elif ns.highest_severity == 'medium' %}
-        {% set border_style = "2px solid #fbc02d" %}
-        {% elif ns.highest_severity == 'low' %}
-        {% set border_style = "2px solid #388e3c" %}
-        {% elif ns.highest_severity == 'clean' and not ns.is_scanning and not ns.is_failed and not ns.not_scanned %}
-        {% set border_style = "2px solid #388e3c" %}
-        {% endif %}
-
         {% set card_opacity = "1" %}
         {% if release.is_end_of_life %}
-        {% set border_style = "2px solid var(--pico-muted-color)" %}
         {% set card_opacity = "0.7" %}
         {% endif %}
 
         <a href="/releases/{{ release.id }}" class="card-link">
-        <article
-            style="border: {{ border_style }}; opacity: {{ card_opacity }};">
-            <header style="margin-bottom: 0.5rem; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
-                <div style="min-width: 0; flex: 1;">
-                    <h3 style="margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Release v{{ release.version }}">Release v{{ release.version }}</h3>
-                    <small style="color: grey; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ release.name }}">{{ release.name }}</small>
-                </div>
-                {% if release.is_end_of_life %}
-                <span style="font-size: 0.7em; color: var(--pico-muted-color); border: 1px solid var(--pico-muted-color); padding: 2px 6px; border-radius: 4px; flex-shrink: 0;">EOL</span>
-                {% endif %}
-            </header>
+            <article style="background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; height: 100%; opacity: {{ card_opacity }};">
+                <div>
+                    <header style="margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--pico-border-color); display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+                        <div style="min-width: 0; flex: 1;">
+                            <h3 style="margin-bottom: 0.2rem; font-size: 1.1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--pico-color);" title="Release v{{ release.version }}">Release v{{ release.version }}</h3>
+                            <small style="color: var(--pico-muted-color); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ release.name }}">{{ release.name }}</small>
+                        </div>
+                        {% if release.is_end_of_life %}
+                        <span class="role-badge" style="font-size: 0.7rem; padding: 0.15rem 0.5rem; background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); flex-shrink: 0;">EOL</span>
+                        {% endif %}
+                    </header>
 
-            <div style="flex-grow: 1; margin-bottom: 1rem;">
-                {% if release.is_end_of_life %}
-                <span style="color: var(--pico-muted-color);">End of Life (Scans Disabled)</span>
-                {% elif ns.highest_severity == 'unknown' %}
-                <span style="color: grey;">No assets attached.</span>
-                {% elif ns.is_scanning %}
-                <span aria-busy="true" style="color: var(--pico-primary);">Scanning active assets...</span>
-                {% elif ns.is_failed %}
-                <span style="color: #d32f2f;">Scan failures detected.</span>
-                {% elif ns.not_scanned %}
-                <span style="color: grey;">Pending initial scans.</span>
-                {% elif ns.highest_severity == 'critical' %}
-                <strong style="color: #d32f2f;">Critical Vulnerabilities Found</strong>
-                {% elif ns.highest_severity == 'high' %}
-                <strong style="color: #f57c00;">High Vulnerabilities Found</strong>
-                {% elif ns.highest_severity == 'medium' %}
-                <strong style="color: #fbc02d;">Medium Vulnerabilities Found</strong>
-                {% elif ns.highest_severity == 'low' %}
-                <strong style="color: #388e3c;">Low Vulnerabilities Found</strong>
-                {% else %}
-                <strong style="color: #388e3c;">Clean (No Vulns Found)</strong>
-                {% endif %}
-            </div>
-        </article>
+                    <div style="margin-bottom: 0.5rem; display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        {% if release.is_end_of_life %}
+                        <span class="role-badge" style="background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                            {{ icon('calendar', size=16) }} End of Life (Scans Disabled)
+                        </span>
+                        {% elif ns.highest_severity == 'unknown' %}
+                        <span style="color: var(--pico-muted-color); font-size: 0.85rem;">No assets attached yet.</span>
+                        {% elif ns.is_scanning %}
+                        <span class="role-badge" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                            {{ icon('zap', size=16) }} Scanning Active Assets...
+                        </span>
+                        {% elif ns.is_failed %}
+                        <span class="role-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                            {{ icon('x-circle', size=16) }} Scan Failures Detected
+                        </span>
+                        {% elif ns.not_scanned %}
+                        <span style="color: var(--pico-muted-color); font-size: 0.85rem;">Pending initial scans.</span>
+                        {% elif ns.highest_severity == 'critical' %}
+                        <span class="role-badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                            {{ icon('shield-alert', size=16) }} Critical Risk
+                        </span>
+                        {% elif ns.highest_severity == 'high' %}
+                        <span class="role-badge" style="background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                            {{ icon('shield-alert', size=16) }} High Risk
+                        </span>
+                        {% elif ns.highest_severity == 'medium' %}
+                        <span class="role-badge" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                            {{ icon('shield-alert', size=16) }} Medium Risk
+                        </span>
+                        {% elif ns.highest_severity == 'low' %}
+                        <span class="role-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                            {{ icon('shield-check', size=16) }} Low Risk
+                        </span>
+                        {% else %}
+                        <span class="role-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.8rem; font-weight: 600; text-transform: none; white-space: nowrap; padding: 0.3rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; gap: 0.45rem;">
+                            {{ icon('check-circle', size=16) }} Clean (No Vulnerabilities)
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
         </a>
         {% else %}
-        <article style="grid-column: 1 / -1;">
-            <em>No releases found for this product. Click "Create Release" to get started.</em>
-        </article>
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3.5rem 1.5rem; color: var(--pico-muted-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); border-radius: 8px;">
+            <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--pico-border-color); border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; color: var(--pico-muted-color);">
+                {{ icon('box', size=26) }}
+            </div>
+            <div style="font-weight: 600; font-size: 1.05rem; color: var(--pico-color);">No Releases Configured Yet</div>
+            <p style="margin: 0; font-size: 0.85rem; max-width: 440px; color: var(--pico-muted-color);">
+                Create a release to attach container images, source repositories, or Helm charts for security vulnerability evaluation.
+            </p>
+            {% if user.role == 'system_admin' or product_role in ['admin', 'read_write'] %}
+            <button type="button" onclick="document.getElementById('add-release-modal').showModal();" style="width: auto; font-size: 0.8rem; padding: 0.35rem 0.85rem; margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 6px;">
+                {{ icon('plus', size=14) }} Create First Release
+            </button>
+            {% endif %}
+        </div>
         {% endfor %}
     </div>
 </section>
