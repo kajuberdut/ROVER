@@ -8,21 +8,21 @@
 
 {% block content %}
 <section>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
         <div>
-            <h1 style="margin-bottom: 0.2rem;">{% if scope == 'product' %}Notifications: {{ product.name }}{% else %}Personal Notification Subscriptions{% endif %}</h1>
+            <h1 style="margin-bottom: 0.25rem;">{% if scope == 'product' %}Notifications: {{ product.name }}{% else %}Personal Notification Subscriptions{% endif %}</h1>
             <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
-                Configure notification event rules (scan completion, vulnerability findings, EOL lead time alerts) attached to approved destinations.
+                Subscribe to security scan and component lifecycle alerts.
             </p>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if user and user.role == 'system_admin' %}
-            <a href="/admin/notifications/destinations" role="button" class="secondary outline" style="width: auto; margin-bottom: 0;">
-                {{ icon('settings') }} Manage System Destinations
+            <a href="/admin/notifications/destinations" role="button" class="secondary outline" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px;">
+                {{ icon('settings', size=16) }} System Destinations
             </a>
             {% endif %}
-            <button onclick="openRuleModal()" style="width: auto; margin-bottom: 0;">
-                + Add Notification Rule
+            <button onclick="openRuleModal()" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px;">
+                {{ icon('plus', size=16) }} Add Notification Rule
             </button>
         </div>
     </div>
@@ -31,7 +31,7 @@
     <article style="margin-bottom: 2rem;">
         <header style="display: flex; justify-content: space-between; align-items: center;">
             <strong>Active Notification Rules</strong>
-            <small style="color: var(--pico-muted-color);">Evaluated on scan completion and vulnerability alerts</small>
+            <small style="color: var(--pico-muted-color);">Evaluated on scan completion and vulnerability findings</small>
         </header>
         <div style="padding: 1.5rem;">
             {% if rules %}
@@ -124,8 +124,17 @@
                 {% endfor %}
             </div>
             {% else %}
-            <div style="text-align: center; padding: 2.5rem; color: var(--pico-muted-color);">
-                No notification rules configured yet. Click <strong>+ Add Notification Rule</strong> to subscribe to events.
+            <div style="text-align: center; padding: 3rem 1.5rem; color: var(--pico-muted-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem;">
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--pico-border-color); border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; color: var(--pico-muted-color);">
+                    {{ icon('bell', size=26) }}
+                </div>
+                <div style="font-weight: 600; font-size: 1rem; color: var(--pico-color);">No Active Notification Rules</div>
+                <p style="margin: 0; font-size: 0.85rem; max-width: 420px; color: var(--pico-muted-color);">
+                    You haven't configured any notification rules yet. Create a rule to receive security alerts and scan notifications.
+                </p>
+                <button onclick="openRuleModal()" class="outline" style="width: auto; font-size: 0.8rem; padding: 0.35rem 0.85rem; margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 6px;">
+                    {{ icon('plus', size=14) }} Create First Rule
+                </button>
             </div>
             {% endif %}
         </div>

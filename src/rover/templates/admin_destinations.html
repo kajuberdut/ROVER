@@ -10,16 +10,16 @@
 
 {% block content %}
 <section>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
         <div>
-            <h1 style="margin-bottom: 0.2rem;">System Notification Destinations</h1>
+            <h1 style="margin-bottom: 0.25rem;">System Notification Destinations</h1>
             <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
-                Configure shared notification destinations (Slack, Webhooks, SMTP Email, AWS SES) and encrypt secret credentials in OpenBao Vault.
+                Configure shared notification destinations and OpenBao credentials.
             </p>
         </div>
         <div>
-            <button onclick="document.getElementById('create-destination-modal').showModal()" style="width: auto; margin-bottom: 0;">
-                + Add Destination
+            <button onclick="document.getElementById('create-destination-modal').showModal()" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px;">
+                {{ icon('plus', size=16) }} Add Destination
             </button>
         </div>
     </div>
@@ -94,8 +94,11 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--pico-muted-color);">
-                            No shared notification destinations configured yet.
+                        <td colspan="6" style="text-align: center; padding: 3rem 1.5rem; color: var(--pico-muted-color);">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                                {{ icon('send', size=24) }}
+                                <span>No shared notification destinations configured yet.</span>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
