@@ -285,6 +285,7 @@ class RequireAuthMiddleware:
                 req.context.user = session_data
                 if session_data.get("role") == "email_only" and not (
                     req.path.startswith("/user/subscriptions")
+                    or req.path.startswith("/static")
                     or req.path
                     in ["/logout", "/confirm-email", "/user/settings/notifications"]
                 ):

@@ -7,28 +7,42 @@
 {% endblock %}
 
 {% block content %}
-<article style="max-width: 560px; margin: 3rem auto; text-align: center;">
+<article style="max-width: 560px; margin: 3rem auto; padding: 2rem; border-radius: 12px; text-align: center;">
     {% if success %}
-    <div style="font-size: 3.5rem; margin-bottom: 1rem;">✅</div>
-    <h2>Email Address Verified!</h2>
-    <p>Your email address <strong>{{ email }}</strong> has been successfully verified for notifications.</p>
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(56, 142, 60, 0.15); color: #388e3c; margin-bottom: 1.25rem;">
+        {{ icon('check-circle', size=36) }}
+    </div>
+    <h2 style="margin-bottom: 0.5rem;">Email Address Verified!</h2>
+    <p style="color: var(--pico-muted-color); font-size: 0.95rem; margin-bottom: 1.5rem;">
+        Your email address <strong style="color: var(--pico-color);">{{ email }}</strong> has been successfully verified for security alerts & notifications.
+    </p>
 
-    <div style="background: var(--pico-card-background-color); border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1.5rem; margin: 1.5rem 0; text-align: left;">
-        <h4 style="margin-top: 0;">📬 Manage Your Subscriptions</h4>
-        <p style="font-size: 0.9rem; margin-bottom: 1rem;">
+    <div style="background: var(--pico-card-background-color, rgba(255, 255, 255, 0.03)); border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; text-align: left;">
+        <h4 style="margin-top: 0; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; font-size: 1.05rem;">
+            {{ icon('mail', size=18) }} Manage Your Subscriptions
+        </h4>
+        <p style="font-size: 0.88rem; color: var(--pico-muted-color); margin-bottom: 1.25rem; line-height: 1.45;">
             You can view your active notification rules, modify alert preferences, or unsubscribe at any time on your <strong>My Subscriptions</strong> page.
         </p>
         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-            <a href="/user/subscriptions" role="button" class="primary" style="flex: 1;">Go to My Subscriptions</a>
-            <a href="/forgot-password{% if email %}?email={{ email }}{% endif %}" role="button" class="secondary" style="flex: 1;">Create Account Password</a>
+            <a href="/user/subscriptions" role="button" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; border-radius: 6px; flex: 1; min-width: 180px; white-space: nowrap; text-decoration: none;">
+                {{ icon('mail', size=16) }} Go to My Subscriptions
+            </a>
+            <a href="/forgot-password{% if email %}?email={{ email }}{% endif %}" role="button" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; border-radius: 6px; flex: 1; min-width: 180px; white-space: nowrap; text-decoration: none;">
+                {{ icon('key', size=16) }} Create Account Password
+            </a>
         </div>
     </div>
     {% else %}
-    <div style="font-size: 3.5rem; margin-bottom: 1rem;">❌</div>
-    <h2 style="color: var(--pico-del-color);">Verification Failed</h2>
-    <p>{{ error }}</p>
-    <div style="margin-top: 2rem;">
-        <a href="/login" role="button" class="contrast">Log In to ROVER</a>
+    <div style="display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: rgba(239, 68, 68, 0.15); color: #ef4444; margin-bottom: 1.25rem;">
+        {{ icon('x-circle', size=36) }}
+    </div>
+    <h2 style="color: var(--pico-del-color); margin-bottom: 0.5rem;">Verification Failed</h2>
+    <p style="color: var(--pico-muted-color); font-size: 0.95rem; margin-bottom: 1.5rem;">{{ error }}</p>
+    <div style="margin-top: 1.5rem;">
+        <a href="/login" role="button" class="outline secondary" style="height: 36px; padding: 0 1rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 6px; text-decoration: none;">
+            {{ icon('log-out', size=16) }} Log In to R.O.V.E.R
+        </a>
     </div>
     {% endif %}
 </article>
