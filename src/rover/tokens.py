@@ -1,15 +1,19 @@
 """src/rover/tokens.py — Unified Token Generation & Verification Module for ROVER."""
 
 import logging
+import os
 import secrets
 from typing import Any
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from rover import db
-from rover.auth import SESSION_SECRET
 
 logger = logging.getLogger(__name__)
+
+SESSION_SECRET = os.environ.get(
+    "ROVER_SECRET_KEY", "fallback_secret_key_change_in_production"
+)
 
 # Serializers with distinct salts for cryptographic domain separation
 _email_serializer = URLSafeTimedSerializer(SESSION_SECRET, salt="email-verification")
