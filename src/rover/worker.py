@@ -217,8 +217,17 @@ async def process_snyk_job(
                     c in "0123456789abcdef" for c in candidate
                 ):
                     commit_hash = candidate
-        except Exception as e:
-            logger.debug(f"Pre-scan ls-remote failed for snyk: {e}")
+        from rover import db
+
+        snyk_token: str | None = None
+        snyk_token, _ = db.get_unmasked_secret_by_type_info(credential_type="snyk_token")
+        if not snyk_token:
+            snyk_token = os.getenv("SNYK_TOKEN")
+
+        if not snyk_token:
+            raise Exception(
+                "Snyk API token is not configured. Please add a Snyk Token credential in Settings -> Credentials."
+            )
 
         if commit_hash:
             cached = get_completed_snyk_job_by_commit(commit_hash)
