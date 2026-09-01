@@ -243,4 +243,4 @@ nginx/certs/
 openbao_keys.json
 openbao/config/unseal_key.txt
 openbao/config/tls/
-openbao/data/
+openbao/data/authelia/auth.db.bak

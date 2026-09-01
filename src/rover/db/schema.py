@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    JSON,
     TIMESTAMP,
     Boolean,
     Column,
@@ -47,7 +48,7 @@ eol_cache = Table(
     Column("id", String, primary_key=True),
     Column("name", String, nullable=False),
     Column("version", String, nullable=False),
-    Column("response_json", String, nullable=False),
+    Column("response_json", JSON, nullable=False),
     Column("cached_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
 
