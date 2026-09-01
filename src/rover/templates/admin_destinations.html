@@ -36,7 +36,8 @@
                     <tr>
                         <th>Destination Name</th>
                         <th>Type</th>
-                        <th>Configuration</th>
+                        <th>Host (port)</th>
+                        <th>From</th>
                         <th>Scope</th>
                         <th>Created</th>
                         <th style="text-align: right;">Actions</th>
@@ -62,8 +63,17 @@
                             <small>
                                 {% if dest.type == 'webhook' %}{{ dest.config.url }}
                                 {% elif dest.type == 'slack' %}{{ dest.config.webhook_url }}
-                                {% elif dest.type == 'smtp' %}{{ dest.config.smtp_host }}:{{ dest.config.smtp_port }} (From: {{ dest.config.from_email or 'Default' }})
-                                {% elif dest.type == 'aws_ses' %}{{ dest.config.region }} (From: {{ dest.config.from_email or 'Default' }})
+                                {% elif dest.type == 'smtp' %}{{ dest.config.smtp_host }}:{{ dest.config.smtp_port }}
+                                {% elif dest.type == 'aws_ses' %}{{ dest.config.region }}
+                                {% endif %}
+                            </small>
+                        </td>
+                        <td>
+                            <small>
+                                {% if dest.type in ['smtp', 'aws_ses'] %}
+                                    {{ dest.config.from_email or '—' }}
+                                {% else %}
+                                    <span style="color: var(--pico-muted-color);">—</span>
                                 {% endif %}
                             </small>
                         </td>
@@ -96,7 +106,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 3rem 1.5rem; color: var(--pico-muted-color);">
+                        <td colspan="7" style="text-align: center; padding: 3rem 1.5rem; color: var(--pico-muted-color);">
                             <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
                                 {{ icon('send', size=24) }}
                                 <span>No shared notification destinations configured yet.</span>
