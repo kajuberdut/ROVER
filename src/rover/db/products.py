@@ -305,35 +305,34 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
                 status = None
                 err = None
 
+                def _load_res(raw_res: Any) -> Any:
+                    if raw_res is None:
+                        return None
+                    if isinstance(raw_res, (dict, list)):
+                        return raw_res
+                    if isinstance(raw_res, (str, bytes)):
+                        import json
+
+                        try:
+                            return json.loads(raw_res)
+                        except Exception as exc:
+                            logger.debug(f"Failed to parse results_json: {exc}")
+                    return None
+
                 if plugin.name == "semgrep":
                     status = asset.get("semgrep_scan_status")
                     err = asset.get("semgrep_error_message")
                     if asset.get("semgrep_results_json"):
-                        import json
-
-                        try:
-                            results = json.loads(asset["semgrep_results_json"])
-                        except Exception as exc:
-                            logger.debug(f"Failed to parse semgrep_results_json: {exc}")
+                        results = _load_res(asset["semgrep_results_json"])
                 elif plugin.name == "snyk":
                     status = asset.get("snyk_scan_status")
                     err = asset.get("snyk_error_message")
                     if asset.get("snyk_results_json"):
-                        import json
-
-                        try:
-                            results = json.loads(asset["snyk_results_json"])
-                        except Exception as exc:
-                            logger.debug(f"Failed to parse snyk_results_json: {exc}")
+                        results = _load_res(asset["snyk_results_json"])
                 elif plugin.name == "trivy":
                     status = asset.get("latest_scan_status")
                     if asset.get("results_json"):
-                        import json
-
-                        try:
-                            results = json.loads(asset["results_json"])
-                        except Exception as exc:
-                            logger.debug(f"Failed to parse results_json: {exc}")
+                        results = _load_res(asset["results_json"])
 
                 # Also check unified scanner_jobs table
                 duration_sec = None
@@ -368,14 +367,7 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
                         duration_sec = scanner_job.get("duration_seconds")
                         started_at_val = scanner_job.get("started_at")
                         if scanner_job.get("results_json"):
-                            import json
-
-                            try:
-                                results = json.loads(scanner_job["results_json"])
-                            except Exception as exc:
-                                logger.debug(
-                                    f"Failed to parse scanner_job results_json: {exc}"
-                                )
+                            results = _load_res(scanner_job["results_json"])
 
                 # Calculate elapsed time if currently running
                 if status == "running" and started_at_val:

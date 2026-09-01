@@ -97,26 +97,26 @@
         humanize_time }}</td>
     <td>
         <div style="display: flex; gap: 0.35rem; align-items: center;">
-            {% set ns = namespace(total_vulns=0, has_critical=false, has_high=false, any_scanned=false, all_clean=true) %}
+            {% set vulns_ns = namespace(total_vulns=0, has_critical=false, has_high=false, any_scanned=false, all_clean=true) %}
             {% if asset.badges %}
                 {% for badge in asset.badges %}
                     {% if badge.status == 'has_vulns' %}
-                        {% set ns.total_vulns = ns.total_vulns + (badge.total or badge.count or 0) %}
-                        {% set ns.any_scanned = true %}
-                        {% set ns.all_clean = false %}
-                        {% if badge.critical and badge.critical > 0 %}{% set ns.has_critical = true %}{% endif %}
-                        {% if badge.high and badge.high > 0 %}{% set ns.has_high = true %}{% endif %}
+                        {% set vulns_ns.total_vulns = vulns_ns.total_vulns + (badge.total or badge.count or 0) %}
+                        {% set vulns_ns.any_scanned = true %}
+                        {% set vulns_ns.all_clean = false %}
+                        {% if badge.critical and badge.critical > 0 %}{% set vulns_ns.has_critical = true %}{% endif %}
+                        {% if badge.high and badge.high > 0 %}{% set vulns_ns.has_high = true %}{% endif %}
                     {% elif badge.status == 'clean' %}
-                        {% set ns.any_scanned = true %}
+                        {% set vulns_ns.any_scanned = true %}
                     {% endif %}
                 {% endfor %}
             {% endif %}
 
-            {% if ns.total_vulns > 0 %}
-                <kbd style="background-color: {% if ns.has_critical %}#d32f2f{% elif ns.has_high %}#f57c00{% else %}#6200ee{% endif %}; border: none; color: white; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem;">
-                    {{ icon('shield-alert', size=13) }} {{ ns.total_vulns }} Findings
+            {% if vulns_ns.total_vulns > 0 %}
+                <kbd style="background-color: {% if vulns_ns.has_critical %}#d32f2f{% elif vulns_ns.has_high %}#f57c00{% else %}#6200ee{% endif %}; border: none; color: white; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+                    {{ icon('shield-alert', size=13) }} {{ vulns_ns.total_vulns }} Findings
                 </kbd>
-            {% elif ns.any_scanned and ns.all_clean %}
+            {% elif vulns_ns.any_scanned and vulns_ns.all_clean %}
                 <kbd style="background-color: transparent; border: 1px solid #388e3c; color: #388e3c; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem;">
                     {{ icon('shield-check', size=13) }} All Clean
                 </kbd>
