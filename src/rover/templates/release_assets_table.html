@@ -128,22 +128,22 @@
         </div>
     </td>
 
-    <td>
+    <td style="white-space: nowrap; vertical-align: middle;">
         {% set is_read_write = user and (user.role == "system_admin" or product_role in ["admin", "read_write"]) %}
-        <div style="display: flex; gap: 0.4rem; align-items: center; justify-content: flex-start;">
+        <div style="display: inline-flex; gap: 0.4rem; align-items: center; justify-content: flex-start;">
             {% if is_read_write %}
             <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan" style="margin: 0; display: inline-flex;">
-                <button type="submit" class="outline" title="Re-scan all scanners for this asset" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap;">{{ icon('zap', size=14) }} Scan</button>
+                <button type="submit" class="outline" title="Re-scan all scanners for this asset" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; flex-shrink: 0;">{{ icon('zap', size=14) }} Scan</button>
             </form>
             {% endif %}
             {% if asset.latest_scan_id %}
-            <a href="/reports/{{ asset.latest_scan_id }}?back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}" role="button" class="outline"
-                style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap;">{{ icon('file-text', size=14) }} View Report</a>
+            <a href="/reports/{{ asset.latest_scan_id }}?back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}" role="button" class="outline secondary"
+                style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; flex-shrink: 0;">{{ icon('file-text', size=14) }} View Report</a>
             {% else %}
             <span style="color: grey; font-size: 0.82em; margin-right: 0.2rem;">No Report</span>
             {% endif %}
             {% if is_read_write %}
-            <button type="button" class="outline contrast" title="Remove Asset"
+            <button type="button" class="outline" title="Remove Asset"
                 onclick="openGlobalConfirmModal({
                     title: `Remove Asset: {{ asset.asset_name }}`,
                     message: `This action is <strong>irreversible</strong> and will permanently remove this asset from the release.`,
@@ -151,7 +151,7 @@
                     requireTyping: false,
                     buttonText: `Permanently Remove`
                 })"
-                style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; border-color: var(--pico-del-color); color: var(--pico-del-color);" aria-label="Remove Asset">{{ icon('trash-2', size=14) }} Remove</button>
+                style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; flex-shrink: 0; color: #ef4444; border-color: rgba(239, 68, 68, 0.4);" aria-label="Remove Asset">{{ icon('trash-2', size=14) }} Remove</button>
             {% endif %}
         </div>
     </td>
@@ -226,6 +226,11 @@
 {% endif %}
 {% else %}
 <tr>
-    <td colspan="7">No assets added to this release yet.</td>
+    <td colspan="7" style="text-align: center; padding: 3rem 1.5rem; color: var(--pico-muted-color);">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            {{ icon('layers', size=24) }}
+            <span>No assets attached to this release yet. Click "Add Asset" to get started.</span>
+        </div>
+    </td>
 </tr>
 {% endfor %}

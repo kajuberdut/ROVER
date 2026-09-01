@@ -11,7 +11,7 @@
 
             {% if is_read_write %}
             <button type="button" class="outline" title="Remove Component"
-                style="border-color: var(--pico-del-color); color: var(--pico-del-color); padding: 0.15rem 0.4rem; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center;"
+                style="height: 32px; width: 32px; min-width: 32px; padding: 0; border-color: rgba(239, 68, 68, 0.4); color: #ef4444; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; flex-shrink: 0;"
                 onclick="openGlobalConfirmModal({ title: 'Remove Major Component', message: 'Are you sure you want to remove <strong>{{ asset.asset_name }} v{{ asset.git_ref }}</strong> from this release?', actionUrl: '/releases/assets/{{ asset.release_asset_id }}', buttonText: 'Remove Component' });">{{ icon('trash-2', size=14) }}</button>
             {% endif %}
         </div>
