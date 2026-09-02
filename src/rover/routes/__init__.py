@@ -198,8 +198,10 @@ def create_app() -> falcon.asgi.App:
         NotificationDestinationSetDefaultResource,
         NotificationDestinationTestResource,
         NotificationDestinationUpdateResource,
+        NotificationRuleAddRecipientResource,
         NotificationRuleCreateResource,
         NotificationRuleDeleteResource,
+        NotificationRuleRemoveRecipientResource,
         ProductNotificationsPageResource,
         UserNotificationsPageResource,
     )
@@ -232,6 +234,14 @@ def create_app() -> falcon.asgi.App:
     app.add_route(
         "/api/notifications/rules/{rule_id}/delete",
         NotificationRuleDeleteResource(),
+    )
+    app.add_route(
+        "/api/notifications/rules/{rule_id}/recipients/add",
+        NotificationRuleAddRecipientResource(),
+    )
+    app.add_route(
+        "/api/notifications/rules/{rule_id}/recipients/remove",
+        NotificationRuleRemoveRecipientResource(),
     )
 
     # Machine-to-machine JSON API & Interactive OpenAPI Specs

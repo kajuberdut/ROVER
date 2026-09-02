@@ -436,3 +436,48 @@ class NotificationDestinationTestResource:
                 payload_dict=test_payload,
             )
             resp.media = {"status": "error", "error": str(e), "delivered": False}
+
+
+class NotificationRuleAddRecipientResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, rule_id: str
+    ) -> None:
+        user = getattr(req.context, "user", None)
+        if not user:
+            raise falcon.HTTPUnauthorized()
+
+        form = await req.get_media()
+        email = str(form.get("email", "")).strip()
+
+        if email and "@" in email:
+            base_url = f"{req.scheme}://{req.forwarded_host or req.host}"
+            target_user = db.ensure_email_only_user(email, is_verified=False)
+            if not target_user.get("is_verified"):
+                send_verification_email(
+                    email,
+                    target_type="user",
+                    target_id=target_user["sub"],
+                    base_url=base_url,
+                )
+            db.add_rule_recipient_email(rule_id, email)
+
+        referer = req.get_header("Referer", default="/user/settings/notifications")
+        raise falcon.HTTPFound(referer)
+
+
+class NotificationRuleRemoveRecipientResource:
+    async def on_post(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response, rule_id: str
+    ) -> None:
+        user = getattr(req.context, "user", None)
+        if not user:
+            raise falcon.HTTPUnauthorized()
+
+        form = await req.get_media()
+        email = str(form.get("email", "")).strip()
+
+        if email:
+            db.remove_rule_recipient_email(rule_id, email)
+
+        referer = req.get_header("Referer", default="/user/settings/notifications")
+        raise falcon.HTTPFound(referer)

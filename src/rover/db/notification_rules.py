@@ -300,6 +300,58 @@ def unsubscribe_user_from_rule(
     return True
 
 
+def add_rule_recipient_email(rule_id: str, email: str) -> bool:
+    """Adds a single recipient email to an existing notification rule."""
+    email_clean = email.strip()
+    if not email_clean or "@" not in email_clean:
+        return False
+
+    rule = get_notification_rule_by_id(rule_id)
+    if not rule:
+        return False
+
+    from rover.db.users import ensure_email_only_user
+
+    target_user = ensure_email_only_user(email_clean, is_verified=False)
+
+    with get_db_connection() as conn:
+        existing = get_rule_recipient_emails(rule_id)
+        if email_clean in existing:
+            return True
+
+        conn.execute(
+            notification_rule_recipients.insert().values(
+                id=str(uuid.uuid4()),
+                rule_id=rule_id,
+                recipient_type="user",
+                user_sub=target_user["sub"],
+                email=email_clean,
+            )
+        )
+    return True
+
+
+def remove_rule_recipient_email(rule_id: str, email: str) -> bool:
+    """Removes a recipient email from an existing notification rule."""
+    email_clean = email.strip()
+    if not email_clean:
+        return False
+
+    with get_db_connection() as conn:
+        conn.execute(
+            delete(notification_rule_recipients).where(
+                notification_rule_recipients.c.rule_id == rule_id,
+                or_(
+                    notification_rule_recipients.c.email == email_clean,
+                    notification_rule_recipients.c.user_sub.in_(
+                        select(users.c.sub).where(users.c.email == email_clean)
+                    ),
+                ),
+            )
+        )
+    return True
+
+
 def evaluate_notification_rules(
     event_type: str,
     severity: str | None = None,
