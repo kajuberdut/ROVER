@@ -425,7 +425,9 @@
                         <div class="menu-divider"></div>
 
                         <span class="menu-section-header">Personal</span>
+                        {% if user.role != "email_only" %}
                         <a href="/settings/tokens">{{ icon('key') }} API Tokens</a>
+                        {% endif %}
                         <a href="/user/settings/notifications">{{ icon('bell') }} Subscriptions</a>
 
                         {% if user.role == "system_admin" %}
@@ -448,10 +450,14 @@
                         <div class="menu-divider"></div>
                         <span class="menu-section-header">Documentation</span>
                         <a href="/docs/guide/index.html" target="_blank">{{ icon('book-open') }} User Guide</a>
+                        {% if user.role != "email_only" %}
                         <a href="/docs" target="_blank">{{ icon('file-text') }} API Specification</a>
+                        {% endif %}
 
+                        {% if user.role != "email_only" %}
                         <div class="menu-divider"></div>
                         <a href="/logout">{{ icon('log-out') }} Logout</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
