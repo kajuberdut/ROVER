@@ -19,18 +19,24 @@
 
     <div style="background: var(--pico-card-background-color, rgba(255, 255, 255, 0.03)); border: 1px solid var(--pico-muted-border-color); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem; text-align: left;">
         <h4 style="margin-top: 0; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; font-size: 1.05rem;">
-            {{ icon('mail', size=18) }} Manage Your Subscriptions
+            {{ icon('mail', size=18) }} Self-Service Subscriptions
         </h4>
         <p style="font-size: 0.88rem; color: var(--pico-muted-color); margin-bottom: 1.25rem; line-height: 1.45;">
-            You can view your active notification rules, modify alert preferences, or unsubscribe at any time on your <strong>My Subscriptions</strong> page.
+            You can view your active notification rules, modify alert preferences, or unsubscribe at any time on your <strong>My Subscriptions</strong> portal. Access is authenticated passwordlessly via magic email links.
         </p>
-        <div style="display: flex; flex-direction: column; gap: 0.75rem; width: 100%;">
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            {% if user and user.role != 'email_only' %}
+            <a href="/" role="button" style="height: 38px; padding: 0 1rem; font-size: 0.88rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; border-radius: 6px; flex: 1; min-width: 160px; white-space: nowrap; text-decoration: none;">
+                {{ icon('bar-chart', size=16) }} Go to Dashboard
+            </a>
+            <a href="/user/subscriptions" role="button" class="outline secondary" style="height: 38px; padding: 0 1rem; font-size: 0.88rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; border-radius: 6px; flex: 1; min-width: 160px; white-space: nowrap; text-decoration: none;">
+                {{ icon('mail', size=16) }} My Subscriptions
+            </a>
+            {% else %}
             <a href="/user/subscriptions" role="button" style="height: 38px; padding: 0 1rem; font-size: 0.88rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; border-radius: 6px; width: 100%; box-sizing: border-box; text-decoration: none;">
                 {{ icon('mail', size=16) }} Go to My Subscriptions
             </a>
-            <a href="/forgot-password{% if email %}?email={{ email }}{% endif %}" role="button" class="outline secondary" style="height: 38px; padding: 0 1rem; font-size: 0.88rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; border-radius: 6px; width: 100%; box-sizing: border-box; text-decoration: none;">
-                {{ icon('key', size=16) }} Create Account Password
-            </a>
+            {% endif %}
         </div>
     </div>
     {% else %}
