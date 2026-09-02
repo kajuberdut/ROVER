@@ -403,6 +403,17 @@ def evaluate_notification_rules(
             ):
                 continue
 
+        recips = get_rule_recipients(rule["id"])
+        recip_emails = get_rule_recipient_emails(rule["id"])
+        if not recip_emails and rule.get("user_sub"):
+            from rover.db.users import get_user
+
+            creator = get_user(rule["user_sub"])
+            if creator and creator.get("email"):
+                recip_emails = [creator["email"]]
+
+        rule["recipients"] = recips
+        rule["recipient_emails"] = recip_emails
         matching_rules.append(rule)
 
     return matching_rules

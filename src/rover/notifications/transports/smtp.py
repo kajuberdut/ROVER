@@ -77,7 +77,6 @@ class SmtpTransport(BaseTransport):
             or payload.get("recipient_email")
             or config.get("to_email")
             or config.get("recipient")
-            or from_email
         )
         if not to_emails_raw:
             logger.error("SmtpTransport delivery failed: no recipient emails provided.")

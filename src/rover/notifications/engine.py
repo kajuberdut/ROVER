@@ -99,9 +99,14 @@ def dispatch_event(
             verified_recipient_emails = []
             for email_addr in rule["recipient_emails"]:
                 user_rec = db.get_user_by_email(email_addr)
-                if user_rec and user_rec.get("is_verified"):
+                if not user_rec:
                     verified_recipient_emails.append(email_addr)
-                elif not user_rec:
+                elif user_rec.get("is_verified"):
+                    verified_recipient_emails.append(email_addr)
+                elif (
+                    user_rec.get("auth_provider") != "email_only"
+                    or user_rec.get("role") != "email_only"
+                ):
                     verified_recipient_emails.append(email_addr)
             rule_payload["recipient_emails"] = verified_recipient_emails
 
