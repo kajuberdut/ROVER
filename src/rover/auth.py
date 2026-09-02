@@ -364,7 +364,12 @@ class LoginResource:
             {"state": state, "nonce": nonce, "next": next_url}
         )
         resp.set_cookie(
-            "rover_auth_state", temp_session, secure=False, http_only=True, path="/"
+            "rover_auth_state",
+            temp_session,
+            secure=False,
+            http_only=True,
+            path="/",
+            same_site="Lax",
         )
 
         params = {
@@ -392,30 +397,34 @@ class CallbackResource:
         error = req.get_param("error")
 
         if error:
-            resp.text = f"Authentication Error: {error}"
-            resp.status = falcon.HTTP_400
-            return
+            log.warning(
+                f"Authentication Error in callback: {error}. Redirecting to /login."
+            )
+            raise falcon.HTTPFound("/login")
 
         state_cookie = req.cookies.get("rover_auth_state")
         if not state_cookie:
-            resp.text = "Missing authentication state cookie."
-            resp.status = falcon.HTTP_400
-            return
+            log.warning("Missing authentication state cookie. Redirecting to /login.")
+            raise falcon.HTTPFound("/login")
 
         try:
             state_data = cookie_serializer.loads(state_cookie)
         except BadSignature:
-            resp.text = "Invalid authentication state."
-            resp.status = falcon.HTTP_400
-            return
+            log.warning(
+                "Invalid authentication state signature. Redirecting to /login."
+            )
+            resp.unset_cookie("rover_auth_state", path="/")
+            raise falcon.HTTPFound("/login")
 
         if state != state_data.get("state"):
-            resp.text = "State mismatch. Potential CSRF attack."
-            resp.status = falcon.HTTP_400
-            return
+            log.warning(
+                "State mismatch in OIDC callback. Purging stale state and redirecting to /login."
+            )
+            resp.unset_cookie("rover_auth_state", path="/")
+            raise falcon.HTTPFound("/login")
 
         # Clean up state cookie
-        resp.unset_cookie("rover_auth_state")
+        resp.unset_cookie("rover_auth_state", path="/")
 
         # Exchange code for token.
         # Authelia requires client credentials via HTTP Basic Auth, not in the body.
@@ -554,8 +563,9 @@ class LogoutResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
-        # Unset local session
-        resp.unset_cookie(COOKIE_NAME)
+        # Unset local session & auth state cookies
+        resp.unset_cookie(COOKIE_NAME, path="/")
+        resp.unset_cookie("rover_auth_state", path="/")
         # Redirect to Authelia's logout endpoint
         url = "https://auth.rover.local/logout?rd=https://rover.local"
         raise falcon.HTTPFound(url)
