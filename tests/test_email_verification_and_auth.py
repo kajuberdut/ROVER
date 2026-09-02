@@ -292,3 +292,54 @@ def test_email_only_user_upgrade_preserves_rules_and_destinations():
     assert destinations[0]["id"] == dest["id"]
     assert len(rules) == 1
     assert rules[0]["id"] == rule["id"]
+
+
+def test_email_only_unsubscribe_flow():
+    app = create_app()
+    client = testing.TestClient(app)
+
+    sub = f"unsub_user_{uuid.uuid4().hex[:8]}"
+    email = f"{sub}@rover.local"
+    db.ensure_email_only_user(email, is_verified=True)
+
+    dest = db.add_notification_destination(
+        name="Mailpit",
+        destination_type="smtp",
+        scope="system",
+        config_dict={"smtp_host": "localhost"},
+    )
+    rule = db.add_notification_rule(
+        destination_id=dest["id"],
+        event_type="scan.completed",
+        scope="system",
+        recipient_emails=[email],
+    )
+
+    # 1. Verify get_notification_rules returns rule when filtered by user_email
+    rules = db.get_notification_rules(user_sub=sub, user_email=email)
+    assert len(rules) == 1
+    assert rules[0]["id"] == rule["id"]
+
+    # 2. Issue session cookie and POST to unsubscribe endpoint
+    from rover.auth import COOKIE_NAME, cookie_serializer
+
+    session_data = {
+        "sub": sub,
+        "email": email,
+        "name": "Unsub User",
+        "role": "email_only",
+        "product_ids": [],
+    }
+    cookie_val = cookie_serializer.dumps(session_data)
+
+    resp = client.simulate_post(
+        "/user/subscriptions/unsubscribe",
+        body=f"rule_id={rule['id']}",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        cookies={COOKIE_NAME: cookie_val},
+    )
+    assert resp.status_code == 302
+
+    # 3. Verify user is unsubscribed cleanly
+    rules_after = db.get_notification_rules(user_sub=sub, user_email=email)
+    assert len(rules_after) == 0
