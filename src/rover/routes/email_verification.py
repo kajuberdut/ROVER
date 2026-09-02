@@ -236,7 +236,7 @@ class UserSubscriptionsResource:
         db_user = db.get_user(sub) or (db.get_user_by_email(email) if email else None)
         is_verified = bool(db_user.get("is_verified")) if db_user else False
 
-        user_rules = db.get_notification_rules(user_sub=sub)
+        user_rules = db.get_notification_rules(user_sub=sub, user_email=email)
         user_destinations = db.get_notification_destinations(user_sub=sub)
 
         template = template_env.get_template("user_subscriptions.html")
@@ -298,6 +298,7 @@ class UnsubscribeResource:
     ) -> None:
         user = req.context.user
         sub = user.get("sub")
+        email = user.get("email")
 
         form = await req.get_media()
         rule_id = form.get("rule_id")
@@ -305,13 +306,13 @@ class UnsubscribeResource:
         unsubscribe_all = form.get("all") == "true"
 
         if rule_id:
-            db.delete_notification_rule(rule_id)
+            db.unsubscribe_user_from_rule(rule_id, user_sub=sub, email=email)
         elif dest_id:
             db.delete_notification_destination(dest_id)
         elif unsubscribe_all:
-            user_rules = db.get_notification_rules(user_sub=sub)
+            user_rules = db.get_notification_rules(user_sub=sub, user_email=email)
             for r in user_rules:
-                db.delete_notification_rule(r["id"])
+                db.unsubscribe_user_from_rule(r["id"], user_sub=sub, email=email)
             user_dests = db.get_notification_destinations(user_sub=sub)
             for d in user_dests:
                 db.delete_notification_destination(d["id"])

@@ -76,6 +76,7 @@ from .notification_rules import (
     evaluate_notification_rules,
     get_notification_rule_by_id,
     get_notification_rules,
+    unsubscribe_user_from_rule,
     update_notification_rule,
 )
 from .notifications import (
@@ -267,6 +268,7 @@ __all__ = [
     "get_notification_rule_by_id",
     "update_notification_rule",
     "delete_notification_rule",
+    "unsubscribe_user_from_rule",
     "evaluate_notification_rules",
     "log_notification_attempt",
     "get_notification_logs",
