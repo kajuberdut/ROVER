@@ -167,7 +167,12 @@ class ScheduleLogsResource:
         for log in logs:
             if log.get("details_json"):
                 try:
-                    details = json.loads(log["details_json"])
+                    d_raw = log["details_json"]
+                    details = (
+                        json.loads(d_raw)
+                        if isinstance(d_raw, (str, bytes))
+                        else (d_raw if isinstance(d_raw, dict) else {})
+                    )
                     job_ids = details.get("enqueued_job_ids") or []
                     if job_ids:
                         log["job_summary"] = db.get_jobs_status_summary(job_ids)

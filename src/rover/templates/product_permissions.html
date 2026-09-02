@@ -43,10 +43,9 @@
                     onchange="setProductRole('{{ u.sub }}', this.value)"
                     {% if u.product_role == 'admin' and user.role != 'system_admin' %}disabled title="Only System Admins can modify an Admin's role"{% endif %}
                     {% if user.sub == u.sub %}disabled title="Cannot change your own role"{% endif %}>
-                    <option value="none"       {% if u.product_role == "none" %}selected{% endif %}>None</option>
-                    <option value="read"       {% if u.product_role == "read" %}selected{% endif %}>Read</option>
-                    <option value="read_write" {% if u.product_role == "read_write" %}selected{% endif %}>Read/Write</option>
-                    <option value="admin"      {% if u.product_role == "admin" %}selected{% endif %}>Admin</option>
+                    <option value="none"  {% if not u.product_role or u.product_role in ("none", "view", "read") %}selected{% endif %}>None (Default View Access)</option>
+                    <option value="write" {% if u.product_role in ("write", "read_write") %}selected{% endif %}>Product Write</option>
+                    <option value="admin" {% if u.product_role == "admin" %}selected{% endif %}>Product Admin</option>
                 </select>
                 {% endif %}
             </td>
@@ -63,7 +62,7 @@
             body: new URLSearchParams({sub, role}).toString()
         });
         if (!resp.ok) {
-            alert('Action failed. Please try again.');
+            showToast('Action failed. Please try again.', false);
             window.location.reload();
         }
     }

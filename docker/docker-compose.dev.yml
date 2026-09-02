@@ -1,6 +1,18 @@
 services:
+  migrator:
+    volumes:
+      - ../migrations:/app/migrations
+      - ../src:/app/src
+
+  web:
+    volumes:
+      - ../src:/app/src
+      - ../migrations:/app/migrations
+      - ../docs/starlight/dist:/app/docs/starlight/dist:ro
+      - ../authelia/users_database.yml:/app/authelia/users_database.yml
+
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.23
     container_name: mailpit
     ports:
       - "8025:8025" # Web UI: http://localhost:8025

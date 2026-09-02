@@ -15,6 +15,9 @@ from rover.eol_proxy import EolProxyAllResource, EolProxyProductResource
 from rover.routes.admin import (
     AdminAlertsResource,
     AdminDestinationsResource,
+    AdminInvitesCreateResource,
+    AdminInvitesResendResource,
+    AdminInvitesRevokeResource,
     AdminRedirectResource,
     AdminUsersResource,
     ConfigResource,
@@ -39,6 +42,7 @@ from rover.routes.dashboard import (
     QueueTableResource,
 )
 from rover.routes.helm import HelmRepoChartsResource, ReleaseHelmResource
+from rover.routes.invites import AcceptInviteResource
 from rover.routes.products import (
     ProductDashboardResource,
     ProductDeleteResource,
@@ -87,10 +91,28 @@ def create_app() -> falcon.asgi.App:
         app.add_route("/docs/guide", starlight_resource)
         app.add_route("/docs/guide/{filepath:path}", starlight_resource)
 
-    # Auth routes (handled by rover.auth)
+    # Auth & Email Verification / Password Reset routes (handled by rover.auth & rover.routes.email_verification)
     app.add_route("/login", auth.LoginResource())
     app.add_route("/callback", auth.CallbackResource())
     app.add_route("/logout", auth.LogoutResource())
+
+    from rover.routes.email_verification import (
+        ConfirmEmailResource,
+        ForgotPasswordResource,
+        ResendVerificationResource,
+        ResetPasswordResource,
+        UnsubscribeResource,
+        UserSubscriptionsResource,
+    )
+
+    app.add_route("/confirm-email", ConfirmEmailResource())
+    app.add_route("/forgot-password", ForgotPasswordResource())
+    app.add_route("/reset-password", ResetPasswordResource())
+    app.add_route("/user/subscriptions", UserSubscriptionsResource())
+    app.add_route(
+        "/user/subscriptions/resend-verification", ResendVerificationResource()
+    )
+    app.add_route("/user/subscriptions/unsubscribe", UnsubscribeResource())
 
     # EOL proxy routes (handled by rover.eol_proxy)
     app.add_route("/api/eol/all", EolProxyAllResource())
@@ -105,6 +127,10 @@ def create_app() -> falcon.asgi.App:
     app.add_route("/config", ConfigResource())
     app.add_route("/admin", AdminRedirectResource())
     app.add_route("/admin/users", AdminUsersResource())
+    app.add_route("/admin/invites/create", AdminInvitesCreateResource())
+    app.add_route("/admin/invites/{invite_id}/revoke", AdminInvitesRevokeResource())
+    app.add_route("/admin/invites/{invite_id}/resend", AdminInvitesResendResource())
+    app.add_route("/accept-invite", AcceptInviteResource())
     app.add_route("/admin/alerts", AdminAlertsResource())
     app.add_route("/admin/notifications", AdminAlertsResource())
     app.add_route("/admin/notifications/destinations", AdminDestinationsResource())
@@ -172,8 +198,10 @@ def create_app() -> falcon.asgi.App:
         NotificationDestinationSetDefaultResource,
         NotificationDestinationTestResource,
         NotificationDestinationUpdateResource,
+        NotificationRuleAddRecipientResource,
         NotificationRuleCreateResource,
         NotificationRuleDeleteResource,
+        NotificationRuleRemoveRecipientResource,
         ProductNotificationsPageResource,
         UserNotificationsPageResource,
     )
@@ -206,6 +234,14 @@ def create_app() -> falcon.asgi.App:
     app.add_route(
         "/api/notifications/rules/{rule_id}/delete",
         NotificationRuleDeleteResource(),
+    )
+    app.add_route(
+        "/api/notifications/rules/{rule_id}/recipients/add",
+        NotificationRuleAddRecipientResource(),
+    )
+    app.add_route(
+        "/api/notifications/rules/{rule_id}/recipients/remove",
+        NotificationRuleRemoveRecipientResource(),
     )
 
     # Machine-to-machine JSON API & Interactive OpenAPI Specs

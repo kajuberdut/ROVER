@@ -28,6 +28,7 @@ export default defineConfig({
 						{ label: 'Event-Driven Notifications', slug: 'guides/notifications' },
 						{ label: 'OpenBao Credential Vault', slug: 'guides/vault-credentials' },
 						{ label: 'Vulnerability Reports & Deep-Linking', slug: 'guides/reports' },
+						{ label: 'User Roles & Product Permissions', slug: 'guides/permissions-and-users' },
 					],
 				},
 				{

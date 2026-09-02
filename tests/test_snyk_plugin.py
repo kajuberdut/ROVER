@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from rover.plugins.snyk import (
     SnykScannerPlugin,
     parse_snyk_code_output,
@@ -28,8 +30,8 @@ def test_parse_snyk_oss_output() -> None:
 
     empty_vulns, _ = parse_snyk_oss_output("")
     assert empty_vulns == []
-    invalid_vulns, _ = parse_snyk_oss_output("invalid json")
-    assert invalid_vulns == []
+    with pytest.raises(Exception):
+        parse_snyk_oss_output("invalid json")
 
 
 def test_parse_snyk_code_output() -> None:

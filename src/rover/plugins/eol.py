@@ -17,7 +17,7 @@ class EolComponentScannerPlugin:
 
     name = "major_component"
     display_name = "EOL Interrogator"
-    icon = "📅"
+    icon = "calendar"
     description = "End-Of-Life Date Interrogator"
     template_name: str | None = None
     supported_asset_types = {"major_component"}
@@ -35,7 +35,7 @@ class EolComponentScannerPlugin:
     ) -> dict[str, Any]:
         if status == "failed":
             return {
-                "label": "📅 EOL Failed",
+                "label": "EOL Failed",
                 "status": "failed",
                 "bg": "#d32f2f",
                 "color": "white",
@@ -44,18 +44,18 @@ class EolComponentScannerPlugin:
             eol_date = results.get("eol")
             if results.get("is_eol"):
                 return {
-                    "label": f"📅 EOL ({eol_date})",
+                    "label": f"EOL ({eol_date})",
                     "status": "eol",
                     "bg": "#d32f2f",
                     "color": "white",
                 }
             return {
-                "label": f"📅 Supported ({eol_date or 'Active'})",
+                "label": f"Supported ({eol_date or 'Active'})",
                 "status": "active",
                 "bg": "#388e3c",
                 "color": "white",
             }
-        return {"label": "📅 No EOL Data", "status": "none"}
+        return {"label": "No EOL Data", "status": "none"}
 
     def scan(
         self,
@@ -76,8 +76,13 @@ class EolComponentScannerPlugin:
         cached_json = db_ref.get_cached_eol_data(target_name, target_version)
         if cached_json:
             logger.info(f"Using cached EOL data for {target_name} v{target_version}")
+            parsed_cached = (
+                json.loads(cached_json)
+                if isinstance(cached_json, (str, bytes))
+                else cached_json
+            )
             return ScanResult(
-                results=json.loads(cached_json),
+                results=parsed_cached,
                 source="eol_cache",
                 status="cached",
             )

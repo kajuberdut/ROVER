@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block breadcrumb %}
+<a href="/">Home</a>
+<span class="breadcrumb-sep">/</span>
+<span>Access Subscriptions</span>
+{% endblock %}
+
+{% block content %}
+<article style="max-width: 480px; margin: 3rem auto;">
+    <header style="text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 0.5rem;">📬</div>
+        <h2>Access Notification Subscriptions</h2>
+        <p style="color: var(--pico-muted-color); font-size: 0.9rem;">
+            Enter your email address below to receive a passwordless magic access link in your inbox.
+        </p>
+    </header>
+
+    {% if error %}
+    <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #991b1b; padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: 1.5rem;">
+        <p style="margin: 0; font-weight: 500;">⚠️ {{ error }}</p>
+    </div>
+    {% endif %}
+
+    {% if submitted %}
+    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #065f46; padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: 1.5rem; text-align: center;">
+        <p style="margin: 0; font-weight: 500;">
+            📩 If a subscription exists for <strong>{{ email }}</strong>, a magic access link has been sent to your inbox.
+        </p>
+        <p style="font-size: 0.85rem; margin-top: 0.5rem; margin-bottom: 0;">
+            Click the link in the email to open your subscription management portal.
+        </p>
+    </div>
+    <div style="text-align: center; margin-top: 1.5rem;">
+        <a href="/user/subscriptions" style="font-size: 0.85rem; color: var(--pico-muted-color);">Request another access link</a>
+    </div>
+    {% else %}
+    <form action="/user/subscriptions" method="POST">
+        <fieldset>
+            <label for="email">Subscription Email Address
+                <input type="email" id="email" name="email" placeholder="name@domain.com" value="{{ email }}" required autofocus>
+            </label>
+            <button type="submit" style="width: 100%; margin-top: 1rem;">Send Magic Access Link</button>
+        </fieldset>
+    </form>
+    {% endif %}
+</article>
+{% endblock %}

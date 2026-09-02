@@ -16,7 +16,23 @@ template_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(template_dir),
     autoescape=jinja2.select_autoescape(["html", "xml"]),
 )
-template_env.filters["loadjson"] = json.loads
+from typing import Any
+
+
+def safe_load_json(val: Any) -> Any:
+    if val is None:
+        return {}
+    if isinstance(val, (dict, list)):
+        return val
+    if isinstance(val, (str, bytes, bytearray)):
+        try:
+            return json.loads(val)
+        except Exception:
+            return {}
+    return val
+
+
+template_env.filters["loadjson"] = safe_load_json
 
 
 def humanize_time(date_val: str | datetime | None) -> str:
@@ -88,3 +104,7 @@ def _get_active_notifications_count() -> int:
 
 
 template_env.globals["get_active_notifications_count"] = _get_active_notifications_count
+
+from rover.icons import render_icon
+
+template_env.globals["icon"] = render_icon

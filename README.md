@@ -83,19 +83,21 @@ poe promote-admin admin@rover.local
 
 ROVER uses role-based access control (RBAC) layered on top of Authelia authentication. User roles are managed by System Admins via `/admin/users`.
 
-| Capability | Viewer | Product Owner | Admin |
-|---|:---:|:---:|:---:|
-| View dashboards & reports | ✅ | ✅ | ✅ |
-| Trigger manual scan evaluations | ✅ | ✅ | ✅ |
-| Personal notifications & API tokens | ✅ | ✅ | ✅ |
-| Create products | ❌ | ✅ (becomes owner) | ✅ |
-| Modify owned products & releases | ❌ | ✅ | ✅ |
-| Modify any product or release | ❌ | ❌ | ✅ |
-| Manage product notification rules | ❌ | ✅ (owned) | ✅ |
-| Manage system destinations (`/admin/notifications/destinations`) | ❌ | ❌ | ✅ |
-| System configuration & user role assignment | ❌ | ❌ | ✅ |
+| Capability | Email-Only | Viewer | Product Owner | System Admin |
+|---|:---:|:---:|:---:|:---:|
+| Self-service subscriptions (`/user/subscriptions`) | ✅ | ✅ | ✅ | ✅ |
+| Email verification & password reset | ✅ | ✅ | ✅ | ✅ |
+| View dashboards & reports | ❌ | ✅ | ✅ | ✅ |
+| Trigger manual scan evaluations | ❌ | ✅ | ✅ | ✅ |
+| Personal notifications & API tokens | ❌ | ✅ | ✅ | ✅ |
+| Create products | ❌ | ❌ | ✅ (becomes owner) | ✅ |
+| Modify owned products & releases | ❌ | ❌ | ✅ | ✅ |
+| Modify any product or release | ❌ | ❌ | ❌ | ✅ |
+| Manage product notification rules | ❌ | ❌ | ✅ (owned) | ✅ |
+| Manage system destinations (`/admin/notifications/destinations`) | ❌ | ❌ | ❌ | ✅ |
+| System configuration & user role assignment | ❌ | ❌ | ❌ | ✅ |
 
-New users are assigned the `viewer` role by default on first login.
+New users are assigned the `viewer` role by default on first login. Users assigned the `email_only` role are restricted strictly to managing their email subscription preferences at `/user/subscriptions`.
 
 ---
 

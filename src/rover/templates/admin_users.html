@@ -9,44 +9,221 @@
 {% endblock %}
 
 {% block content %}
-<hgroup>
-    <h2>👥 User Management</h2>
-    <p>Manage global roles for all ROVER users. Product specific permissions are managed on each product's dashboard.</p>
-</hgroup>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div>
+        <h1 style="margin-bottom: 0.2rem;">👥 User Management</h1>
+        <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
+            Manage global system roles, invite new users via email or shareable links, and monitor pending invitations.
+        </p>
+    </div>
+    {% if allow_user_invites %}
+    <button onclick="document.getElementById('invite-user-modal').showModal()" style="width: auto; margin-bottom: 0;">
+        + Invite User
+    </button>
+    {% endif %}
+</div>
 
-<table>
-    <thead>
-        <tr>
-            <th>User</th>
-            <th>Email</th>
-            <th>Global Role</th>
-            <th>Last Login</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for u in users %}
-        <tr>
-            <td>{{ u.name or "-" }}</td>
-            <td><small>{{ u.email or "-" }}</small></td>
-            <td>
-                <select id="role-select-{{ loop.index }}"
-                    onchange="setRole('{{ u.sub }}', this.value)"
-                    {% if u.sub == user.sub %}disabled title="Cannot change your own role"{% endif %}>
-                    <option value="viewer"        {% if u.role == "viewer" %}selected{% endif %}>Viewer</option>
-                    <option value="system_admin"  {% if u.role == "system_admin" %}selected{% endif %}>System Admin</option>
-                </select>
-            </td>
-            <td><small>{{ u.last_login or "never" }}</small></td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="4" style="text-align:center;" class="secondary">
-                No users have logged in yet.
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% if not allow_user_invites %}
+<div style="background: rgba(148, 163, 184, 0.1); border: 1px solid var(--pico-border-color); padding: 0.75rem 1.25rem; border-radius: 8px; margin-bottom: 2rem;">
+    <small style="color: var(--pico-muted-color);">ℹ️ User invitations are currently disabled by server configuration (<code>[features] allow_user_invites = false</code>).</small>
+</div>
+{% elif not default_email_dest %}
+<div style="background: rgba(234, 179, 8, 0.12); border: 1px solid #eab308; padding: 0.85rem 1.25rem; border-radius: 8px; margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-size: 1.25rem;">⚠️</span>
+        <div>
+            <strong style="color: #eab308; font-size: 0.95rem;">No Default System Email Gateway Configured</strong>
+            <p style="margin-bottom: 0; font-size: 0.85rem; color: var(--pico-color);">
+                Automatic email delivery is currently disabled. You can still generate and copy invitation links manually to invite users. Configure a default email gateway under <em><a href="/admin/notifications/destinations">Admin &gt; Destinations</a></em>.
+            </p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div style="background: rgba(59, 130, 246, 0.08); border: 1px solid #3b82f6; padding: 0.85rem 1.25rem; border-radius: 8px; margin-bottom: 2rem;">
+    <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+        <span style="font-size: 1.25rem; margin-top: 0.1rem;">ℹ️</span>
+        <div>
+            <strong style="color: #3b82f6; font-size: 0.95rem;">Hybrid Identity & Access Governance</strong>
+            <p style="margin-bottom: 0; font-size: 0.85rem; color: var(--pico-color);">
+                User web logins and System Roles (<code>System Admin</code> vs <code>Viewer</code>) are synchronized from your Identity Provider (Authelia / LDAP / JumpCloud) via group claims (e.g. <code>admins</code>).
+                Deactivating a user in LDAP/Authelia prevents web login access immediately. To invalidate a deactivated user's headless CI/CD pipeline API tokens, click <strong>🔑 Revoke API Tokens</strong> below.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Active Registered Users -->
+<article style="margin-bottom: 2.5rem;">
+    <header>
+        <strong>Active System Users</strong>
+    </header>
+    <div style="padding: 1rem;">
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Global Role</th>
+                    <th>Last Login</th>
+                    <th style="text-align: right;">API Token Access</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td><strong>{{ u.name or u.sub }}</strong></td>
+                    <td><small>{{ u.email or "-" }}</small></td>
+                    <td>
+                        <select id="role-select-{{ loop.index }}"
+                            style="margin-bottom: 0;"
+                            onchange="setRole('{{ u.sub }}', this.value)"
+                            {% if u.sub == user.sub %}disabled title="Cannot change your own role"{% endif %}
+                            data-bwignore="true">
+                            <option value="viewer" {% if u.role == "viewer" %}selected{% endif %}>Viewer</option>
+                            <option value="system_admin" {% if u.role == "system_admin" %}selected{% endif %}>System Admin</option>
+                            <option value="email_only" {% if u.role == "email_only" %}selected{% endif %}>Email Only</option>
+                        </select>
+                    </td>
+                    <td><small>{{ u.last_login or "never" }}</small></td>
+                    <td style="text-align: right;">
+                        <button onclick="revokeUserApiTokens('{{ u.sub }}', '{{ u.name or u.email or u.sub }}')" class="outline contrast" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; margin-bottom: 0; color: #ef4444; border-color: #ef4444;">
+                            🔑 Revoke API Tokens
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align:center;" class="secondary">
+                        No users registered yet.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
+
+{% if allow_user_invites %}
+<!-- Pending User Invitations -->
+<article>
+    <header style="display: flex; justify-content: space-between; align-items: center;">
+        <strong>Pending User Invitations</strong>
+        <small style="color: var(--pico-muted-color);">Invitations expire after 7 days</small>
+    </header>
+    <div style="padding: 1rem;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Invited Target</th>
+                    <th>Role</th>
+                    <th>Invite Link</th>
+                    <th>Created</th>
+                    <th style="text-align: right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in pending_invites %}
+                <tr>
+                    <td>
+                        {% if inv.email %}
+                        <strong>{{ inv.email }}</strong>
+                        {% else %}
+                        <em style="color: var(--pico-muted-color);">Link Only (No Email)</em>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="role-badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.8rem;">
+                            {{ inv.role | replace('_', ' ') | title }}
+                        </span>
+                    </td>
+                    <td>
+                        <button onclick="copyToClipboard('{{ inv.invite_link }}', this)" class="outline secondary" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; margin-bottom: 0;">
+                            📋 Copy Link
+                        </button>
+                    </td>
+                    <td><small style="color: var(--pico-muted-color);">{{ inv.created_at[:10] if inv.created_at else '-' }}</small></td>
+                    <td style="text-align: right;">
+                        <div style="display: inline-flex; gap: 0.4rem;">
+                            {% if inv.email and default_email_dest %}
+                            <button onclick="resendInvite('{{ inv.id }}')" class="outline primary" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; margin-bottom: 0;">
+                                ⚡ Resend
+                            </button>
+                            {% endif %}
+                            <button onclick="revokeInvite('{{ inv.id }}', '{{ inv.email or '' }}')" class="outline contrast" style="padding: 0.2rem 0.6rem; font-size: 0.8rem; margin-bottom: 0; color: #ef4444; border-color: #ef4444;">
+                                ❌ Revoke
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align:center;" class="secondary">
+                        No pending invitations. Click <strong>+ Invite User</strong> above to generate an invite.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</article>
+{% endif %}
+
+<!-- Invite User Modal -->
+<dialog id="invite-user-modal">
+    <article style="max-width: 540px; width: 100%;">
+        <header>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close()"></button>
+            <strong>Invite New User</strong>
+        </header>
+
+        <form id="invite-user-form" onsubmit="submitInviteForm(event)" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+            <fieldset>
+                <label>Email Address (Optional for link-only invites)
+                    <input type="email" id="invite-email" placeholder="colleague@company.com" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
+                    <small style="color: var(--pico-muted-color);">If provided, you can automatically send an email invitation.</small>
+                </label>
+
+                <label>Global User Role
+                    <select id="invite-role" required data-bwignore="true">
+                        <option value="viewer" selected>Viewer (Read-only access to products & reports)</option>
+                        <option value="system_admin">System Admin (Full system & user management access)</option>
+                        <option value="email_only">Email Only (Restricted to notification alerts & unsubscribe portal)</option>
+                    </select>
+                </label>
+
+                {% if default_email_dest %}
+                <label>
+                    <input type="checkbox" id="invite-send-email" checked data-bwignore="true">
+                    Send invitation email via <strong>{{ default_email_dest.name }}</strong> Gateway
+                </label>
+                {% else %}
+                <div style="background: rgba(234, 179, 8, 0.1); border: 1px solid #eab308; padding: 0.6rem 0.85rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <small style="color: #eab308; display: block;">⚠️ Email delivery unavailable (no default gateway). You will be provided a shareable link to copy.</small>
+                </div>
+                <input type="hidden" id="invite-send-email" value="false">
+                {% endif %}
+
+                <!-- Success Link Alert Box -->
+                <div id="invite-result-box" style="display: none; background: rgba(34, 197, 94, 0.12); border: 1px solid #22c55e; padding: 1rem; border-radius: 8px; margin-top: 1rem; margin-bottom: 1rem;">
+                    <strong style="color: #22c55e; font-size: 0.9rem; display: block; margin-bottom: 0.4rem;">🎉 Invitation Created Successfully!</strong>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="text" id="generated-invite-link" readonly style="margin-bottom: 0; font-size: 0.85rem;" data-bwignore="true">
+                        <button type="button" onclick="copyGeneratedLink(this)" style="width: auto; margin-bottom: 0; white-space: nowrap;">
+                            📋 Copy Link
+                        </button>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                    <button type="button" class="secondary" onclick="document.getElementById('invite-user-modal').close()">Cancel</button>
+                    <button type="submit" id="invite-submit-btn">Generate & Create Invite</button>
+                </div>
+            </fieldset>
+        </form>
+    </article>
+</dialog>
 
 <script>
     async function adminPost(body) {
@@ -58,12 +235,100 @@
         if (resp.ok) {
             window.location.reload();
         } else {
-            alert('Action failed. Please try again.');
+            showToast('Action failed. Please try again.', false);
         }
     }
 
     function setRole(sub, role) {
         adminPost({action: 'set_role', sub, role});
+    }
+
+    function removeUser(sub) {
+        adminPost({action: 'remove_user', sub});
+    }
+
+    async function submitInviteForm(e) {
+        e.preventDefault();
+        const role = document.getElementById('invite-role').value;
+        const email = document.getElementById('invite-email').value.trim();
+        const sendEmail = document.getElementById('invite-send-email').checked;
+
+        const submitBtn = document.getElementById('invite-submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Generating Invitation...';
+
+        try {
+            const res = await fetch('/admin/invites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, email, send_email: sendEmail })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                document.getElementById('invite-user-form').style.display = 'none';
+                document.getElementById('invite-result-box').style.display = 'block';
+                document.getElementById('generated-invite-link').value = data.invite_url;
+                
+                showToast('Invitation created successfully!', true);
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+            } else {
+                showToast('Error: ' + (data.error || 'Failed to create invite'), false);
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Generate & Create Invite';
+            }
+        } catch (err) {
+            showToast('Request failed: ' + err, false);
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Generate & Create Invite';
+        }
+    }
+
+    function copyToClipboard(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = btn.innerText;
+            btn.innerText = '✅ Copied!';
+            showToast('Invite link copied to clipboard!', true);
+            setTimeout(() => { btn.innerText = originalText; }, 2000);
+        }).catch(err => {
+            showToast('Failed to copy to clipboard automatically.', false);
+        });
+    }
+
+    function copyGeneratedLink(btn) {
+        const linkInput = document.getElementById('generated-invite-link');
+        copyToClipboard(linkInput.value, btn);
+    }
+
+    function revokeInvite(inviteId, email) {
+        openGlobalConfirmModal({
+            title: 'Revoke Invitation',
+            message: `Are you sure you want to revoke the invitation${email ? ' for <strong>' + email + '</strong>' : ''}?`,
+            actionUrl: '/admin/invites/' + inviteId + '/revoke',
+            buttonText: 'Revoke Invitation'
+        });
+    }
+
+    async function resendInvite(inviteId) {
+        const res = await fetch('/admin/invites/' + inviteId + '/resend', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok && data.email_sent) {
+            showToast('Invitation email resent successfully!', true);
+        } else {
+            showToast('Failed to resend email: ' + (data.error || 'Check gateway connection'), false);
+        }
+    }
+
+    function revokeUserApiTokens(sub, username) {
+        openGlobalConfirmModal({
+            title: 'Revoke User API Tokens',
+            message: `Are you sure you want to revoke all API tokens for <strong>${username}</strong>? This will immediately block their CI/CD pipeline access.`,
+            actionUrl: '/admin/users',
+            actionValue: 'revoke_api_tokens',
+            buttonText: 'Revoke API Tokens'
+        });
     }
 </script>
 {% endblock %}

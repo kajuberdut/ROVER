@@ -4,7 +4,7 @@ import uuid
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.sql import func
 
 from rover.db.connection import get_db_connection
@@ -154,18 +154,47 @@ def get_notification_rules(
     scope: str | None = None,
     product_id: str | None = None,
     user_sub: str | None = None,
+    user_email: str | None = None,
     event_type: str | None = None,
     destination_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Returns notification rules matching optional filters."""
+    """Returns notification rules matching optional filters.
+
+    If user_sub or user_email is provided, matches rules created by the user
+    OR rules where the user/email is listed as a recipient.
+    """
     with get_db_connection() as conn:
         stmt = select(notification_rules)
         if scope:
             stmt = stmt.where(notification_rules.c.scope == scope)
         if product_id:
             stmt = stmt.where(notification_rules.c.product_id == product_id)
-        if user_sub:
-            stmt = stmt.where(notification_rules.c.user_sub == user_sub)
+        if user_sub or user_email:
+            recip_conditions = []
+            if user_sub:
+                recip_conditions.append(
+                    notification_rule_recipients.c.user_sub == user_sub
+                )
+            if user_email:
+                recip_conditions.append(
+                    notification_rule_recipients.c.email == user_email
+                )
+
+            recip_subq = select(notification_rule_recipients.c.rule_id).where(
+                or_(*recip_conditions)
+            )
+
+            creator_conditions = []
+            if user_sub:
+                creator_conditions.append(notification_rules.c.user_sub == user_sub)
+
+            if creator_conditions:
+                stmt = stmt.where(
+                    or_(*creator_conditions, notification_rules.c.id.in_(recip_subq))
+                )
+            else:
+                stmt = stmt.where(notification_rules.c.id.in_(recip_subq))
+
         if event_type:
             stmt = stmt.where(notification_rules.c.event_type == event_type)
         if destination_id:
@@ -237,6 +266,92 @@ def delete_notification_rule(rule_id: str) -> bool:
     return True
 
 
+def unsubscribe_user_from_rule(
+    rule_id: str, user_sub: str | None = None, email: str | None = None
+) -> bool:
+    """Removes a specific user or email recipient from a notification rule.
+
+    If no recipients remain or the user is the rule creator, deletes the rule.
+    """
+    rule = get_notification_rule_by_id(rule_id)
+    if not rule:
+        return False
+
+    with get_db_connection() as conn:
+        user_conds = []
+        if user_sub:
+            user_conds.append(notification_rule_recipients.c.user_sub == user_sub)
+        if email:
+            user_conds.append(notification_rule_recipients.c.email == email)
+
+        if user_conds:
+            conn.execute(
+                delete(notification_rule_recipients).where(
+                    notification_rule_recipients.c.rule_id == rule_id,
+                    or_(*user_conds),
+                )
+            )
+
+        remaining_recips = get_rule_recipients(rule_id)
+        if not remaining_recips or (user_sub and rule.get("user_sub") == user_sub):
+            conn.execute(
+                delete(notification_rules).where(notification_rules.c.id == rule_id)
+            )
+    return True
+
+
+def add_rule_recipient_email(rule_id: str, email: str) -> bool:
+    """Adds a single recipient email to an existing notification rule."""
+    email_clean = email.strip()
+    if not email_clean or "@" not in email_clean:
+        return False
+
+    rule = get_notification_rule_by_id(rule_id)
+    if not rule:
+        return False
+
+    from rover.db.users import ensure_email_only_user
+
+    target_user = ensure_email_only_user(email_clean, is_verified=False)
+
+    with get_db_connection() as conn:
+        existing = get_rule_recipient_emails(rule_id)
+        if email_clean in existing:
+            return True
+
+        conn.execute(
+            notification_rule_recipients.insert().values(
+                id=str(uuid.uuid4()),
+                rule_id=rule_id,
+                recipient_type="user",
+                user_sub=target_user["sub"],
+                email=email_clean,
+            )
+        )
+    return True
+
+
+def remove_rule_recipient_email(rule_id: str, email: str) -> bool:
+    """Removes a recipient email from an existing notification rule."""
+    email_clean = email.strip()
+    if not email_clean:
+        return False
+
+    with get_db_connection() as conn:
+        conn.execute(
+            delete(notification_rule_recipients).where(
+                notification_rule_recipients.c.rule_id == rule_id,
+                or_(
+                    notification_rule_recipients.c.email == email_clean,
+                    notification_rule_recipients.c.user_sub.in_(
+                        select(users.c.sub).where(users.c.email == email_clean)
+                    ),
+                ),
+            )
+        )
+    return True
+
+
 def evaluate_notification_rules(
     event_type: str,
     severity: str | None = None,
@@ -288,6 +403,17 @@ def evaluate_notification_rules(
             ):
                 continue
 
+        recips = get_rule_recipients(rule["id"])
+        recip_emails = get_rule_recipient_emails(rule["id"])
+        if not recip_emails and rule.get("user_sub"):
+            from rover.db.users import get_user
+
+            creator = get_user(rule["user_sub"])
+            if creator and creator.get("email"):
+                recip_emails = [creator["email"]]
+
+        rule["recipients"] = recips
+        rule["recipient_emails"] = recip_emails
         matching_rules.append(rule)
 
     return matching_rules

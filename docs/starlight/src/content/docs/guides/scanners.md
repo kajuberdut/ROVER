@@ -32,3 +32,24 @@ Scanner widgets on the Release Assets page display the current state of each eva
 - `Failed`: The scan encountered an error (click **Logs** to view details).
 
 Widget status badges update automatically as scans complete. The elapsed time display (e.g., `14s (avg: 5s)`) shows current scan duration compared to previous runs on the same asset.
+
+---
+
+## Scan Caching & Retention
+
+R.O.V.E.R. uses intelligent caching to optimize scan performance and prevent unnecessary re-execution of containerized scanners or external API requests.
+
+### Git Commit Hash Caching (Scanners)
+- **What is Cached**: Security scan results for Trivy, Semgrep, and Snyk for repository assets.
+- **How It Works**: Before launching containerized scanners, R.O.V.E.R. resolves the repository target ref (`git_ref` or `HEAD`) to its 40-character Git commit SHA-1 hash via `git ls-remote`. If a successful (`completed`) scan job within the configured Time-To-Live (TTL) window already exists for the exact same scanner name and commit SHA-1, R.O.V.E.R. reuses the existing scan report.
+- **Cache Duration & Expiration**:
+  - **Configurable TTL**: Defaults to **8 hours**. The cache retention window is fully configurable via `[scanner.cache_ttl_hours]` in `config.toml` (or via the Web UI at `/config`).
+  - **Automatic Expiration**: Scan results older than `cache_ttl_hours` (8 hours by default) expire automatically. Re-running a scan on an asset whose cached results have expired will trigger a fresh scanner container execution, picking up newly published CVE vulnerability definitions or updated rule sets even if the Git commit SHA-1 remains unchanged.
+- **Cache Invalidation & Triggers**:
+  - Pushing new commits to the repository/branch updates the commit SHA-1, automatically triggering a fresh scan.
+  - Required API tokens (such as Snyk tokens) are validated *before* cache lookup. If authentication or credentials are invalid or missing, cache lookups are bypassed and an explicit failure is reported.
+
+### End-of-Life (EOL) Lifecycle Caching
+- **What is Cached**: Release dates, End-of-Life status, and LTS flags fetched from `endoflife.date`.
+- **How It Works**: EOL lifecycle records for major components (e.g., `postgresql 17`, `python 3.12`) are stored in the local database (`eol_cache`).
+- **Cache Duration**: **Persistent local cache** per component version string to minimize external network calls and avoid API rate limits.

@@ -116,3 +116,41 @@ def test_admin_destinations_page_and_permissions(client: testing.TestClient) -> 
         headers={"Content-Type": "application/x-www-form-urlencoded", **headers_user},
     )
     assert res_create.status_code == 403
+
+
+def test_rule_add_and_remove_recipient_routes(client: testing.TestClient) -> None:
+    headers = get_auth_headers("system_admin")
+
+    dest = db.add_notification_destination(
+        name="SMTP Dest",
+        destination_type="smtp",
+        scope="system",
+        config_dict={"smtp_host": "localhost"},
+    )
+    rule = db.add_notification_rule(
+        destination_id=dest["id"],
+        event_type="scan.completed",
+        scope="system",
+    )
+
+    # 1. Add recipient via POST route
+    res_add = client.simulate_post(
+        f"/api/notifications/rules/{rule['id']}/recipients/add",
+        body="email=alice@rover.local",
+        headers={"Content-Type": "application/x-www-form-urlencoded", **headers},
+    )
+    assert res_add.status_code == 302
+
+    recips = db.get_rule_recipient_emails(rule["id"])
+    assert "alice@rover.local" in recips
+
+    # 2. Remove recipient via POST route
+    res_remove = client.simulate_post(
+        f"/api/notifications/rules/{rule['id']}/recipients/remove",
+        body="email=alice@rover.local",
+        headers={"Content-Type": "application/x-www-form-urlencoded", **headers},
+    )
+    assert res_remove.status_code == 302
+
+    recips_after = db.get_rule_recipient_emails(rule["id"])
+    assert "alice@rover.local" not in recips_after

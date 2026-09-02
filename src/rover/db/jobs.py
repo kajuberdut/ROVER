@@ -1,3 +1,4 @@
+import datetime
 import json
 import uuid
 from typing import Any
@@ -67,12 +68,22 @@ def update_scanner_job_status(
                     now = datetime.datetime.now()
                 duration = max(0, int((now - started).total_seconds()))
 
+        parsed_results = (
+            (
+                json.loads(results_json)
+                if isinstance(results_json, str)
+                else results_json
+            )
+            if results_json
+            else None
+        )
+
         conn.execute(
             update(scanner_jobs)
             .where(scanner_jobs.c.id == job_id)
             .values(
                 status=status,
-                results_json=results_json,
+                results_json=parsed_results,
                 error_message=error_message,
                 resolved_commit=resolved_commit,
                 resolved_tags=resolved_tags,
@@ -155,15 +166,18 @@ def update_scanner_job_status(
 
 
 def extract_vulnerabilities_from_results(
-    scanner_name: str, results_json: str | None
+    scanner_name: str, results_json: Any
 ) -> list[dict[str, Any]]:
     """Parses scan results JSON and extracts standardized vulnerability dictionaries."""
     if not results_json:
         return []
-    try:
-        data = json.loads(results_json)
-    except Exception:
-        return []
+    if isinstance(results_json, (dict, list)):
+        data = results_json
+    else:
+        try:
+            data = json.loads(results_json)
+        except Exception:
+            return []
 
     vulns: list[dict[str, Any]] = []
 
@@ -295,8 +309,19 @@ def get_scanner_job_for_target(
 
 
 def get_completed_scanner_job_by_commit(
-    scanner_name: str, commit_hash: str
+    scanner_name: str, commit_hash: str, max_age_hours: int | None = None
 ) -> dict[str, Any] | None:
+    from rover import config
+
+    ttl_hours = (
+        max_age_hours
+        if max_age_hours is not None
+        else getattr(config.settings.scanner, "cache_ttl_hours", 8)
+    )
+    cutoff_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        hours=ttl_hours
+    )
+
     with get_db_connection() as conn:
         row = conn.execute(
             select(scanner_jobs)
@@ -304,6 +329,7 @@ def get_completed_scanner_job_by_commit(
                 scanner_jobs.c.scanner_name == scanner_name,
                 scanner_jobs.c.resolved_commit == commit_hash,
                 scanner_jobs.c.status == "completed",
+                scanner_jobs.c.created_at >= cutoff_time,
             )
             .order_by(scanner_jobs.c.created_at.desc())
             .limit(1)
@@ -356,8 +382,12 @@ def get_semgrep_job_for_target(
     return get_scanner_job_for_target("semgrep", target_url, git_ref)
 
 
-def get_completed_semgrep_job_by_commit(commit_hash: str) -> dict[str, Any] | None:
-    return get_completed_scanner_job_by_commit("semgrep", commit_hash)
+def get_completed_semgrep_job_by_commit(
+    commit_hash: str, max_age_hours: int | None = None
+) -> dict[str, Any] | None:
+    return get_completed_scanner_job_by_commit(
+        "semgrep", commit_hash, max_age_hours=max_age_hours
+    )
 
 
 def update_semgrep_job_status(
@@ -395,8 +425,12 @@ def get_snyk_job_for_target(
     return get_scanner_job_for_target("snyk", target_url, git_ref)
 
 
-def get_completed_snyk_job_by_commit(commit_hash: str) -> dict[str, Any] | None:
-    return get_completed_scanner_job_by_commit("snyk", commit_hash)
+def get_completed_snyk_job_by_commit(
+    commit_hash: str, max_age_hours: int | None = None
+) -> dict[str, Any] | None:
+    return get_completed_scanner_job_by_commit(
+        "snyk", commit_hash, max_age_hours=max_age_hours
+    )
 
 
 def update_snyk_job_status(

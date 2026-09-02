@@ -22,7 +22,7 @@ def log_notification_attempt(
 ) -> str:
     """Logs a notification delivery attempt to notification_logs."""
     log_id = str(uuid.uuid4())
-    payload_json = json.dumps(payload_dict) if payload_dict else None
+    payload_json = payload_dict if payload_dict else None
 
     with get_db_connection() as conn:
         conn.execute(
@@ -63,9 +63,12 @@ def get_notification_logs(
         results = []
         for r in rows:
             d = dict(r._mapping)
-            if isinstance(d.get("payload_json"), str):
+            p_raw = d.get("payload_json")
+            if isinstance(p_raw, (dict, list)):
+                d["payload"] = p_raw
+            elif isinstance(p_raw, (str, bytes)):
                 try:
-                    d["payload"] = json.loads(d["payload_json"])
+                    d["payload"] = json.loads(p_raw)
                 except Exception:
                     d["payload"] = {}
             else:

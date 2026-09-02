@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    JSON,
     TIMESTAMP,
     Boolean,
     Column,
@@ -13,22 +14,6 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 metadata = MetaData()
-
-scan_jobs = Table(
-    "scan_jobs",
-    metadata,
-    Column("id", String, primary_key=True),
-    Column("target_url", String, nullable=False),
-    Column("git_ref", String, default=None),
-    Column("status", String, nullable=False),
-    Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
-    Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
-    Column("results_json", String, default=None),
-    Column("error_message", String, default=None),
-    Column("resolved_commit", String, default=None),
-    Column("resolved_tags", String, default=None),
-    Column("target_type", String, server_default="repo"),
-)
 
 repositories = Table(
     "repositories",
@@ -54,7 +39,7 @@ major_components = Table(
     Column("name", String, nullable=False),
     Column("version", String, nullable=False),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
-    Index("sqlite_autoindex_major_components_1", "name", "version", unique=True),
+    Index("idx_major_components_name_version", "name", "version", unique=True),
 )
 
 eol_cache = Table(
@@ -63,7 +48,7 @@ eol_cache = Table(
     Column("id", String, primary_key=True),
     Column("name", String, nullable=False),
     Column("version", String, nullable=False),
-    Column("response_json", String, nullable=False),
+    Column("response_json", JSON, nullable=False),
     Column("cached_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
 
@@ -113,7 +98,7 @@ scanner_jobs = Table(
     Column("product_id", String, default=None),
     Column("credential_id", String, default=None),
     Column("status", String, nullable=False, server_default="queued"),
-    Column("results_json", String, default=None),
+    Column("results_json", JSON, default=None),
     Column("error_message", String, default=None),
     Column("resolved_commit", String, default=None),
     Column("resolved_tags", String, default=None),
@@ -131,6 +116,8 @@ users = Table(
     Column("email", String),
     Column("name", String),
     Column("role", String, nullable=False, server_default="viewer"),
+    Column("is_verified", Boolean, nullable=False, server_default=text("false")),
+    Column("password_hash", String, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("last_login", TIMESTAMP),
 )
@@ -175,8 +162,8 @@ ci_image_metadata = Table(
     Column("image_hash", String, primary_key=True),
     Column("repo_uri", String, nullable=False),
     Column("commit_hash", String, nullable=False),
-    Column("metadata_json", String, server_default="{}"),
-    Column("image_tags", String, server_default="[]"),
+    Column("metadata_json", JSON, server_default="{}"),
+    Column("image_tags", JSON, server_default="[]"),
     Column("ci_job_url", String, default=None),
     Column("created_by_user_sub", String, default=None),
     Column("created_by_token_id", String, default=None),
@@ -218,7 +205,7 @@ schedule_execution_logs = Table(
     Column("triggered_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("status", String, nullable=False),
     Column("jobs_created_count", Integer, server_default="0"),
-    Column("details_json", String),
+    Column("details_json", JSON),
     Column("error_message", String),
 )
 
@@ -230,7 +217,7 @@ admin_notifications = Table(
     Column("message", String, nullable=False),
     Column("category", String, nullable=False, server_default="scanner_update"),
     Column("source_tool", String, nullable=False),
-    Column("metadata_json", String, server_default="{}"),
+    Column("metadata_json", JSON, server_default="{}"),
     Column("is_dismissed", Boolean, server_default=text("false")),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("dismissed_at", TIMESTAMP, default=None),
@@ -275,7 +262,8 @@ notification_destinations = Table(
     ),
     Column("is_system", Boolean, nullable=False, server_default="false"),
     Column("is_default", Boolean, nullable=False, server_default="false"),
-    Column("config_json", String, nullable=False, server_default="{}"),
+    Column("is_verified", Boolean, nullable=False, server_default=text("false")),
+    Column("config_json", JSON, nullable=False, server_default="{}"),
     Column("vault_secret_path", String, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
     Column("updated_at", TIMESTAMP, server_default=func.current_timestamp()),
@@ -332,7 +320,7 @@ notification_logs = Table(
     Column("status", String, nullable=False),
     Column("http_status_code", Integer, default=None),
     Column("error_message", String, default=None),
-    Column("payload_json", String, default=None),
+    Column("payload_json", JSON, default=None),
     Column("retry_count", Integer, server_default="0"),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
 )
@@ -356,4 +344,31 @@ notification_rule_recipients = Table(
     ),
     Column("email", String, default=None),
     Column("created_at", TIMESTAMP, server_default=func.current_timestamp()),
+)
+
+user_invites = Table(
+    "user_invites",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("email", String, nullable=True),
+    Column("role", String, nullable=False, server_default="viewer"),
+    Column("token", String, nullable=False, unique=True, index=True),
+    Column(
+        "invited_by_sub",
+        String,
+        ForeignKey("users.sub", ondelete="SET NULL"),
+        nullable=True,
+    ),
+    Column("status", String, nullable=False, server_default="pending", index=True),
+    Column("expires_at", TIMESTAMP(timezone=True), nullable=False),
+    Column(
+        "created_at", TIMESTAMP(timezone=True), server_default=func.current_timestamp()
+    ),
+    Column("accepted_at", TIMESTAMP(timezone=True), nullable=True),
+    Column(
+        "accepted_by_sub",
+        String,
+        ForeignKey("users.sub", ondelete="SET NULL"),
+        nullable=True,
+    ),
 )

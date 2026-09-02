@@ -10,16 +10,16 @@
 
 {% block content %}
 <section>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
         <div>
-            <h1 style="margin-bottom: 0.2rem;">System Notification Destinations</h1>
+            <h1 style="margin-bottom: 0.25rem;">System Notification Destinations</h1>
             <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
-                Configure shared notification destinations (Slack, Webhooks, SMTP Email, AWS SES) and encrypt secret credentials in OpenBao Vault.
+                Configure shared notification destinations and OpenBao credentials.
             </p>
         </div>
         <div>
-            <button onclick="document.getElementById('create-destination-modal').showModal()" style="width: auto; margin-bottom: 0;">
-                + Add Destination
+            <button onclick="document.getElementById('create-destination-modal').showModal()" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px;">
+                {{ icon('plus', size=16) }} Add Destination
             </button>
         </div>
     </div>
@@ -34,68 +34,83 @@
             <table role="grid">
                 <thead>
                     <tr>
-                        <th>Destination Name</th>
-                        <th>Type</th>
-                        <th>Configuration</th>
-                        <th>Scope</th>
-                        <th>Created</th>
-                        <th style="text-align: right;">Actions</th>
+                        <th style="white-space: nowrap;">Destination Name</th>
+                        <th style="white-space: nowrap;">Type</th>
+                        <th style="white-space: nowrap;">Host:Port</th>
+                        <th style="white-space: nowrap;">From</th>
+                        <th style="white-space: nowrap;">Scope</th>
+                        <th style="white-space: nowrap;">Created</th>
+                        <th style="text-align: right; white-space: nowrap;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for dest in destinations %}
                     <tr>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                        <td style="white-space: nowrap;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">
                                 <strong style="color: var(--pico-color);">{{ dest.name }}</strong>
                                 {% if dest.is_default %}
-                                <span class="role-badge" style="background: #eab308; color: #000; font-weight: bold; font-size: 0.7rem;">⭐ Default System SMTP</span>
+                                <span class="role-badge" style="background: #eab308; color: #000; font-weight: bold; font-size: 0.7rem; white-space: nowrap;">⭐ Default System SMTP</span>
                                 {% endif %}
                             </div>
                         </td>
-                        <td>
-                            <span class="role-badge" style="background: var(--pico-primary-background); color: var(--pico-primary);">
+                        <td style="white-space: nowrap;">
+                            <span class="role-badge" style="background: var(--pico-primary-background); color: var(--pico-primary); white-space: nowrap;">
                                 {{ dest.type | upper }}
                             </span>
                         </td>
-                        <td>
-                            <small>
+                        <td style="white-space: nowrap;">
+                            <small style="white-space: nowrap;">
                                 {% if dest.type == 'webhook' %}{{ dest.config.url }}
                                 {% elif dest.type == 'slack' %}{{ dest.config.webhook_url }}
-                                {% elif dest.type == 'smtp' %}{{ dest.config.smtp_host }}:{{ dest.config.smtp_port }} (From: {{ dest.config.from_email or 'Default' }})
-                                {% elif dest.type == 'aws_ses' %}{{ dest.config.region }} (From: {{ dest.config.from_email or 'Default' }})
+                                {% elif dest.type == 'smtp' %}{{ dest.config.smtp_host }}:{{ dest.config.smtp_port }}
+                                {% elif dest.type == 'aws_ses' %}{{ dest.config.region }}
                                 {% endif %}
                             </small>
                         </td>
-                        <td>
-                            <small style="text-transform: capitalize; color: var(--pico-muted-color);">{{ dest.scope }}</small>
+                        <td style="white-space: nowrap;">
+                            <small style="white-space: nowrap;">
+                                {% if dest.type in ['smtp', 'aws_ses'] %}
+                                    {{ dest.config.from_email or '—' }}
+                                {% else %}
+                                    <span style="color: var(--pico-muted-color);">—</span>
+                                {% endif %}
+                            </small>
                         </td>
-                        <td><small>{{ dest.created_at | humanize_time }}</small></td>
-                        <td style="text-align: right; display: flex; gap: 0.5rem; justify-content: flex-end;">
-                            {% if dest.type in ['smtp', 'aws_ses'] and not dest.is_default %}
-                            <form action="/api/notifications/destinations/{{ dest.id }}/set-default" method="POST" style="margin-bottom: 0; display: inline;">
-                                <button type="submit" class="outline secondary" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;" title="Set as Default System SMTP Gateway">
-                                    ⭐ Make Default
+                        <td style="white-space: nowrap;">
+                            <small style="text-transform: capitalize; color: var(--pico-muted-color); white-space: nowrap;">{{ dest.scope }}</small>
+                        </td>
+                        <td style="white-space: nowrap;"><small style="white-space: nowrap;">{{ dest.created_at | humanize_time }}</small></td>
+                        <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                            <div style="display: inline-flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+                                {% if dest.type in ['smtp', 'aws_ses'] and not dest.is_default %}
+                                <form action="/api/notifications/destinations/{{ dest.id }}/set-default" method="POST" style="margin-bottom: 0; display: inline;">
+                                    <button type="submit" class="outline secondary" style="height: 32px; padding: 0 0.65rem; font-size: 0.8rem; width: auto; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; white-space: nowrap; flex-shrink: 0;" title="Set as Default System SMTP Gateway">
+                                        Make Default
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <button onclick='openEditDestinationModal({{ dest | tojson }})' class="outline" style="height: 32px; width: 32px; min-width: 32px; padding: 0; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; flex-shrink: 0;" title="Edit Destination">
+                                    {{ icon('settings', size=16) }}
                                 </button>
-                            </form>
-                            {% endif %}
-                            <button onclick='openEditDestinationModal({{ dest | tojson }})' class="outline" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
-                                ✏️ Edit
-                            </button>
-                            <button onclick="testDestination('{{ dest.id }}')" class="outline" style="padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
-                                ⚡ Test Ping
-                            </button>
-                            <form action="/api/notifications/destinations/{{ dest.id }}/delete" method="POST" style="margin-bottom: 0; display: inline;">
-                                <button type="submit" class="outline" style="color: var(--pico-del-color); border-color: var(--pico-del-color); padding: 0.25rem 0.5rem; width: auto; margin-bottom: 0; font-size: 0.8rem;">
-                                    Delete
+                                <button onclick="testDestination('{{ dest.id }}')" class="outline" style="height: 32px; padding: 0 0.65rem; font-size: 0.8rem; width: auto; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; white-space: nowrap; flex-shrink: 0;" title="Send Test Ping">
+                                    Send Test
                                 </button>
-                            </form>
+                                <form action="/api/notifications/destinations/{{ dest.id }}/delete" method="POST" style="margin-bottom: 0; display: inline;">
+                                    <button type="submit" class="outline" style="color: var(--pico-del-color); border-color: var(--pico-del-color); height: 32px; padding: 0 0.65rem; font-size: 0.8rem; width: auto; margin-bottom: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; white-space: nowrap; flex-shrink: 0;" title="Delete Destination">
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--pico-muted-color);">
-                            No shared notification destinations configured yet.
+                        <td colspan="7" style="text-align: center; padding: 3rem 1.5rem; color: var(--pico-muted-color);">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                                {{ icon('send', size=24) }}
+                                <span>No shared notification destinations configured yet.</span>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -109,7 +124,7 @@
 <dialog id="create-destination-modal">
     <article style="max-width: 600px;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('create-destination-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <strong>Add Notification Destination</strong>
         </header>
         <form action="/api/notifications/destinations" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true" data-form-type="other">
@@ -199,7 +214,7 @@
 <dialog id="edit-destination-modal">
     <article style="max-width: 600px;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('edit-destination-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <strong>Edit Notification Destination: <span id="edit-dest-title"></span></strong>
         </header>
         <form id="edit-dest-form" action="" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true" data-form-type="other">
@@ -321,12 +336,12 @@ async function testDestination(destId) {
         const resp = await fetch(`/api/notifications/destinations/${destId}/test`, { method: 'POST' });
         const res = await resp.json();
         if (res.status === 'ok') {
-            alert('✅ Test Ping delivered successfully!');
+            showToast('Test Ping delivered successfully!', true);
         } else {
-            alert('❌ Test Ping failed: ' + (res.error || 'Unknown error'));
+            showToast('Test Ping failed: ' + (res.error || 'Unknown error'), false);
         }
     } catch (e) {
-        alert('❌ Test Ping network error: ' + e);
+        showToast('Test Ping network error: ' + e, false);
     }
 }
 </script>

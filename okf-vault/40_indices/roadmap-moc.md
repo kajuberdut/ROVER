@@ -88,6 +88,7 @@ graph TD
 - [[m4-private-container-registry-support|M4 · Private Container Registry Support]]
 - [[m5-semgrep-pro-authentication|M5 · Semgrep Pro Authentication]]
 - [[m6-notifications|M6 · Notifications System]] ✅ *(Completed)*
+  - [[email-verification-and-unsubscribe-portal|Email Verification & Unsubscribe Portal Architecture]]
 - [[m7-scheduled-scans|M7 · Scheduled Scans Engine]] ✅ *(Completed)*
 - [[m8-helm-chart-version-polling|M8 · Helm Chart Version Polling & Auto Promotion]]
 - [[m9-release-reports-and-api|M9 · Release Reports & Export API]] ✅ *(Completed)*
@@ -106,7 +107,7 @@ graph TD
 
 ---
 
-### Architectural Engineering Targets (A1 – A7)
+### Architectural Engineering Targets (A1 – A11)
 - [[a1-scanner-plugin interface|A1 · Scanner Plugin Interface]] ✅ *(Completed)*
 - [[a2-route-decomposition|A2 · Falcon Route Decomposition]] ✅ *(Completed)*
 - [[a3-database-layer-decomposition|A3 · Database Access Layer Decomposition]] ✅ *(Completed)*
@@ -114,3 +115,8 @@ graph TD
 - [[a5-typed-domain-models|A5 · Typed Domain Models]]
 - [[a6-structured-logging|A6 · Structured JSON Logging]]
 - [[a7-concurrent-job-execution|A7 · Concurrent Background Job Execution]] ✅ *(Completed)*
+- [[lldap-identity-backend|A8 · LLDAP Identity Provider Integration]]
+- [[ephemeral-authelia-provisioner|A9 · Ephemeral Cryptographic Handoff Authelia Provisioner]]
+- [[hybrid-identity-rbac-architecture|A10 · Hybrid Identity & Access Governance Architecture]] ✅ *(Completed)*
+- [[user-roles-and-product-permissions|A11 · User Roles & Product Permissions Architecture]] ✅ *(Completed)*
+- [[design-language-and-ui-standards|A12 · Design System & UI Standards Architecture]] ✅ *(Completed)*

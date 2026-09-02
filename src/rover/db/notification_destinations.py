@@ -59,12 +59,13 @@ def add_notification_destination(
     product_id: str | None = None,
     is_system: bool = False,
     is_default: bool = False,
+    is_verified: bool | None = None,
     vault_client: OpenBaoClient | None = None,
 ) -> dict[str, Any]:
     """Creates a new notification destination record in DB and stores sensitive credentials in OpenBao Vault."""
     dest_id = str(uuid.uuid4())
     config_dict = config_dict or {}
-    config_json = json.dumps(config_dict)
+    config_json = config_dict
 
     if destination_type not in ("smtp", "aws_ses"):
         is_default = False
@@ -87,6 +88,14 @@ def add_notification_destination(
             secret_data = secret_value
         client.write_secret(vault_path, secret_data)
 
+    if is_verified is None:
+        is_verified = (
+            destination_type not in ("smtp", "aws_ses")
+            or is_system
+            or is_default
+            or scope == "system"
+        )
+
     with get_db_connection() as conn:
         conn.execute(
             notification_destinations.insert().values(
@@ -98,6 +107,7 @@ def add_notification_destination(
                 product_id=product_id if scope == "product" else None,
                 is_system=is_system or (scope == "system"),
                 is_default=is_default,
+                is_verified=is_verified,
                 config_json=config_json,
                 vault_secret_path=vault_path,
             )
@@ -107,6 +117,16 @@ def add_notification_destination(
     if res is None:
         raise RuntimeError(f"Failed to retrieve newly created destination {dest_id}")
     return res
+
+
+def set_destination_verified(dest_id: str, is_verified: bool = True) -> None:
+    """Sets the is_verified flag for a notification destination."""
+    with get_db_connection() as conn:
+        conn.execute(
+            update(notification_destinations)
+            .where(notification_destinations.c.id == dest_id)
+            .values(is_verified=is_verified)
+        )
 
 
 def get_notification_destinations(
@@ -139,9 +159,12 @@ def get_notification_destinations(
             elif d.get("updated_at") is not None:
                 d["updated_at"] = str(d["updated_at"])
 
-            if isinstance(d.get("config_json"), str):
+            c_raw = d.get("config_json")
+            if isinstance(c_raw, (dict, list)):
+                d["config"] = c_raw
+            elif isinstance(c_raw, (str, bytes)):
                 try:
-                    d["config"] = json.loads(d["config_json"])
+                    d["config"] = json.loads(c_raw)
                 except Exception:
                     d["config"] = {}
             else:
@@ -170,9 +193,12 @@ def get_notification_destination_by_id(dest_id: str) -> dict[str, Any] | None:
         elif d.get("updated_at") is not None:
             d["updated_at"] = str(d["updated_at"])
 
-        if isinstance(d.get("config_json"), str):
+        c_raw = d.get("config_json")
+        if isinstance(c_raw, (dict, list)):
+            d["config"] = c_raw
+        elif isinstance(c_raw, (str, bytes)):
             try:
-                d["config"] = json.loads(d["config_json"])
+                d["config"] = json.loads(c_raw)
             except Exception:
                 d["config"] = {}
         else:
@@ -210,7 +236,7 @@ def update_notification_destination(
     if name is not None:
         values["name"] = name
     if config_dict is not None:
-        values["config_json"] = json.dumps(config_dict)
+        values["config_json"] = config_dict
 
     if is_default is True:
         if dest.get("type") in ("smtp", "aws_ses"):

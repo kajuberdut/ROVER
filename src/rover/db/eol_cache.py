@@ -1,4 +1,5 @@
 import datetime
+import json
 import uuid
 
 from sqlalchemy import insert, select, update
@@ -17,11 +18,19 @@ def get_cached_eol_data(name: str, version: str) -> str | None:
             .where(eol_cache.c.name == name, eol_cache.c.version == version)
             .where(eol_cache.c.cached_at >= threshold)
         ).fetchone()
-        return str(row[0]) if row else None
+        if not row:
+            return None
+        val = row[0]
+        if isinstance(val, (dict, list)):
+            return json.dumps(val)
+        return str(val)
 
 
 def set_cached_eol_data(name: str, version: str, response_json: str) -> None:
     cache_id = str(uuid.uuid4())
+    parsed_json = (
+        json.loads(response_json) if isinstance(response_json, str) else response_json
+    )
     with get_db_connection() as conn:
         row = conn.execute(
             select(eol_cache.c.id).where(
@@ -32,7 +41,10 @@ def set_cached_eol_data(name: str, version: str, response_json: str) -> None:
             conn.execute(
                 update(eol_cache)
                 .where(eol_cache.c.id == row[0])
-                .values(response_json=response_json, cached_at=func.current_timestamp())
+                .values(
+                    response_json=parsed_json,
+                    cached_at=func.current_timestamp(),
+                )
             )
         else:
             try:
@@ -41,7 +53,7 @@ def set_cached_eol_data(name: str, version: str, response_json: str) -> None:
                         id=cache_id,
                         name=name,
                         version=version,
-                        response_json=response_json,
+                        response_json=parsed_json,
                     )
                 )
             except IntegrityError:
@@ -49,6 +61,7 @@ def set_cached_eol_data(name: str, version: str, response_json: str) -> None:
                     update(eol_cache)
                     .where(eol_cache.c.name == name, eol_cache.c.version == version)
                     .values(
-                        response_json=response_json, cached_at=func.current_timestamp()
+                        response_json=parsed_json,
+                        cached_at=func.current_timestamp(),
                     )
                 )

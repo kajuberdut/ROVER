@@ -21,6 +21,16 @@ def parse_snyk_oss_output(json_text: str) -> tuple[list[dict[str, Any]], str | N
     """Parses Snyk OSS test JSON output into a tuple of (vulnerabilities, manifest_error_msg)."""
     if not json_text or not json_text.strip():
         return [], None
+    lower_txt = json_text.lower()
+    if (
+        "auth" in lower_txt
+        or "unauthorized" in lower_txt
+        or "invalid token" in lower_txt
+        or "snyk auth" in lower_txt
+    ):
+        raise Exception(
+            "Snyk authentication failed: Invalid or expired Snyk API token."
+        )
     try:
         json_start = json_text.find("{")
         json_end = json_text.rfind("}") + 1
@@ -44,10 +54,17 @@ def parse_snyk_oss_output(json_text: str) -> tuple[list[dict[str, Any]], str | N
                 for item in data:
                     vulns.extend(item.get("vulnerabilities", []))
                 return vulns, None
+        else:
+            raise Exception(f"Snyk returned non-JSON output: {json_text[:200]}")
     except Exception as e:
-        if "Snyk error:" in str(e):
+        if (
+            "Snyk error:" in str(e)
+            or "Snyk authentication failed:" in str(e)
+            or "Snyk returned non-JSON" in str(e)
+        ):
             raise
         logger.warning(f"Failed to parse Snyk OSS JSON output: {e}")
+        raise Exception(f"Failed to parse Snyk report: {e}") from e
     return [], None
 
 
@@ -81,9 +98,9 @@ class SnykScannerPlugin:
 
     name = "snyk"
     display_name = "Snyk Security"
-    icon = "🐶"
-    description = "Snyk Open-Source and Container Image Vulnerability Scanner"
-    template_name: str | None = "report_snyk.html"
+    icon = "lock"
+    description = "Snyk Open Source & Container Vulnerability Scanner"
+    template_name: str | None = None
     supported_asset_types = {"snyk", "repo", "image"}
 
     def can_handle(self, target_type: str) -> bool:
@@ -97,36 +114,18 @@ class SnykScannerPlugin:
         duration_seconds: int | None = None,
         avg_duration_seconds: int | None = None,
     ) -> dict[str, Any]:
-        duration_str = (
-            f"{duration_seconds}s"
-            if (duration_seconds is not None and duration_seconds < 60)
-            else (
-                f"{duration_seconds // 60}m {duration_seconds % 60:02d}s"
-                if duration_seconds is not None
-                else None
-            )
-        )
-        avg_str = (
-            f"{int(avg_duration_seconds)}s"
-            if (avg_duration_seconds is not None and avg_duration_seconds < 60)
-            else (
-                f"{int(avg_duration_seconds) // 60}m {int(avg_duration_seconds) % 60:02d}s"
-                if avg_duration_seconds is not None
-                else None
-            )
-        )
+        duration_str = f"{duration_seconds}s" if duration_seconds is not None else None
+        avg_str = f"{int(avg_duration_seconds)}s" if avg_duration_seconds else None
 
         time_label = ""
-        if status == "running" and duration_str:
+        if duration_str:
             time_label = f" ({duration_str}" + (f", avg {avg_str})" if avg_str else ")")
-        elif status == "queued" and avg_str:
+        elif avg_str:
             time_label = f" (avg {avg_str})"
-        elif status == "completed" and duration_str:
-            time_label = f" [{duration_str}]"
 
         if status == "failed":
             return {
-                "label": f"🐶 ⚠️ Snyk Failed{time_label}",
+                "label": f"Snyk Failed{time_label}",
                 "status": "failed",
                 "bg": "#d32f2f",
                 "border": "#b71c1c",
@@ -137,7 +136,7 @@ class SnykScannerPlugin:
             }
         if status in ("queued", "running"):
             return {
-                "label": f"🐶 ⏳ Snyk {status}{time_label}",
+                "label": f"Snyk {status.title()}{time_label}",
                 "status": status,
                 "bg": "#ff9800",
                 "border": "#e65100",
@@ -150,7 +149,7 @@ class SnykScannerPlugin:
             vulns = results.get("vulnerabilities", [])
             if results.get("unsupported_manifest") or results.get("manifest_error"):
                 return {
-                    "label": f"🐶 ⚠️ Unsupported{time_label}",
+                    "label": f"Unsupported{time_label}",
                     "status": "unsupported",
                     "bg": "#f57c00",
                     "border": "#e65100",
@@ -161,7 +160,7 @@ class SnykScannerPlugin:
                 }
             if len(vulns) > 0:
                 return {
-                    "label": f"🐶 {len(vulns)} Snyk{time_label}",
+                    "label": f"{len(vulns)} Snyk{time_label}",
                     "status": "has_vulns",
                     "count": len(vulns),
                     "bg": "#4b45a9",
@@ -171,7 +170,7 @@ class SnykScannerPlugin:
                     "avg_str": avg_str,
                 }
             return {
-                "label": f"🐶 Snyk Clean{time_label}",
+                "label": f"Snyk Clean{time_label}",
                 "status": "clean",
                 "bg": "transparent",
                 "border": "#4b45a9",
@@ -180,7 +179,7 @@ class SnykScannerPlugin:
                 "avg_str": avg_str,
             }
         return {
-            "label": "🐶 No Snyk Data",
+            "label": "No Snyk Data",
             "status": "none",
             "duration_str": duration_str,
             "avg_str": avg_str,
@@ -222,13 +221,16 @@ class SnykScannerPlugin:
         if not snyk_token:
             snyk_token = os.getenv("SNYK_TOKEN")
 
+        if not snyk_token:
+            raise Exception(
+                "Snyk API token is not configured. Please add a Snyk Token credential in Settings -> Credentials."
+            )
+
         from rover import config
 
         snyk_img = config.get_scanner_image("snyk")
         container = dock_cls(snyk_img)
-
-        if snyk_token:
-            container.with_env("SNYK_TOKEN", snyk_token)
+        container.with_env("SNYK_TOKEN", snyk_token)
 
         commit_hash = "latest"
         tags_str = None

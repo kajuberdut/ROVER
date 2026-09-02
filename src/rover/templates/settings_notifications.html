@@ -7,22 +7,30 @@
 {% endblock %}
 
 {% block content %}
+<style>
+    .recipient-add-btn {
+        display: none !important;
+    }
+    .recipient-email-input:not(:placeholder-shown) + .recipient-add-btn {
+        display: inline-flex !important;
+    }
+</style>
 <section>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
         <div>
-            <h1 style="margin-bottom: 0.2rem;">{% if scope == 'product' %}Notifications: {{ product.name }}{% else %}Personal Notification Subscriptions{% endif %}</h1>
+            <h1 style="margin-bottom: 0.25rem;">{% if scope == 'product' %}Notifications: {{ product.name }}{% else %}Personal Notification Subscriptions{% endif %}</h1>
             <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
-                Configure notification event rules (scan completion, vulnerability findings, EOL lead time alerts) attached to approved destinations.
+                Subscribe to security scan and component lifecycle alerts.
             </p>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
             {% if user and user.role == 'system_admin' %}
-            <a href="/admin/notifications/destinations" class="button outline" style="width: auto; margin-bottom: 0; text-decoration: none;">
-                ⚙️ Manage System Destinations
+            <a href="/admin/notifications/destinations" role="button" class="secondary outline" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px;">
+                {{ icon('settings', size=16) }} System Destinations
             </a>
             {% endif %}
-            <button onclick="openRuleModal()" style="width: auto; margin-bottom: 0;">
-                + Add Notification Rule
+            <button onclick="openRuleModal()" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px;">
+                {{ icon('plus', size=16) }} Add Notification Rule
             </button>
         </div>
     </div>
@@ -31,7 +39,7 @@
     <article style="margin-bottom: 2rem;">
         <header style="display: flex; justify-content: space-between; align-items: center;">
             <strong>Active Notification Rules</strong>
-            <small style="color: var(--pico-muted-color);">Evaluated on scan completion and vulnerability alerts</small>
+            <small style="color: var(--pico-muted-color);">Evaluated on scan completion and vulnerability findings</small>
         </header>
         <div style="padding: 1.5rem;">
             {% if rules %}
@@ -61,8 +69,8 @@
                                 {{ rule.event_type }}
                             </span>
                             <form action="/api/notifications/rules/{{ rule.id }}/delete" method="POST" style="margin-bottom: 0;">
-                                <button type="submit" class="outline" style="color: var(--pico-del-color); border-color: transparent; padding: 0.15rem 0.4rem; font-size: 0.75rem; margin-bottom: 0;" title="Delete Rule">
-                                    ✕
+                                <button type="submit" class="outline secondary" style="color: #ef4444; border-color: transparent; padding: 0.2rem 0.4rem; font-size: 0.75rem; margin-bottom: 0; border-radius: 4px;" title="Delete Rule">
+                                    {{ icon('trash-2', size=14) }}
                                 </button>
                             </form>
                         </div>
@@ -103,16 +111,31 @@
                             </div>
                             {% endif %}
 
-                            {% if rule.recipient_emails %}
-                            <div style="margin-top: 0.35rem;">
-                                <strong style="color: var(--pico-color);">Recipients:</strong>
-                                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.2rem;">
+                            <!-- Recipients Section -->
+                            <div style="margin-top: 0.75rem; border-top: 1px dashed var(--pico-border-color); padding-top: 0.75rem;">
+                                <div style="color: var(--pico-color); font-weight: 600; font-size: 0.85rem; display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.4rem;">
+                                    {{ icon('users', size=14) }} Recipients ({{ rule.recipient_emails | length }})
+                                </div>
+                                {% if rule.recipient_emails %}
+                                <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem;">
                                     {% for em in rule.recipient_emails %}
-                                    <span class="role-badge" style="font-size: 0.7rem; padding: 0.1rem 0.35rem; background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); color: var(--pico-color);">{{ em }}</span>
+                                    <span style="font-size: 0.78rem; font-family: monospace; padding: 0.2rem 0.5rem; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--pico-border-color); color: var(--pico-color); display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 6px;">
+                                        {{ em }}
+                                        <form action="/api/notifications/rules/{{ rule.id }}/recipients/remove" method="POST" style="margin: 0; display: inline;">
+                                            <input type="hidden" name="email" value="{{ em }}">
+                                            <button type="submit" style="background: none; border: none; padding: 0; margin: 0; color: #f87171; cursor: pointer; line-height: 1; font-size: 0.85rem;" title="Remove recipient">✕</button>
+                                        </form>
+                                    </span>
                                     {% endfor %}
                                 </div>
+                                {% endif %}
+                                <form action="/api/notifications/rules/{{ rule.id }}/recipients/add" method="POST" style="display: flex !important; gap: 0.5rem !important; margin: 0 !important; align-items: center !important; width: 100% !important;">
+                                    <input type="email" name="email" class="recipient-email-input" placeholder="Add email address..." required oninput="this.nextElementSibling.style.setProperty('display', this.value.trim() ? 'inline-flex' : 'none', 'important');" style="height: 36px !important; font-size: 0.825rem !important; padding: 0 0.75rem !important; margin: 0 !important; flex: 1 1 auto !important; width: 100% !important; min-width: 0 !important; border-radius: 6px !important; border: 1px solid var(--pico-border-color) !important; background: var(--pico-card-background-color) !important; color: var(--pico-color) !important;">
+                                    <button type="submit" class="secondary recipient-add-btn" style="display: none !important; height: 36px !important; font-size: 0.8rem !important; font-weight: 600 !important; padding: 0 0.85rem !important; margin: 0 !important; width: auto !important; flex: 0 0 auto !important; white-space: nowrap !important; align-items: center !important; justify-content: center !important; gap: 0.3rem !important; border-radius: 6px !important;">
+                                        {{ icon('plus', size=14) }} Add Recipient
+                                    </button>
+                                </form>
                             </div>
-                            {% endif %}
                         </div>
                     </div>
 
@@ -124,8 +147,17 @@
                 {% endfor %}
             </div>
             {% else %}
-            <div style="text-align: center; padding: 2.5rem; color: var(--pico-muted-color);">
-                No notification rules configured yet. Click <strong>+ Add Notification Rule</strong> to subscribe to events.
+            <div style="text-align: center; padding: 3rem 1.5rem; color: var(--pico-muted-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem;">
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--pico-border-color); border-radius: 50%; width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; color: var(--pico-muted-color);">
+                    {{ icon('bell', size=26) }}
+                </div>
+                <div style="font-weight: 600; font-size: 1rem; color: var(--pico-color);">No Active Notification Rules</div>
+                <p style="margin: 0; font-size: 0.85rem; max-width: 420px; color: var(--pico-muted-color);">
+                    You haven't configured any notification rules yet. Create a rule to receive security alerts and scan notifications.
+                </p>
+                <button onclick="openRuleModal()" class="outline" style="width: auto; font-size: 0.8rem; padding: 0.35rem 0.85rem; margin-top: 0.5rem; display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 6px;">
+                    {{ icon('plus', size=14) }} Create First Rule
+                </button>
             </div>
             {% endif %}
         </div>
@@ -136,7 +168,7 @@
 <dialog id="create-rule-modal">
     <article style="max-width: 600px;">
         <header>
-            <button aria-label="Close" rel="prev" onclick="document.getElementById('create-rule-modal').close();"></button>
+            <button aria-label="Close" rel="prev" onclick="this.closest('dialog').close();"></button>
             <strong>Add Notification Rule</strong>
         </header>
         <form action="/api/notifications/rules" method="POST" style="margin-bottom: 0;" autocomplete="off" data-bwignore="true" data-1password-ignore="true">
@@ -292,12 +324,12 @@ function testDestination(destId) {
         return res.json();
     }).then(function(data) {
         if (data.delivered) {
-            alert("✅ Test Ping delivered successfully!");
+            showToast("Test Ping delivered successfully!", true);
         } else {
-            alert("❌ Test Ping failed: " + (data.error || "Unknown error"));
+            showToast("Test Ping failed: " + (data.error || "Unknown error"), false);
         }
     }).catch(function(err) {
-        alert("❌ Request error: " + err);
+        showToast("Request error: " + err, false);
     });
 }
 </script>

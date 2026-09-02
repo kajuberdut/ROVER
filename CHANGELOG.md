@@ -20,5 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Notification Destinations**: Support for configuring and managing SMTP, Webhook (HMAC-SHA256), AWS SES, MS Teams, and Slack delivery destinations.
 - **Notification Rules**: Rule configuration supporting event types: `vulnerability.found` (with severity filtering), `scan.completed`, `scan.failed`, and `eol.warning` (with advance lead-time thresholds).
 - **Single Asset Re-run (Per-Widget Trigger)**: Added `POST /api/assets/{id}/scans` endpoint and ⚡ Scan action buttons on individual scanner widgets (Trivy, Semgrep, Snyk) and asset row actions, enabling users to re-evaluate single release assets without triggering full release re-scans.
+- **Email Address Confirmation Workflow**: Added cryptographically signed token generation (`itsdangerous` / HMAC with 24-hour expiration) and `/confirm-email?token=...` route to confirm deliverability before dispatching active notifications.
+- **Self-Service Password Reset & Authelia Integration**: Added `/forgot-password` and `/reset-password?token=...` routes and templates, updating Argon2id password hashes in Authelia's `users_database.yml` and local accounts.
+- **Email-Only User Role & Unsubscribe Portal**: Added `email_only` user role with middleware access control enforcing restricted portal navigation to `/user/subscriptions`, allowing email-only users to view and remove their notification subscriptions.
 
 

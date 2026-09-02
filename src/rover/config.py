@@ -5,10 +5,10 @@ import tomlkit
 
 CONFIG_FILE = "config.toml"
 
-DEFAULT_TRIVY_IMAGE = "aquasec/trivy@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f"
-DEFAULT_SEMGREP_IMAGE = "semgrep/semgrep@sha256:98c2572fced2474539fd27cab3207ebd8e95e4e7aab4c3b381fdc5e2641d9941"
-DEFAULT_HELM_IMAGE = "alpine/helm@sha256:b97ba4f9b27fe7af16ee3d37e6815783c9d4a51289b6240a9024ec471611ae9b"
-DEFAULT_SNYK_IMAGE = "snyk/snyk:alpine@sha256:4e573b645e9c0c43e515ed9f80e9944322d214a1177ec1227d9b5e4f1ff37d04"
+DEFAULT_TRIVY_IMAGE = "aquasec/trivy@sha256:ee940acbf1f58ebadb42d01434ce4609530bf1b52536afbd1eee66cd7123c5c9"
+DEFAULT_SEMGREP_IMAGE = "semgrep/semgrep@sha256:155f999d01d02b33aa5a8db9186eb20dcd0154ce1a0ac6fce8d80674d0ace235"
+DEFAULT_HELM_IMAGE = "alpine/helm@sha256:f92964e7ecaa7effe87dd6c3dfed25fa3175e80fe8eb0fc8fd669291dea389d2"
+DEFAULT_SNYK_IMAGE = "snyk/snyk:alpine@sha256:3fe9af4ae66ae714e5e8816ae132d3972dd65db25c261973f1e1778991f90ab6"
 
 
 DEFAULT_CONFIG_TOML = f"""# R.O.V.E.R Configuration File
@@ -19,6 +19,10 @@ DEFAULT_CONFIG_TOML = f"""# R.O.V.E.R Configuration File
 # Maximum execution time in seconds allowed for a single container security or SAST scan job.
 # Default: 600 (10 minutes). Recommended range: 60 to 3600 seconds.
 timeout_seconds = 600
+
+# Duration in hours that a completed scan report is cached for a specific Git commit SHA-1.
+# Default: 8 hours. Recommended range: 1 to 72 hours.
+cache_ttl_hours = 8
 
 [scanners]
 # Pinned container image references used by ROVER worker plugins for security scanning.
@@ -40,12 +44,18 @@ snyk_image = "{DEFAULT_SNYK_IMAGE}"
 # The primary navigation tab selected by default on the dashboard.
 # Valid options: "repo" (Source Repositories), "image" (Container Images), "major_components" (Major Components)
 default_tab = "repo"
-"""
+
+[features]
+# Enables or disables the user invitation workflow.
+# When set to false, generating, sending, and accepting user invitation links is disabled.
+allow_user_invites = true
+"""  # noqa: S608
 
 
 @dataclass
 class ScannerConfig:
     timeout_seconds: int = 600
+    cache_ttl_hours: int = 8
 
 
 @dataclass
@@ -63,10 +73,16 @@ class UIConfig:
 
 
 @dataclass
+class FeaturesConfig:
+    allow_user_invites: bool = True
+
+
+@dataclass
 class RoverConfig:
     scanner: ScannerConfig = field(default_factory=ScannerConfig)
     scanners: ScannersConfig = field(default_factory=ScannersConfig)
     ui: UIConfig = field(default_factory=UIConfig)
+    features: FeaturesConfig = field(default_factory=FeaturesConfig)
 
 
 def load_config() -> RoverConfig:
@@ -82,9 +98,11 @@ def load_config() -> RoverConfig:
     scanner_data = doc.get("scanner", {})
     scanners_data = doc.get("scanners", {})
     ui_data = doc.get("ui", {})
+    features_data = doc.get("features", {})
 
     scanner_config = ScannerConfig(
-        timeout_seconds=scanner_data.get("timeout_seconds", 600)
+        timeout_seconds=int(scanner_data.get("timeout_seconds", 600)),
+        cache_ttl_hours=int(scanner_data.get("cache_ttl_hours", 8)),
     )
     raw_snyk_targets = scanners_data.get("snyk_target_files", [])
     snyk_targets = (
@@ -98,8 +116,16 @@ def load_config() -> RoverConfig:
         snyk_target_files=snyk_targets,
     )
     ui_config = UIConfig(default_tab=ui_data.get("default_tab", "repo"))
+    features_config = FeaturesConfig(
+        allow_user_invites=bool(features_data.get("allow_user_invites", True))
+    )
 
-    return RoverConfig(scanner=scanner_config, scanners=scanners_config, ui=ui_config)
+    return RoverConfig(
+        scanner=scanner_config,
+        scanners=scanners_config,
+        ui=ui_config,
+        features=features_config,
+    )
 
 
 def save_raw_config(raw_toml: str) -> None:

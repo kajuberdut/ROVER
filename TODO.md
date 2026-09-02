@@ -73,20 +73,20 @@
 
 ## 4. Email Verification, Password Reset & Email-Only Users
 
-- [ ] **Unit 1: Email Address Confirmation Workflow**
-  - Generate cryptographically signed verification tokens (`itsdangerous` / HMAC) with 24-hour expiration.
-  - Dispatch verification emails via SMTP/SES when an email destination or user address is added or updated.
-  - Implement `/confirm-email?token=...` route to verify deliverability and mark email addresses as `is_verified`.
-  - Require email verification before dispatching active email notifications.
+- [x] **Unit 1: Email Address Confirmation Workflow**
+  - Generate cryptographically signed verification tokens (`itsdangerous` / HMAC) with 24-hour expiration. ✅
+  - Dispatch verification emails via SMTP/SES when an email destination or user address is added or updated. ✅
+  - Implement `/confirm-email?token=...` route to verify deliverability and mark email addresses as `is_verified`. ✅
+  - Require email verification before dispatching active email notifications. ✅
 
-- [ ] **Unit 2: Email Password Reset (Authelia Integration)**
-  - Build `/forgot-password` and `/reset-password?token=...` routes and templates.
-  - Generate secure, single-use password reset tokens and send recovery links via SMTP/SES.
-  - Integrate password resets with Authelia session authentication and local account credentials.
+- [x] **Unit 2: Email Password Reset (Authelia Integration)**
+  - Build `/forgot-password` and `/reset-password?token=...` routes and templates. ✅
+  - Generate secure, single-use password reset tokens and send recovery links via SMTP/SES. ✅
+  - Integrate password resets with Authelia session authentication and local account credentials. ✅
 
-- [ ] **Unit 3: "Email-Only" Users & Self-Service Unsubscribe Portal**
-  - Add `email_only` user role (`role: "email_only"`) created for the sole purpose of receiving notification alerts.
-  - Dispatch verification email link automatically upon `email_only` user provisioning.
-  - Build restricted self-service subscription view (`/user/subscriptions`) allowing `email_only` users to view and remove themselves from subscriptions (with restricted access blocking access to scanner and product dashboards).
+- [x] **Unit 3: "Email-Only" Users & Self-Service Unsubscribe Portal**
+  - Add `email_only` user role (`role: "email_only"`) created for the sole purpose of receiving notification alerts. ✅
+  - Dispatch verification email link automatically upon `email_only` user provisioning. ✅
+  - Build restricted self-service subscription view (`/user/subscriptions`) allowing `email_only` users to view and remove themselves from subscriptions (with restricted access blocking access to scanner and product dashboards). ✅
 
 

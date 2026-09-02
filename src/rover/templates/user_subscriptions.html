@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block breadcrumb %}
+{% if user.role != "email_only" %}
+<a href="/">Dashboard</a>
+<span class="breadcrumb-sep">/</span>
+{% endif %}
+<span>My Subscriptions</span>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 1.5rem auto;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                {{ icon('bell', size=22) }} Notification Subscriptions
+            </h2>
+            <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin: 0.25rem 0 0 0;">
+                Manage your notification preferences and alert channels.
+            </p>
+        </div>
+        <div>
+            <span class="role-badge {{ user.role }}">{{ user.role | replace('_', ' ') }}</span>
+        </div>
+    </div>
+
+    {% if verified_message %}
+    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #065f46; padding: 0.85rem 1.25rem; border-radius: var(--pico-border-radius); margin-bottom: 1.5rem; font-size: 0.9rem;">
+        ✅ Your email address has been confirmed!
+    </div>
+    {% endif %}
+
+    {% if unsubscribed_message %}
+    <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: #1e40af; padding: 0.85rem 1.25rem; border-radius: var(--pico-border-radius); margin-bottom: 1.5rem; font-size: 0.9rem;">
+        ℹ️ Subscription preference updated. You have been unsubscribed from the selected alert rules.
+    </div>
+    {% endif %}
+
+    <article style="margin-bottom: 2rem;">
+        <header style="display: flex; align-items: center; justify-content: space-between;">
+            <strong>Email Verification Status</strong>
+            {% if is_verified %}
+            <span style="background: #10b981; color: white; border-radius: 999px; padding: 0.15rem 0.65rem; font-size: 0.75rem; font-weight: 700;">Verified</span>
+            {% else %}
+            <span style="background: #f59e0b; color: white; border-radius: 999px; padding: 0.15rem 0.65rem; font-size: 0.75rem; font-weight: 700;">Unverified</span>
+            {% endif %}
+        </header>
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <p style="margin: 0; font-weight: 500;">{{ user.email or user.sub }}</p>
+                <small style="color: var(--pico-muted-color);">
+                    {% if is_verified %}
+                    Active notifications will be delivered to this email address.
+                    {% else %}
+                    Email verification is required before active notifications can be dispatched to your inbox.
+                    {% endif %}
+                </small>
+            </div>
+            {% if not is_verified %}
+            <form action="/user/subscriptions/resend-verification" method="POST" style="margin: 0;">
+                <button type="submit" class="secondary" style="font-size: 0.85rem; padding: 0.35rem 0.85rem;">Resend Verification Link</button>
+            </form>
+            {% endif %}
+        </div>
+    </article>
+
+    <article>
+        <header style="display: flex; align-items: center; justify-content: space-between;">
+            <strong>Active Alert Subscriptions ({{ rules|length }})</strong>
+            {% if rules|length > 0 %}
+            <button type="button" class="secondary outline" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; color: #dc2626; border-color: #fca5a5;"
+                onclick="openGlobalConfirmModal({ title: 'Unsubscribe From All Alerts', message: 'Are you sure you want to unsubscribe from <strong>ALL</strong> notification rules?', actionUrl: '/user/subscriptions/unsubscribe', buttonText: 'Unsubscribe All' });">
+                Unsubscribe All
+            </button>
+            {% endif %}
+        </header>
+
+        {% if rules|length == 0 %}
+        <div style="text-align: center; padding: 3rem 1.5rem; color: var(--pico-muted-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem;">
+            {{ icon('bell-off', size=24) }}
+            <span>You have no active notification subscriptions.</span>
+        </div>
+        {% else %}
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event Type</th>
+                        <th>Severity / Lead Time</th>
+                        <th>Scope</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rule in rules %}
+                    <tr>
+                        <td><code>{{ rule.event_type }}</code></td>
+                        <td>
+                            {% if rule.eol_warning_days %}
+                            {{ rule.eol_warning_days }} days lead time
+                            {% else %}
+                            {{ rule.min_severity }}
+                            {% endif %}
+                        </td>
+                        <td><span style="text-transform: capitalize;">{{ rule.scope }}</span></td>
+                        <td style="text-align: right;">
+                            <form action="/user/subscriptions/unsubscribe" method="POST" style="margin: 0; display: inline;">
+                                <input type="hidden" name="rule_id" value="{{ rule.id }}">
+                                <button type="submit" class="secondary outline" style="font-size: 0.75rem; padding: 0.2rem 0.5rem;">Unsubscribe</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </article>
+</div>
+{% endblock %}
