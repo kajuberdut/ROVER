@@ -286,7 +286,7 @@ class RequireAuthMiddleware:
                 if session_data.get("role") == "email_only" and not (
                     req.path.startswith("/user/subscriptions")
                     or req.path.startswith("/static")
-                    or req.path in ["/confirm-email"]
+                    or req.path in ["/confirm-email", "/logout", "/login"]
                 ):
                     raise falcon.HTTPFound("/user/subscriptions")
                 return
