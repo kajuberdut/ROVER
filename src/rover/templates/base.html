@@ -425,10 +425,12 @@
                         <div class="menu-divider"></div>
 
                         <span class="menu-section-header">Personal</span>
-                        {% if user.role != "email_only" %}
+                        {% if user.role == "email_only" %}
+                        <a href="/user/subscriptions">{{ icon('bell') }} Subscriptions</a>
+                        {% else %}
                         <a href="/settings/tokens">{{ icon('key') }} API Tokens</a>
-                        {% endif %}
                         <a href="/user/settings/notifications">{{ icon('bell') }} Subscriptions</a>
+                        {% endif %}
 
                         {% if user.role == "system_admin" %}
                         <div class="menu-divider"></div>
