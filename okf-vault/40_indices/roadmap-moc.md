@@ -24,11 +24,11 @@ aliases:
 
 | Category | Milestone Range | Completed | Planned | Total |
 | :--- | :--- | :---: | :---: | :---: |
-| **Core Features & Scanners** | M1 – M9 | 6 (M1, M2, M3, M6, M7, M9) | 3 | 9 |
+| **Core Features & Scanners** | M1 – M9 | 5 (M1, M2, M3, M6, M7) | 4 | 9 |
 | **Operational MVP Gaps** | M10 – M13 | 1 (M13) | 3 | 4 |
-| **High-Value Additions** | M14 – M17 | 2 (M15, M17) | 2 | 4 |
+| **High-Value Additions** | M14 – M17 | 0 | 4 | 4 |
 | **Architectural Targets** | A1 – A7 | 5 (A1–A4, A7) | 2 | 7 |
-| **Total** | | **14** | **10** | **24** |
+| **Total** | | **11** | **13** | **24** |
 
 ---
 
@@ -44,15 +44,15 @@ graph TD
     M6["M6 · Notifications (Done)"]
     M7["M7 · Scheduled Scans (Done)"]
     M8["M8 · Helm Polling"]
-    M9["M9 · Release Reports & API (Done)"]
+    M9["M9 · Release Reports & API"]
     M10["M10 · Vulnerability Triage"]
     M11["M11 · Pass/Fail Policy"]
     M12["M12 · Health Dashboard"]
     M13["M13 · Outbound Webhooks (Done)"]
     M14["M14 · Trend Charts"]
-    M15["M15 · CI/CD API (Done)"]
+    M15["M15 · CI/CD API"]
     M16["M16 · License Compliance"]
-    M17["M17 · Audit Log (Done)"]
+    M17["M17 · Audit Log"]
 
     M1 --> M2
     M1 --> M3
@@ -91,7 +91,7 @@ graph TD
   - [[email-verification-and-unsubscribe-portal|Email Verification & Unsubscribe Portal Architecture]]
 - [[m7-scheduled-scans|M7 · Scheduled Scans Engine]] ✅ *(Completed)*
 - [[m8-helm-chart-version-polling|M8 · Helm Chart Version Polling & Auto Promotion]]
-- [[m9-release-reports-and-api|M9 · Release Reports & Export API]] ✅ *(Completed)*
+- [[m9-release-reports-and-api|M9 · Release Reports & Export API]]
 
 ### Operational MVP Gaps (Milestones 10–13)
 - [[m10-vulnerability-triage-and-finding-status|M10 · Vulnerability Triage & Finding Status]]
@@ -101,9 +101,9 @@ graph TD
 
 ### High-Value Additions (Milestones 14–17)
 - [[m14-vulnerability-trend-charts|M14 · Vulnerability Trend Charts]]
-- [[m15-ci-cd-integration-api|M15 · CI/CD Integration API & CLI]] ✅ *(Completed)*
+- [[m15-ci-cd-integration-api|M15 · CI/CD Integration API & CLI]]
 - [[m16-license-compliance|M16 · Open Source License Compliance]]
-- [[m17-audit-log|M17 · Security Audit Log]] ✅ *(Completed)*
+- [[m17-audit-log|M17 · Security Audit Log]]
 
 ---
 

@@ -3,7 +3,7 @@ id: "202607261118"
 type: Feature
 title: Snyk Integration
 milestone: "M2"
-feature_status: planned
+feature_status: completed
 dependencies:
   - M1
 created: "2026-07-26T11:18:00Z"
@@ -11,7 +11,7 @@ updated: "2026-07-26T11:18:00Z"
 tags:
   - roadmap/feature
   - roadmap/m2-snyk
-  - status/planned
+  - status/completed
 status: stable
 stale_after: "2027-01-01"
 aliases:
@@ -19,7 +19,7 @@ aliases:
   - Snyk Scanner Feature
 ---
 
-# Milestone 2: Snyk Integration
+# Milestone 2: Snyk Integration (Completed)
 
 > **Summary**: Expands ROVER's scanner suite with Snyk for both SAST and supply-chain (OSS/CVE) analysis.
 

@@ -3,21 +3,21 @@ id: "202607261123"
 type: Feature
 title: Scheduled Scans Engine
 milestone: "M7"
-feature_status: planned
+feature_status: completed
 dependencies: []
 created: "2026-07-26T11:23:00Z"
 updated: "2026-07-26T11:23:00Z"
 tags:
   - roadmap/feature
   - roadmap/m7-scheduled-scans
-  - status/planned
+  - status/completed
 status: stable
 stale_after: "2027-01-01"
 aliases:
   - Milestone 7
 ---
 
-# Milestone 7: Scheduled Scans Engine
+# Milestone 7: Scheduled Scans Engine (Completed)
 
 > **Summary**: Automates recurring vulnerability scans on a configurable cadence (hourly, daily, weekly) rather than requiring manual triggers.
 

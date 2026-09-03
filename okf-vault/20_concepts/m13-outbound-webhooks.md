@@ -3,7 +3,7 @@ id: "202607261129"
 type: Feature
 title: Outbound Webhooks Integration
 milestone: "M13"
-feature_status: planned
+feature_status: completed
 dependencies:
   - M1
   - M6
@@ -12,14 +12,14 @@ updated: "2026-07-26T11:29:00Z"
 tags:
   - roadmap/feature
   - roadmap/m13-webhooks
-  - status/planned
+  - status/completed
 status: stable
 stale_after: "2027-01-01"
 aliases:
   - Milestone 13
 ---
 
-# Milestone 13: Outbound Webhooks Integration
+# Milestone 13: Outbound Webhooks Integration (Completed)
 
 > **Summary**: Delivers real-time scan alerts to Slack, Microsoft Teams, PagerDuty, or HTTP endpoints. (MVP Gap feature)
 
