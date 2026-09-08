@@ -156,6 +156,9 @@ def accept_user_invite(token: str, accepting_user_sub: str) -> dict[str, Any] | 
             except ValueError:
                 expires_at = None
 
+        if isinstance(expires_at, datetime) and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
         if invite["status"] != "pending":
             logger.warning(
                 f"Invite {token} cannot be accepted: status is {invite['status']}"

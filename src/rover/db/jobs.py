@@ -19,6 +19,17 @@ def create_scanner_job(
     product_id: str | None = None,
     credential_id: str | None = None,
 ) -> str:
+    from rover.db.products import (
+        get_product_id_for_release_asset,
+        resolve_release_asset_id_by_target,
+    )
+
+    if not asset_id and target_url:
+        asset_id = resolve_release_asset_id_by_target(target_url, git_ref)
+
+    if asset_id and not product_id:
+        product_id = get_product_id_for_release_asset(asset_id)
+
     job_id = str(uuid.uuid4())
     with get_db_connection() as conn:
         conn.execute(
@@ -338,9 +349,14 @@ def get_completed_scanner_job_by_commit(
 
 
 def create_job(
-    target_url: str, git_ref: str | None = None, target_type: str = "repo"
+    target_url: str,
+    git_ref: str | None = None,
+    target_type: str = "repo",
+    asset_id: str | None = None,
 ) -> str:
-    return create_scanner_job("trivy", target_url, git_ref, target_type=target_type)
+    return create_scanner_job(
+        "trivy", target_url, git_ref, target_type=target_type, asset_id=asset_id
+    )
 
 
 def get_job(job_id: str) -> dict[str, Any] | None:
@@ -368,8 +384,10 @@ def get_all_jobs() -> list[dict[str, Any]]:
         return [dict(row._mapping) for row in rows]
 
 
-def create_semgrep_job(target_url: str, git_ref: str | None = None) -> str:
-    return create_scanner_job("semgrep", target_url, git_ref)
+def create_semgrep_job(
+    target_url: str, git_ref: str | None = None, asset_id: str | None = None
+) -> str:
+    return create_scanner_job("semgrep", target_url, git_ref, asset_id=asset_id)
 
 
 def get_semgrep_job(job_id: str) -> dict[str, Any] | None:
@@ -411,8 +429,10 @@ def claim_next_job() -> dict[str, Any] | None:
     return claim_next_scanner_job("trivy")
 
 
-def create_snyk_job(target_url: str, git_ref: str | None = None) -> str:
-    return create_scanner_job("snyk", target_url, git_ref)
+def create_snyk_job(
+    target_url: str, git_ref: str | None = None, asset_id: str | None = None
+) -> str:
+    return create_scanner_job("snyk", target_url, git_ref, asset_id=asset_id)
 
 
 def get_snyk_job(job_id: str) -> dict[str, Any] | None:

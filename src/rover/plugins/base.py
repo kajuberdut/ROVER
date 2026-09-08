@@ -11,6 +11,9 @@ class ScanResult:
     resolved_tags: str | None = None
     source: str = "fresh"  # 'fresh' | 'cached' | 'eol_api' | 'eol_cache'
     status: str | None = None  # 'cached' | 'fresh'
+    sbom_payload: str | None = None
+    sbom_format: str | None = None
+    sbom_components: list[dict[str, Any]] | None = None
 
 
 class ScannerPlugin(Protocol):

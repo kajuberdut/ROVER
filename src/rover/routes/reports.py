@@ -5,7 +5,7 @@ from typing import Any
 import falcon
 import falcon.asgi
 
-from rover import db, permissions
+from rover import config, db, permissions
 from rover.routes._env import template_env
 
 
@@ -117,6 +117,16 @@ class ReportResource:
         semgrep_job = plugin_jobs.get("semgrep")
         snyk_job = plugin_jobs.get("snyk")
 
+        raw_asset_id = (trivy_job and trivy_job.get("asset_id")) or (
+            job and job.get("asset_id")
+        )
+        asset_id = str(raw_asset_id) if isinstance(raw_asset_id, str) else None
+        if not asset_id and job and job.get("target_url"):
+            asset_id = db.resolve_release_asset_id_by_target(
+                job["target_url"], job.get("git_ref")
+            )
+        triage_map = db.get_triage_map_for_report(release_asset_id=asset_id)
+
         back_url = req.get_param("back")
         back_label = req.get_param("back_label") or "Release"
         template = template_env.get_template("report.html")
@@ -129,7 +139,9 @@ class ReportResource:
             snyk_job=snyk_job,
             plugin_jobs=plugin_jobs,
             plugins=plugins.list_plugins(),
+            triage_map=triage_map,
             back_url=back_url,
             back_label=back_label,
+            expiration_intervals=config.settings.vex.expiration_intervals,
         )
         resp.content_type = falcon.MEDIA_HTML

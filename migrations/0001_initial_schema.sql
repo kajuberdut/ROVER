@@ -283,3 +283,75 @@ CREATE TABLE IF NOT EXISTS user_invites (
 
 CREATE INDEX IF NOT EXISTS idx_user_invites_token ON user_invites(token);
 CREATE INDEX IF NOT EXISTS idx_user_invites_status ON user_invites(status);
+
+-- 22. Software Bill of Materials Table
+CREATE TABLE IF NOT EXISTS sboms (
+    id VARCHAR(64) PRIMARY KEY,
+    release_asset_id VARCHAR(64) NOT NULL REFERENCES release_assets(id) ON DELETE CASCADE,
+    format VARCHAR(50) NOT NULL,
+    spec_version VARCHAR(20) NOT NULL,
+    serial_number VARCHAR(255) DEFAULT NULL,
+    raw_payload TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_sboms_release_asset ON sboms(release_asset_id);
+
+-- 23. Parsed Software Components Table
+CREATE TABLE IF NOT EXISTS sbom_components (
+    id VARCHAR(64) PRIMARY KEY,
+    sbom_id VARCHAR(64) NOT NULL REFERENCES sboms(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    version VARCHAR(100) NOT NULL,
+    purl VARCHAR(1024) DEFAULT NULL,
+    cpe VARCHAR(255) DEFAULT NULL,
+    license_spdx VARCHAR(100) DEFAULT NULL,
+    component_type VARCHAR(50) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_sbom_comp_sbom ON sbom_components(sbom_id);
+CREATE INDEX IF NOT EXISTS idx_sbom_comp_name ON sbom_components(name);
+
+-- 24. Centralized Vulnerability Ledger Table
+CREATE TABLE IF NOT EXISTS asset_vulnerabilities (
+    id VARCHAR(64) PRIMARY KEY,
+    release_asset_id VARCHAR(64) NOT NULL REFERENCES release_assets(id) ON DELETE CASCADE,
+    scanner_name VARCHAR(50) NOT NULL,
+    vulnerability_id VARCHAR(100) NOT NULL,
+    package_name VARCHAR(255) NOT NULL,
+    installed_version VARCHAR(100) NOT NULL,
+    fixed_version VARCHAR(100) DEFAULT NULL,
+    severity VARCHAR(20) NOT NULL,
+    current_status VARCHAR(50) NOT NULL DEFAULT 'open',
+    first_seen_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_asset_vuln_asset ON asset_vulnerabilities(release_asset_id);
+CREATE INDEX IF NOT EXISTS idx_asset_vuln_id ON asset_vulnerabilities(vulnerability_id);
+CREATE INDEX IF NOT EXISTS idx_asset_vuln_status ON asset_vulnerabilities(current_status);
+
+-- 25. Vulnerability Triage Ledger Table
+CREATE TABLE IF NOT EXISTS vulnerability_triage (
+    id VARCHAR(64) PRIMARY KEY,
+    vulnerability_ledger_id VARCHAR(64) NOT NULL REFERENCES asset_vulnerabilities(id) ON DELETE CASCADE,
+    user_sub VARCHAR(255) NOT NULL REFERENCES users(sub) ON DELETE CASCADE,
+    status VARCHAR(50) NOT NULL,
+    justification VARCHAR(100) NOT NULL,
+    impact_statement TEXT NOT NULL,
+    triage_state VARCHAR(50) NOT NULL DEFAULT 'active',
+    approved_by_user_sub VARCHAR(255) DEFAULT NULL REFERENCES users(sub) ON DELETE SET NULL,
+    expires_at TIMESTAMPTZ DEFAULT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_vuln_triage_ledger ON vulnerability_triage(vulnerability_ledger_id);
+CREATE INDEX IF NOT EXISTS idx_vuln_triage_user ON vulnerability_triage(user_sub);
+
+-- 26. VEX Statements Repository Table
+CREATE TABLE IF NOT EXISTS vex_statements (
+    id VARCHAR(64) PRIMARY KEY,
+    triage_id VARCHAR(64) NOT NULL REFERENCES vulnerability_triage(id) ON DELETE CASCADE,
+    spec_type VARCHAR(50) NOT NULL,
+    statement_json TEXT NOT NULL,
+    generated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_vex_triage ON vex_statements(triage_id);
+

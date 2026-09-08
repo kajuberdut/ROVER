@@ -73,35 +73,42 @@ class ReleaseScanResource:
         """Trigger a scan for all assets within this release."""
         assets = db.get_release_assets_with_latest_scans(release_id)
         for asset in assets:
+            a_id = asset.get("release_asset_id") or asset.get("id")
             if asset["asset_type"] == "repo":
                 db.create_job(
                     target_url=asset["asset_name"],
                     target_type="repo",
                     git_ref=asset["git_ref"],
+                    asset_id=a_id,
                 )
                 # Also enqueue Semgrep and Snyk (worker will use commit-hash cache if already scanned)
                 db.create_semgrep_job(
                     target_url=asset["asset_name"],
                     git_ref=asset.get("git_ref"),
+                    asset_id=a_id,
                 )
                 db.create_snyk_job(
                     target_url=asset["asset_name"],
                     git_ref=asset.get("git_ref"),
+                    asset_id=a_id,
                 )
             elif asset["asset_type"] == "image":
                 db.create_job(
                     target_url=asset["asset_name"],
                     target_type="image",
                     git_ref=asset.get("git_ref"),
+                    asset_id=a_id,
                 )
                 db.create_snyk_job(
                     target_url=asset["asset_name"],
                     git_ref=asset.get("git_ref"),
+                    asset_id=a_id,
                 )
                 if asset.get("source_repo_url"):
                     db.create_semgrep_job(
                         target_url=asset["source_repo_url"],
                         git_ref=asset.get("image_source_git_ref"),
+                        asset_id=a_id,
                     )
 
             elif asset["asset_type"] == "major_component":
@@ -109,6 +116,7 @@ class ReleaseScanResource:
                     target_url=asset["asset_name"],
                     target_type="major_component",
                     git_ref=asset.get("git_ref"),
+                    asset_id=a_id,
                 )
 
         referer = req.get_header("Referer", default=f"/releases/{release_id}")
@@ -166,6 +174,7 @@ class AssetScanResource:
                         target_url=target_name,
                         target_type="repo",
                         git_ref=git_ref,
+                        asset_id=release_asset_id,
                     )
                 )
             if scanner in ("semgrep", "all"):
@@ -173,6 +182,7 @@ class AssetScanResource:
                     db.create_semgrep_job(
                         target_url=target_name,
                         git_ref=git_ref,
+                        asset_id=release_asset_id,
                     )
                 )
             if scanner in ("snyk", "all"):
@@ -180,6 +190,7 @@ class AssetScanResource:
                     db.create_snyk_job(
                         target_url=target_name,
                         git_ref=git_ref,
+                        asset_id=release_asset_id,
                     )
                 )
 
@@ -190,6 +201,7 @@ class AssetScanResource:
                         target_url=target_name,
                         target_type="image",
                         git_ref=git_ref,
+                        asset_id=release_asset_id,
                     )
                 )
             if scanner in ("snyk", "all"):
@@ -197,6 +209,7 @@ class AssetScanResource:
                     db.create_snyk_job(
                         target_url=target_name,
                         git_ref=git_ref,
+                        asset_id=release_asset_id,
                     )
                 )
             if scanner in ("semgrep", "all") and asset.get("source_repo_url"):
@@ -204,6 +217,7 @@ class AssetScanResource:
                     db.create_semgrep_job(
                         target_url=asset["source_repo_url"],
                         git_ref=asset.get("image_source_git_ref"),
+                        asset_id=release_asset_id,
                     )
                 )
 
@@ -214,6 +228,7 @@ class AssetScanResource:
                         target_url=target_name,
                         target_type="major_component",
                         git_ref=git_ref,
+                        asset_id=release_asset_id,
                     )
                 )
 

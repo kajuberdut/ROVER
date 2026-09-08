@@ -247,3 +247,7 @@ openbao/config/unseal_key.txt
 openbao/config/tls/
 openbao/data/authelia/auth.db.bak
 openbao/data/
+
+# Skylos cache
+.skylos/
+

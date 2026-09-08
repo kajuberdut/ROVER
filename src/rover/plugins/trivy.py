@@ -50,7 +50,8 @@ def _check_and_raise_trivy_notices(stdout: str, stderr: str) -> None:
             logger.info(
                 f"Recorded admin notification for Trivy update: v{current_version} -> v{available_version}"
             )
-        except Exception as e:
+        except (KeyError, ValueError, RuntimeError, TypeError) as e:
+            # Catch metadata payload construction errors so scanner notices do not interrupt execution
             logger.warning(f"Failed to record Trivy update notification: {e}")
 
 
@@ -75,11 +76,20 @@ def resolve_image_hash(
         digest = data.get("Digest")
         if digest:
             return str(digest)
-    except Exception as e:
+    except (
+        subprocess.SubprocessError,
+        json.JSONDecodeError,
+        KeyError,
+        OSError,
+        ValueError,
+        Exception,
+    ) as e:
+        # Skopeo CLI fallback: catch subprocess execution failures, missing binary, or JSON decode issues to safely fall back to Docker Registry API
         logger.debug(f"Skopeo inspect skipped or failed for {image_name}: {e}")
 
     # Attempt 2: Direct Docker Registry v2 API query via urllib
     try:
+        import urllib.error
         import urllib.request
 
         repo = image_name.split(":")[0]
@@ -108,10 +118,264 @@ def resolve_image_hash(
                     f"Resolved image digest via Docker Registry API for {image_name}: {digest}"
                 )
                 return str(digest)
-    except Exception as e:
+    except (
+        urllib.error.URLError,
+        json.JSONDecodeError,
+        KeyError,
+        OSError,
+        ValueError,
+    ) as e:
+        # Catch network timeouts, HTTP errors, or JSON authentication token parsing failures
         logger.warning(f"Docker Registry API lookup failed for {image_name}: {e}")
 
     return None
+
+
+def parse_cyclonedx_components(cdx_json_str: str) -> list[dict[str, Any]]:
+    """Parses a CycloneDX JSON string into a list of standardized component dicts."""
+    components: list[dict[str, Any]] = []
+    if not cdx_json_str or not cdx_json_str.strip():
+        return components
+
+    try:
+        data = json.loads(cdx_json_str)
+        for comp in data.get("components", []) or []:
+            name = comp.get("name")
+            if not name:
+                continue
+            version = comp.get("version", "unknown")
+            purl = comp.get("purl")
+            cpe = comp.get("cpe")
+
+            license_spdx = None
+            licenses = comp.get("licenses", []) or []
+            if licenses and isinstance(licenses, list):
+                lic_obj = licenses[0]
+                if isinstance(lic_obj, dict):
+                    if "license" in lic_obj and isinstance(lic_obj["license"], dict):
+                        license_spdx = lic_obj["license"].get("id") or lic_obj[
+                            "license"
+                        ].get("name")
+                    elif "expression" in lic_obj:
+                        license_spdx = lic_obj["expression"]
+
+            comp_type = comp.get("type", "library")
+            components.append(
+                {
+                    "name": name,
+                    "version": version,
+                    "purl": purl,
+                    "cpe": cpe,
+                    "license_spdx": license_spdx,
+                    "component_type": comp_type,
+                }
+            )
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as e:
+        # Catch invalid JSON syntax or unexpected component dictionary schema structures
+        logger.warning(f"Failed to parse CycloneDX components: {e}")
+
+    return components
+
+
+def parse_spdx_components(spdx_json_str: str) -> list[dict[str, Any]]:
+    """Parses an SPDX JSON string into a list of standardized component dicts."""
+    components: list[dict[str, Any]] = []
+    if not spdx_json_str or not spdx_json_str.strip():
+        return components
+
+    try:
+        data = json.loads(spdx_json_str)
+        for pkg in data.get("packages", []) or []:
+            name = pkg.get("name")
+            if not name:
+                continue
+            version = pkg.get("versionInfo", "unknown")
+            license_spdx = pkg.get("licenseConcluded") or pkg.get("licenseDeclared")
+            if license_spdx == "NOASSERTION":
+                license_spdx = None
+
+            purl = None
+            cpe = None
+            for ref in pkg.get("externalRefs", []) or []:
+                ref_type = ref.get("referenceType")
+                if ref_type == "purl":
+                    purl = ref.get("referenceLocator")
+                elif ref_type in ("cpe22Type", "cpe23Type"):
+                    cpe = ref.get("referenceLocator")
+
+            components.append(
+                {
+                    "name": name,
+                    "version": version,
+                    "purl": purl,
+                    "cpe": cpe,
+                    "license_spdx": license_spdx,
+                    "component_type": "library",
+                }
+            )
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as e:
+        # Catch invalid JSON syntax or missing package fields in SPDX payload
+        logger.warning(f"Failed to parse SPDX components: {e}")
+
+    return components
+
+
+def _clone_and_resolve_git_repo(
+    target_url: str, git_ref: str | None, tmpdir: str, runner: Any
+) -> tuple[str, str | None]:
+    """Clones the repository at target_url, checks out git_ref, and resolves commit hash and tags."""
+    import os
+
+    auth_url = vault.get_authenticated_git_url(target_url)
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    try:
+        runner(
+            ["git", "clone", auth_url, tmpdir],
+            check=True,
+            capture_output=True,
+            env=env,
+        )
+    except subprocess.CalledProcessError as e:
+        err_msg = (
+            e.stderr.decode("utf-8") if isinstance(e.stderr, bytes) else str(e.stderr)
+        )
+        logger.error(f"Failed to clone repository: {err_msg}")
+        raise Exception("Failed to clone target repository") from e
+
+    if git_ref:
+        try:
+            runner(
+                ["git", "checkout", git_ref],
+                cwd=tmpdir,
+                check=True,
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as e:
+            err_msg = (
+                e.stderr.decode("utf-8")
+                if isinstance(e.stderr, bytes)
+                else str(e.stderr)
+            )
+            logger.error(f"Failed to checkout ref {git_ref}: {err_msg}")
+            raise Exception(f"Failed to checkout git reference: {git_ref}") from e
+
+    try:
+        res = runner(
+            ["git", "rev-parse", "HEAD"],
+            cwd=tmpdir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        commit_hash = res.stdout.strip()
+
+        res = runner(
+            ["git", "tag", "--points-at", "HEAD"],
+            cwd=tmpdir,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        tags = [t.strip() for t in res.stdout.split("\n") if t.strip()]
+        tags_str = ", ".join(tags) if tags else None
+    except subprocess.CalledProcessError as e:
+        logger.warning(f"Failed to capture git metadata: {e}")
+        commit_hash = "unknown"
+        tags_str = None
+
+    return commit_hash, tags_str
+
+
+def _record_vulnerabilities_to_ledger(
+    scan_results: dict[str, Any], release_asset_id: str
+) -> None:
+    """Records vulnerability findings into the centralized asset_vulnerabilities ledger."""
+    from rover import db
+
+    try:
+        for res_item in scan_results.get("Results", []) or []:
+            for v in res_item.get("Vulnerabilities", []) or []:
+                v_id = v.get("VulnerabilityID")
+                p_name = v.get("PkgName")
+                i_ver = v.get("InstalledVersion")
+                sev = str(v.get("Severity", "UNKNOWN")).upper()
+                f_ver = v.get("FixedVersion")
+                if v_id and p_name and i_ver:
+                    db.record_vulnerability(
+                        release_asset_id=release_asset_id,
+                        scanner_name="trivy",
+                        vulnerability_id=v_id,
+                        package_name=p_name,
+                        installed_version=i_ver,
+                        severity=sev,
+                        fixed_version=f_ver,
+                    )
+    except (KeyError, TypeError, ValueError, RuntimeError) as e:
+        # Catch missing vulnerability attributes or ledger mapping errors
+        logger.warning(f"Failed to record asset vulnerabilities: {e}")
+
+
+def _extract_and_record_sbom(
+    scan_results: dict[str, Any],
+    target_type: str,
+    release_asset_id: str | None,
+    json_str: str,
+) -> tuple[str, list[dict[str, Any]]]:
+    """Extracts software components from Trivy results and records SBOM to database."""
+    from rover import db
+
+    sbom_fmt = "spdx" if target_type == "repo" else "cyclonedx"
+    sbom_comps: list[dict[str, Any]] = []
+
+    if scan_results:
+        for res_item in scan_results.get("Results", []) or []:
+            for pkg in res_item.get("Packages", []) or []:
+                p_name = pkg.get("Name")
+                if not p_name:
+                    continue
+                p_ver = pkg.get("Version", "unknown")
+                purl = (
+                    pkg.get("Identifier", {}).get("PURL")
+                    if isinstance(pkg.get("Identifier"), dict)
+                    else None
+                )
+                cpe = (
+                    pkg.get("Identifier", {}).get("CPE")
+                    if isinstance(pkg.get("Identifier"), dict)
+                    else None
+                )
+                lic_spdx = None
+                licenses = pkg.get("Licenses", []) or []
+                if licenses and isinstance(licenses, list):
+                    lic_spdx = str(licenses[0])
+
+                sbom_comps.append(
+                    {
+                        "name": p_name,
+                        "version": p_ver,
+                        "purl": purl,
+                        "cpe": cpe,
+                        "license_spdx": lic_spdx,
+                        "component_type": (
+                            "library" if target_type == "repo" else "container"
+                        ),
+                    }
+                )
+
+        if release_asset_id and (sbom_comps or json_str):
+            try:
+                db.add_sbom(
+                    release_asset_id=release_asset_id,
+                    format_name=sbom_fmt,
+                    spec_version="1.6" if sbom_fmt == "cyclonedx" else "2.3",
+                    raw_payload=json_str,
+                    components=sbom_comps,
+                )
+            except (KeyError, TypeError, ValueError, RuntimeError) as e:
+                # Catch component dictionary payload formatting or database insertion errors
+                logger.warning(f"Failed to record SBOM data: {e}")
+
+    return sbom_fmt, sbom_comps
 
 
 class TrivyScannerPlugin:
@@ -225,6 +489,8 @@ class TrivyScannerPlugin:
         target_type: str = "repo",
         container_cls: Any | None = None,
         subprocess_runner: Any | None = None,
+        vex_path: str | None = None,
+        release_asset_id: str | None = None,
     ) -> ScanResult:
         logger.info(
             f"Starting Trivy scan for {target_type} {target_url} (ref {git_ref or 'HEAD'})"
@@ -235,74 +501,17 @@ class TrivyScannerPlugin:
         with tempfile.TemporaryDirectory() as tmpdir:
             commit_hash = "latest"
             tags_str = None
+            image_target = target_url
 
             if target_type == "repo":
-                import os
-
-                auth_url = vault.get_authenticated_git_url(target_url)
-                env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
-                try:
-                    runner(
-                        ["git", "clone", auth_url, tmpdir],
-                        check=True,
-                        capture_output=True,
-                        env=env,
-                    )
-
-                except subprocess.CalledProcessError as e:
-                    err_msg = (
-                        e.stderr.decode("utf-8")
-                        if isinstance(e.stderr, bytes)
-                        else str(e.stderr)
-                    )
-                    logger.error(f"Failed to clone repository: {err_msg}")
-                    raise Exception("Failed to clone target repository")
-
-                if git_ref:
-                    try:
-                        runner(
-                            ["git", "checkout", git_ref],
-                            cwd=tmpdir,
-                            check=True,
-                            capture_output=True,
-                        )
-                    except subprocess.CalledProcessError as e:
-                        err_msg = (
-                            e.stderr.decode("utf-8")
-                            if isinstance(e.stderr, bytes)
-                            else str(e.stderr)
-                        )
-                        logger.error(f"Failed to checkout ref {git_ref}: {err_msg}")
-                        raise Exception(f"Failed to checkout git reference: {git_ref}")
-
-                try:
-                    res = runner(
-                        ["git", "rev-parse", "HEAD"],
-                        cwd=tmpdir,
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                    commit_hash = res.stdout.strip()
-
-                    res = runner(
-                        ["git", "tag", "--points-at", "HEAD"],
-                        cwd=tmpdir,
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                    tags = [t.strip() for t in res.stdout.split("\n") if t.strip()]
-                    tags_str = ", ".join(tags) if tags else None
-                except subprocess.CalledProcessError as e:
-                    logger.warning(f"Failed to capture git metadata: {e}")
-                    commit_hash = "unknown"
-                    tags_str = None
+                commit_hash, tags_str = _clone_and_resolve_git_repo(
+                    target_url, git_ref, tmpdir, runner
+                )
             elif target_type == "image":
-                image_target = target_url
                 if git_ref and ":" not in image_target.split("/")[-1]:
                     image_target = f"{target_url}:{git_ref}"
                 tags_str = image_target
+
             from rover import config
 
             trivy_img = config.get_scanner_image("trivy")
@@ -316,11 +525,12 @@ class TrivyScannerPlugin:
                 "/var/run/docker.sock", "/var/run/docker.sock", "ro"
             )
 
+            vex_flag = f"--vex {vex_path} " if vex_path else ""
             if target_type == "repo":
                 container.with_volume_mapping(tmpdir, "/src", "ro")
-                container.with_command("fs /src -f json")
+                container.with_command(f"fs /src {vex_flag}-f json")
             else:
-                container.with_command(f"image {image_target} -f json")
+                container.with_command(f"image {image_target} {vex_flag}-f json")
 
             try:
                 container.start()
@@ -356,18 +566,31 @@ class TrivyScannerPlugin:
                         if exit_code != 0:
                             raise Exception(f"Trivy failed with exit code {exit_code}")
                         scan_results = {"Results": []}
+                        json_str = "{}"
+
+                    if release_asset_id and scan_results:
+                        _record_vulnerabilities_to_ledger(
+                            scan_results, release_asset_id
+                        )
+
+                    sbom_fmt, sbom_comps = _extract_and_record_sbom(
+                        scan_results, target_type, release_asset_id, json_str
+                    )
 
                     return ScanResult(
                         results=scan_results,
                         resolved_commit=commit_hash,
                         resolved_tags=tags_str,
                         source="fresh",
+                        sbom_payload=json_str if json_str else None,
+                        sbom_format=sbom_fmt,
+                        sbom_components=sbom_comps,
                     )
 
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse Trivy JSON output. Error: {e}")
                     logger.error(f"Raw output: {stdout}")
-                    raise Exception("Failed to parse vulnerability report")
+                    raise Exception("Failed to parse vulnerability report") from e
 
             finally:
                 container.stop()

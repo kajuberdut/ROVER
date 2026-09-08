@@ -78,6 +78,7 @@ def test_single_asset_scan_resource():
             target_url="https://github.com/example/repo.git",
             target_type="repo",
             git_ref="main",
+            asset_id="asset-123",
         )
 
         # Test triggering all scanners for repo asset
@@ -94,3 +95,20 @@ def test_single_asset_scan_resource():
         mock_trivy.assert_called_once()
         mock_semgrep.assert_called_once()
         mock_snyk.assert_called_once()
+
+
+def test_resolve_release_asset_id_by_target():
+    from rover import db
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchone.return_value = ("asset-resolved-999",)
+
+    with patch("rover.db.products.get_db_connection") as mock_get_db:
+        mock_get_db.return_value.__enter__.return_value = mock_conn
+
+        res = db.resolve_release_asset_id_by_target(
+            "https://github.com/example/repo.git", "main"
+        )
+        assert res == "asset-resolved-999"
+
+    assert db.resolve_release_asset_id_by_target("", None) is None

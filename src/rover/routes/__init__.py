@@ -64,6 +64,15 @@ from rover.routes.releases import (
     ReleaseScanResource,
 )
 from rover.routes.reports import ReportResource, ScanResource
+from rover.routes.sbom_vex_triage import (
+    ProductVexLookupResource,
+    ReleaseSbomResource,
+    ReleaseVexResource,
+    TriageApproveResource,
+    TriageRejectResource,
+    TriageRevokeResource,
+    VulnerabilityTriageResource,
+)
 from rover.routes.settings import (
     ApiTokenCreateResource,
     ApiTokenPageResource,
@@ -183,6 +192,19 @@ def create_app() -> falcon.asgi.App:
         "/api/releases/{release_id}/major_component_cards",
         ReleaseMajorComponentCardsResource(),
     )
+
+    # SBOM, VEX, and Vulnerability Triage API endpoints
+    app.add_route("/api/releases/{release_id}/sbom", ReleaseSbomResource())
+    app.add_route("/api/releases/{release_id}/vex.json", ReleaseVexResource())
+    app.add_route(
+        "/api/vulnerabilities/{vuln_id}/triage", VulnerabilityTriageResource()
+    )
+    app.add_route(
+        "/api/vulnerabilities/{vuln_id}/product_vex", ProductVexLookupResource()
+    )
+    app.add_route("/api/triage/{triage_id}", TriageRevokeResource())
+    app.add_route("/api/triage/{triage_id}/approve", TriageApproveResource())
+    app.add_route("/api/triage/{triage_id}/reject", TriageRejectResource())
 
     # Helm chart discovery
     app.add_route("/api/helm/repo/charts", HelmRepoChartsResource())

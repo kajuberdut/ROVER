@@ -24,6 +24,15 @@
             <p style="margin-bottom: 0; color: var(--pico-muted-color); font-size: 0.9rem;">Asset Management & Vulnerability Pipeline</p>
         </hgroup>
         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+            <a href="/api/releases/{{ release.id }}/sbom?format=cyclonedx" download="release-sbom-cyclonedx.json" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
+                {{ icon('download', size=16) }} SBOM (CycloneDX)
+            </a>
+            <a href="/api/releases/{{ release.id }}/sbom?format=spdx" download="release-sbom-spdx.json" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
+                {{ icon('download', size=16) }} SBOM (SPDX)
+            </a>
+            <a href="/api/releases/{{ release.id }}/vex.json" download="release-vex.openvex.json" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
+                {{ icon('shield', size=16) }} OpenVEX
+            </a>
             {% if not release.is_end_of_life and is_read_write %}
             <button type="button" onclick="document.getElementById('add-asset-modal').showModal();"
                 style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">

@@ -9,6 +9,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
+    Text,
     text,
 )
 from sqlalchemy.sql import func
@@ -370,5 +371,130 @@ user_invites = Table(
         String,
         ForeignKey("users.sub", ondelete="SET NULL"),
         nullable=True,
+    ),
+)
+
+sboms = Table(
+    "sboms",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "release_asset_id",
+        String,
+        ForeignKey("release_assets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("format", String, nullable=False),
+    Column("spec_version", String, nullable=False),
+    Column("serial_number", String, nullable=True),
+    Column("raw_payload", Text, nullable=False),
+    Column(
+        "created_at", TIMESTAMP(timezone=True), server_default=func.current_timestamp()
+    ),
+)
+
+sbom_components = Table(
+    "sbom_components",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "sbom_id",
+        String,
+        ForeignKey("sboms.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("name", String, nullable=False, index=True),
+    Column("version", String, nullable=False),
+    Column("purl", String, nullable=True),
+    Column("cpe", String, nullable=True),
+    Column("license_spdx", String, nullable=True),
+    Column("component_type", String, nullable=False),
+    Column(
+        "created_at", TIMESTAMP(timezone=True), server_default=func.current_timestamp()
+    ),
+)
+
+asset_vulnerabilities = Table(
+    "asset_vulnerabilities",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "release_asset_id",
+        String,
+        ForeignKey("release_assets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("scanner_name", String, nullable=False),
+    Column("vulnerability_id", String, nullable=False, index=True),
+    Column("package_name", String, nullable=False),
+    Column("installed_version", String, nullable=False),
+    Column("fixed_version", String, nullable=True),
+    Column("severity", String, nullable=False),
+    Column("current_status", String, nullable=False, server_default="open", index=True),
+    Column(
+        "first_seen_at",
+        TIMESTAMP(timezone=True),
+        server_default=func.current_timestamp(),
+    ),
+    Column(
+        "last_seen_at",
+        TIMESTAMP(timezone=True),
+        server_default=func.current_timestamp(),
+    ),
+)
+
+vulnerability_triage = Table(
+    "vulnerability_triage",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "vulnerability_ledger_id",
+        String,
+        ForeignKey("asset_vulnerabilities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column(
+        "user_sub",
+        String,
+        ForeignKey("users.sub", ondelete="CASCADE"),
+        nullable=False,
+    ),
+    Column("status", String, nullable=False),
+    Column("justification", String, nullable=False),
+    Column("impact_statement", Text, nullable=False),
+    Column("triage_state", String, nullable=False, server_default="active"),
+    Column(
+        "approved_by_user_sub",
+        String,
+        ForeignKey("users.sub", ondelete="SET NULL"),
+        nullable=True,
+    ),
+    Column("expires_at", TIMESTAMP(timezone=True), nullable=True),
+    Column(
+        "created_at", TIMESTAMP(timezone=True), server_default=func.current_timestamp()
+    ),
+)
+
+vex_statements = Table(
+    "vex_statements",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column(
+        "triage_id",
+        String,
+        ForeignKey("vulnerability_triage.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("spec_type", String, nullable=False),
+    Column("statement_json", Text, nullable=False),
+    Column(
+        "generated_at",
+        TIMESTAMP(timezone=True),
+        server_default=func.current_timestamp(),
     ),
 )

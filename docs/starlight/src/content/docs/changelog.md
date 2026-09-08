@@ -9,6 +9,8 @@ Summary of recent user-facing updates and product enhancements.
 
 ### Recent Additions
 
+- **OpenVEX Security Statements & VEX Export**: Export standard OpenVEX JSON documents to document vulnerability impact, status (`not_affected`, `affected`, `fixed`, `under_investigation`), and justifications across products and assets.
+- **Vulnerability Triage Management**: Suppress or mark false positives with audit history, impact statements, and automatic expiration when component versions change.
 - **Notification Destinations**: Multi-channel delivery destination management supporting SMTP Email, Webhook (HMAC-SHA256), AWS SES, MS Teams, and Slack.
 - **Notification Rules**: Event rule configuration supporting `vulnerability.found` (with severity filtering), `scan.completed`, `scan.failed`, and `eol.warning` (with advance lead-time thresholds).
 - **Single Asset Re-runs**: Trigger focused security scans for individual container images or source repositories directly from scanner status widgets without re-evaluating the entire release.
@@ -18,3 +20,4 @@ Summary of recent user-facing updates and product enhancements.
 - **Per-Asset Time & Health Widgets**: Monitor real-time scan progress, historical run duration averages (`14s (avg: 5s)`), and vulnerability risk indicators per asset.
 - **Unified Vulnerability Reports**: Deep-linked report views with multi-scanner tab navigation (`?tab=trivy`, `?tab=semgrep`, `?tab=snyk`) and container-to-repository cross links.
 - **OpenBao Credential Vault**: Secure management for scanner API tokens, registry credentials, and deploy keys.
+

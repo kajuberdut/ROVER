@@ -49,6 +49,11 @@ default_tab = "repo"
 # Enables or disables the user invitation workflow.
 # When set to false, generating, sending, and accepting user invitation links is disabled.
 allow_user_invites = true
+
+[vex]
+# Configurable expiration intervals for VEX triage proposals (PostgreSQL interval syntax).
+# Default: ["30 days", "90 days", "6 months"]
+expiration_intervals = ["30 days", "90 days", "6 months"]
 """  # noqa: S608
 
 
@@ -78,11 +83,19 @@ class FeaturesConfig:
 
 
 @dataclass
+class VexConfig:
+    expiration_intervals: list[str] = field(
+        default_factory=lambda: ["30 days", "90 days", "6 months"]
+    )
+
+
+@dataclass
 class RoverConfig:
     scanner: ScannerConfig = field(default_factory=ScannerConfig)
     scanners: ScannersConfig = field(default_factory=ScannersConfig)
     ui: UIConfig = field(default_factory=UIConfig)
     features: FeaturesConfig = field(default_factory=FeaturesConfig)
+    vex: VexConfig = field(default_factory=VexConfig)
 
 
 def load_config() -> RoverConfig:
@@ -99,6 +112,7 @@ def load_config() -> RoverConfig:
     scanners_data = doc.get("scanners", {})
     ui_data = doc.get("ui", {})
     features_data = doc.get("features", {})
+    vex_data = doc.get("vex", {})
 
     scanner_config = ScannerConfig(
         timeout_seconds=int(scanner_data.get("timeout_seconds", 600)),
@@ -119,12 +133,22 @@ def load_config() -> RoverConfig:
     features_config = FeaturesConfig(
         allow_user_invites=bool(features_data.get("allow_user_invites", True))
     )
+    raw_vex_intervals = vex_data.get(
+        "expiration_intervals", ["30 days", "90 days", "6 months"]
+    )
+    vex_intervals = (
+        [str(x) for x in raw_vex_intervals]
+        if isinstance(raw_vex_intervals, (list, tuple))
+        else ["30 days", "90 days", "6 months"]
+    )
+    vex_config = VexConfig(expiration_intervals=vex_intervals)
 
     return RoverConfig(
         scanner=scanner_config,
         scanners=scanners_config,
         ui=ui_config,
         features=features_config,
+        vex=vex_config,
     )
 
 

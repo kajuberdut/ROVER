@@ -324,9 +324,17 @@ async def worker_loop() -> None:
     while True:
         try:
             # Check and dispatch due scheduled scans
+            from rover.db import expire_outdated_triage_decisions
             from rover.scheduler import dispatch_due_scheduled_scans
 
             dispatch_due_scheduled_scans()
+
+            # Maintenance: Invalidate expired triage risk acceptances
+            expired_count = expire_outdated_triage_decisions()
+            if expired_count > 0:
+                logger.info(
+                    f"Automated Triage Expiry: Invalidated {expired_count} expired risk acceptance triage entries."
+                )
 
             # Clean up finished tasks
             active_tasks = {t for t in active_tasks if not t.done()}

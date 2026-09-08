@@ -25,10 +25,10 @@ aliases:
 | Category | Milestone Range | Completed | Planned | Total |
 | :--- | :--- | :---: | :---: | :---: |
 | **Core Features & Scanners** | M1 – M9 | 5 (M1, M2, M3, M6, M7) | 4 | 9 |
-| **Operational MVP Gaps** | M10 – M13 | 1 (M13) | 3 | 4 |
+| **Operational MVP Gaps** | M10 – M13 | 2 (M10, M13) | 2 | 4 |
 | **High-Value Additions** | M14 – M17 | 0 | 4 | 4 |
 | **Architectural Targets** | A1 – A7 | 5 (A1–A4, A7) | 2 | 7 |
-| **Total** | | **11** | **13** | **24** |
+| **Total** | | **12** | **12** | **24** |
 
 ---
 
@@ -45,7 +45,7 @@ graph TD
     M7["M7 · Scheduled Scans (Done)"]
     M8["M8 · Helm Polling"]
     M9["M9 · Release Reports & API"]
-    M10["M10 · Vulnerability Triage"]
+    M10["M10 · Vulnerability Triage & VEX (Done)"]
     M11["M11 · Pass/Fail Policy"]
     M12["M12 · Health Dashboard"]
     M13["M13 · Outbound Webhooks (Done)"]
@@ -94,7 +94,7 @@ graph TD
 - [[m9-release-reports-and-api|M9 · Release Reports & Export API]]
 
 ### Operational MVP Gaps (Milestones 10–13)
-- [[m10-vulnerability-triage-and-finding-status|M10 · Vulnerability Triage & Finding Status]]
+- [[m10-vulnerability-triage-and-finding-status|M10 · Vulnerability Triage, VEX & SBOM Subsystem]] ✅ *(Completed)*
 - [[m11-pass-fail-policy-rules|M11 · Pass/Fail Policy Rules Engine]]
 - [[m12-cross-product-health-dashboard|M12 · Cross-Product Health Dashboard]]
 - [[m13-outbound-webhooks|M13 · Outbound Webhooks Integration]] ✅ *(Completed)*

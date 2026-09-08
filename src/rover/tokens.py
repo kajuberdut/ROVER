@@ -7,8 +7,6 @@ from typing import Any
 
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from rover import db
-
 logger = logging.getLogger(__name__)
 
 SESSION_SECRET = os.environ.get(
@@ -50,6 +48,8 @@ def verify_email_verification_token(
 
 def generate_password_reset_token(email_or_sub: str) -> str:
     """Generates a cryptographically signed password reset token valid for 24 hours."""
+    from rover import db
+
     user = db.get_user_by_email(email_or_sub) or db.get_user(email_or_sub)
     pw_hash = user.get("password_hash") if user else ""
     payload = {"sub_or_email": email_or_sub, "ph": pw_hash}
@@ -58,6 +58,8 @@ def generate_password_reset_token(email_or_sub: str) -> str:
 
 def verify_password_reset_token(token: str, max_age: int = 86400) -> str | None:
     """Verifies a password reset token. Returns target sub/email string or None if invalid, expired, or reused."""
+    from rover import db
+
     try:
         data = _password_serializer.loads(token, max_age=max_age)
         if isinstance(data, dict) and "sub_or_email" in data:

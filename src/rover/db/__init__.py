@@ -99,14 +99,17 @@ from .products import (
     get_all_releases,
     get_product,
     get_product_assets_with_latest_scans,
+    get_product_id_for_release_asset,
     get_product_releases,
     get_release,
     get_release_asset,
     get_release_asset_details,
     get_release_assets_with_latest_scans,
     remove_release_asset,
+    resolve_release_asset_id_by_target,
     update_release_eol_status,
 )
+from .sboms import add_sbom, get_sbom_for_asset, list_sbom_components
 from .schedules import (
     compute_next_run,
     create_scheduled_scan,
@@ -124,6 +127,29 @@ from .tokens import (
     revoke_all_user_api_tokens,
     revoke_api_token,
     verify_api_token,
+)
+from .triage import (
+    add_triage_decision,
+    approve_triage_decision,
+    expire_outdated_triage_decisions,
+    get_product_vex_history,
+    get_triage_decision,
+    get_triage_map_for_report,
+    get_vulnerability_triage_history,
+    list_asset_vulnerabilities,
+    record_vulnerability,
+    reject_triage_decision,
+    resolve_vulnerability_ledger_id,
+    revoke_triage_decision,
+)
+from .types import (
+    FindingStatus,
+    SbomComponentType,
+    SbomFormat,
+    TriageState,
+    VexJustification,
+    VexSpecType,
+    VulnerabilitySeverity,
 )
 from .user_invites import (
     accept_user_invite,
@@ -148,6 +174,11 @@ from .users import (
     set_user_verified,
     update_user_password,
     upsert_user,
+)
+from .vex import (
+    get_latest_vex_for_release,
+    get_vex_statement_by_triage,
+    save_vex_statement,
 )
 
 __all__ = [
@@ -217,7 +248,9 @@ __all__ = [
     "delete_product",
     "get_product_releases",
     "get_product_assets_with_latest_scans",
+    "get_product_id_for_release_asset",
     "get_release_assets_with_latest_scans",
+    "resolve_release_asset_id_by_target",
     "create_api_token",
     "get_user_api_tokens",
     "revoke_all_user_api_tokens",
@@ -278,4 +311,29 @@ __all__ = [
     "evaluate_notification_rules",
     "log_notification_attempt",
     "get_notification_logs",
+    "add_sbom",
+    "get_sbom_for_asset",
+    "list_sbom_components",
+    "record_vulnerability",
+    "resolve_vulnerability_ledger_id",
+    "list_asset_vulnerabilities",
+    "add_triage_decision",
+    "approve_triage_decision",
+    "reject_triage_decision",
+    "get_triage_decision",
+    "get_triage_map_for_report",
+    "get_product_vex_history",
+    "get_vulnerability_triage_history",
+    "revoke_triage_decision",
+    "expire_outdated_triage_decisions",
+    "save_vex_statement",
+    "get_vex_statement_by_triage",
+    "get_latest_vex_for_release",
+    "SbomFormat",
+    "SbomComponentType",
+    "VulnerabilitySeverity",
+    "FindingStatus",
+    "TriageState",
+    "VexJustification",
+    "VexSpecType",
 ]

@@ -201,6 +201,44 @@ def get_release_asset_details(release_asset_id: str) -> dict[str, Any] | None:
         return dict(row._mapping) if row else None
 
 
+def resolve_release_asset_id_by_target(
+    target_url: str, git_ref: str | None = None
+) -> str | None:
+    if not target_url:
+        return None
+    query = text("""
+    SELECT pa.id
+    FROM release_assets pa
+    JOIN releases pk ON pa.release_id = pk.id
+    LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
+    LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
+    LEFT JOIN major_components e ON pa.asset_type = 'major_component' AND pa.asset_id = e.id
+    WHERE (r.url = :target OR i.name = :target OR e.name = :target)
+      AND pk.is_end_of_life = false
+    ORDER BY 
+        CASE WHEN COALESCE(pa.git_ref, '') = COALESCE(:git_ref, '') THEN 0 ELSE 1 END,
+        pa.created_at DESC
+    LIMIT 1
+    """)
+    with get_db_connection() as conn:
+        row = conn.execute(
+            query, {"target": target_url, "git_ref": git_ref or ""}
+        ).fetchone()
+        return str(row[0]) if row else None
+
+
+def get_product_id_for_release_asset(release_asset_id: str) -> str | None:
+    query = text("""
+    SELECT pk.product_id
+    FROM release_assets pa
+    JOIN releases pk ON pa.release_id = pk.id
+    WHERE pa.id = :release_asset_id
+    """)
+    with get_db_connection() as conn:
+        row = conn.execute(query, {"release_asset_id": release_asset_id}).fetchone()
+        return str(row[0]) if row else None
+
+
 def get_product_assets_with_latest_scans(product_id: str) -> list[dict[str, Any]]:
     # Changed IFNULL to COALESCE for cross-database compatibility (PostgreSQL doesn't have IFNULL)
     query = text("""

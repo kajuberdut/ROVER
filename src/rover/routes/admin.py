@@ -288,6 +288,7 @@ class AdminAlertsResource:
             title="System Admin Alerts",
             active_notifications=active_notifications,
             all_notifications=all_notifications,
+            expiration_intervals=config.settings.vex.expiration_intervals,
         )
         resp.content_type = falcon.MEDIA_HTML
 

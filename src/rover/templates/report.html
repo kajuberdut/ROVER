@@ -99,22 +99,28 @@
             <table role="grid" class="sticky-table trivy-table">
                 <colgroup>
                     <col style="width:16ch">
-                    <col style="width:22ch">
+                    <col style="width:16ch">
                     <col style="width:9ch">
+                    <col style="width:16ch">
                     <col style="width:14ch">
-                    <col><!-- Fixed Version: takes remaining -->
+                    <col style="width:12ch">
+                    <col style="width:14ch">
                 </colgroup>
                 <thead>
                     <tr>
                         <th scope="col">Vulnerability ID</th>
                         <th scope="col">PkgName</th>
                         <th scope="col">Severity</th>
+                        <th scope="col">VEX Status</th>
                         <th scope="col">Installed Version</th>
                         <th scope="col">Fixed Version</th>
+                        <th scope="col">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for vuln in result.Vulnerabilities %}
+                    {% set v_key = vuln.VulnerabilityID + ':' + vuln.PkgName %}
+                    {% set triage_entry = (triage_map and (triage_map.get(v_key) or triage_map.get(vuln.VulnerabilityID))) %}
                     <tr>
                         <td style="white-space:nowrap"><a href="{{ vuln.PrimaryURL }}" target="_blank">{{ vuln.VulnerabilityID }}</a></td>
                         <td style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="{{ vuln.PkgName }}">{{ vuln.PkgName }}</td>
@@ -127,8 +133,38 @@
                             <span>{{ vuln.Severity }}</span>
                             {% endif %}
                         </td>
+                        <td style="white-space:nowrap">
+                            {% if triage_entry %}
+                                {% set exp_date = triage_entry.expires_at_display or 'No Expiration (Indefinite)' %}
+                                {% if triage_entry.triage_state == 'pending_approval' %}
+                                <span title="Status: Pending Admin Approval&#10;Requested Expiration: {{ exp_date }}&#10;Justification: {{ triage_entry.justification }}" style="background: rgba(255, 170, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.3); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; cursor: help;">⏳ Pending Approval</span>
+                                {% elif triage_entry.triage_state == 'active' %}
+                                <span title="Status: Active ({{ triage_entry.status | replace('_', ' ') | title }})&#10;Expiration Date: {{ exp_date }}&#10;Justification: {{ triage_entry.justification }}" style="background: rgba(46, 125, 50, 0.15); color: #2e7d32; border: 1px solid rgba(46, 125, 50, 0.3); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; cursor: help;">✓ Active ({{ triage_entry.status | replace('_', ' ') | title }})</span>
+                                {% elif triage_entry.triage_state == 'rejected' %}
+                                <span title="Status: Proposal Rejected&#10;Requested Expiration: {{ exp_date }}" style="background: rgba(211, 47, 47, 0.15); color: #d32f2f; border: 1px solid rgba(211, 47, 47, 0.3); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; cursor: help;">✗ Rejected</span>
+                                {% else %}
+                                <span style="color: var(--pico-muted-color); font-size: 0.8rem;">Open</span>
+                                {% endif %}
+                            {% else %}
+                            <span style="color: var(--pico-muted-color); font-size: 0.8rem;">Open</span>
+                            {% endif %}
+                        </td>
                         <td style="white-space:nowrap">{{ vuln.InstalledVersion }}</td>
                         <td>{{ vuln.FixedVersion | default('N/A') }}</td>
+                        <td>
+                            <button type="button" class="outline secondary" style="font-size:0.75rem; padding:0.2rem 0.5rem; height:auto; margin-bottom:0;"
+                                onclick="openTriageModal('{{ vuln.VulnerabilityID }}', '{{ vuln.PkgName }}', '{{ vuln.InstalledVersion }}')">
+                                {% if triage_entry and triage_entry.triage_state == 'pending_approval' %}
+                                ⏳ Update Proposal
+                                {% elif triage_entry and triage_entry.triage_state == 'active' %}
+                                ⚙️ Edit VEX
+                                {% elif triage_entry and triage_entry.triage_state == 'rejected' %}
+                                🔄 Resubmit VEX
+                                {% else %}
+                                Triage VEX
+                                {% endif %}
+                            </button>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -312,7 +348,176 @@
     }
 </style>
 
+<dialog id="triage-modal">
+    <article style="max-width: 550px;">
+        <header>
+            <button type="button" aria-label="Close" class="close" onclick="document.getElementById('triage-modal').close();"></button>
+            <h3 style="margin-bottom: 0;">VEX Vulnerability Triage</h3>
+        </header>
+        <form id="triage-form" onsubmit="submitTriageForm(event)">
+            <input type="hidden" id="triage-vuln-id" name="vulnerability_id">
+            <input type="hidden" id="triage-pkg-name" name="package_name">
+            <input type="hidden" id="triage-inst-ver" name="installed_version">
+            <input type="hidden" id="triage-release-asset-id" name="release_asset_id" value="{{ trivy_job.asset_id if trivy_job and trivy_job.asset_id else (job.asset_id if job and job.asset_id else '') }}">
+            
+            <p><strong>Target CVE:</strong> <span id="triage-display-vuln"></span> (<span id="triage-display-pkg"></span>)</p>
+
+            <div id="product-vex-banner" style="display: none; margin-bottom: 1rem;"></div>
+
+            <label for="triage-status">VEX Status Assessment (Not Affected):
+                <select id="triage-status" name="status" required>
+                    <option value="false_positive">False Positive (Not Affected)</option>
+                    <option value="mitigated">Mitigated (Not Affected)</option>
+                </select>
+            </label>
+
+            <label for="triage-justification">CISA VEX Justification:
+                <select id="triage-justification" name="justification" required onchange="updateJustificationDescription()">
+                    <option value="component_not_present">Component not present</option>
+                    <option value="vulnerable_code_not_present">Vulnerable code not present</option>
+                    <option value="vulnerable_code_not_in_execute_path" selected>Vulnerable code not in execute path</option>
+                    <option value="vulnerable_code_cannot_be_controlled_by_adversary">Vulnerable code cannot be controlled by adversary</option>
+                    <option value="inline_mitigations_already_exist">Inline mitigations already exist</option>
+                </select>
+            </label>
+
+            <div id="justification-description" style="margin-bottom: 1rem; padding: 0.75rem 1rem; background: rgba(59, 130, 246, 0.08); border-left: 4px solid var(--pico-primary); border-radius: 4px; font-size: 0.85rem; color: var(--pico-color);">
+                <strong>Justification Context:</strong>
+                <p id="justification-text" style="margin: 0.25rem 0 0 0; color: var(--pico-muted-color); font-size: 0.82rem; line-height: 1.4;"></p>
+            </div>
+
+            <label for="triage-expiration">Requested VEX Expiration / Review Period:
+                <select id="triage-expiration" name="expires_at">
+                    {% for interval in expiration_intervals | default(['30 days', '90 days', '6 months']) %}
+                    <option value="{{ interval }}">{{ interval }}</option>
+                    {% endfor %}
+                    <option value="indefinite">No Expiration (Indefinite)</option>
+                </select>
+            </label>
+
+            <label for="triage-impact">Mandatory Audit Explanation / Impact Narrative:
+                <textarea id="triage-impact" name="impact_statement" rows="3" required placeholder="Spell out the specific code boundary, reachability analysis, or compensating control..."></textarea>
+            </label>
+
+            <footer style="display: flex; justify-content: flex-end; align-items: center; gap: 0.75rem; padding-top: 1rem; margin-top: 1rem; border-top: 1px solid var(--pico-muted-border-color); background: transparent;">
+                <button type="button" class="secondary outline" onclick="document.getElementById('triage-modal').close();" style="margin: 0; width: auto; height: 38px; padding: 0 1.25rem; font-size: 0.85rem; border-radius: 6px;">Cancel</button>
+                <button type="submit" style="margin: 0; width: auto; height: 38px; padding: 0 1.25rem; font-size: 0.85rem; border-radius: 6px;">Submit Not-Affected VEX Proposal</button>
+            </footer>
+        </form>
+    </article>
+</dialog>
+
 <script>
+    const CISA_JUSTIFICATION_DESCRIPTIONS = {
+        "component_not_present": "The vulnerable component is not actually included in the product, even though a naive scan suggested it might be. Common when an SBOM lists an optional component that the build did not include.",
+        "vulnerable_code_not_present": "The component is present but the specific vulnerable code (file, function, module) is not. Common when a build process strips unused code or when the component ships multiple modules and only one is included.",
+        "vulnerable_code_not_in_execute_path": "The vulnerable code is present in the binary but is never reached at runtime by the product's code paths. Reachability analysis is the underlying technique; the justification is the documented conclusion.",
+        "vulnerable_code_cannot_be_controlled_by_adversary": "The vulnerable code is reachable in principle but the inputs that would trigger the vulnerability are not under attacker control in the product's exposure model. Used carefully, with the input boundary spelled out.",
+        "vulnerable_code_cannot_be_triggered": "The vulnerable code is reachable in principle but the inputs that would trigger the vulnerability are not under attacker control in the product's exposure model. Used carefully, with the input boundary spelled out.",
+        "inline_mitigations_already_exist": "The product already includes a compensating control (sandbox, capability drop, allow-list, parameterised query, configuration setting) that prevents the vulnerability from being exploited. The mitigation should be named in the statement."
+    };
+
+    function updateJustificationDescription() {
+        const val = document.getElementById('triage-justification').value;
+        const text = CISA_JUSTIFICATION_DESCRIPTIONS[val] || '';
+        document.getElementById('justification-text').innerText = text;
+    }
+
+    let currentProductVexData = null;
+
+    async function checkAndRenderProductVex(vulnId, pkgName, instVer) {
+        const banner = document.getElementById('product-vex-banner');
+        if (!banner) return;
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+        currentProductVexData = null;
+
+        const assetId = document.getElementById('triage-release-asset-id').value || '';
+        try {
+            const resp = await fetch(`/api/vulnerabilities/${vulnId}/product_vex?release_asset_id=${assetId}`);
+            const data = await resp.json();
+            if (data && data.found && data.product_vex) {
+                currentProductVexData = data.product_vex;
+                banner.innerHTML = `
+                    <div style="background: rgba(0, 170, 255, 0.08); border-left: 4px solid #00aaff; padding: 0.75rem 1rem; border-radius: 4px; font-size: 0.85rem;">
+                        <strong style="color: #00aaff;">💡 Existing Product VEX Knowledge Found:</strong>
+                        <p style="margin: 0.25rem 0 0.5rem 0; color: var(--pico-muted-color); font-size: 0.82rem; line-height: 1.4;">
+                            CVE <strong>${vulnId}</strong> has an existing product-level VEX decision on record (from package <em>${data.product_vex.package_name} v${data.product_vex.installed_version}</em>).
+                        </p>
+                        <div style="font-size: 0.8rem; background: rgba(0,0,0,0.15); padding: 0.5rem 0.75rem; border-radius: 4px; margin-bottom: 0.6rem;">
+                            <div><strong>Status:</strong> ${data.product_vex.status}</div>
+                            <div><strong>Justification:</strong> ${data.product_vex.justification}</div>
+                            <div><strong>Impact Narrative:</strong> ${data.product_vex.impact_statement}</div>
+                            <div><strong>Expiration:</strong> ${data.product_vex.expires_at_display}</div>
+                        </div>
+                        <button type="button" onclick="extendProductVex()" class="outline primary" style="font-size: 0.78rem; padding: 0.25rem 0.75rem; margin: 0; width: auto; height: 32px; border-radius: 4px;">
+                            ⚡ Extend Product VEX to ${pkgName} v${instVer}
+                        </button>
+                    </div>
+                `;
+                banner.style.display = 'block';
+            }
+        } catch (err) {
+            console.warn('Could not fetch product VEX info:', err);
+        }
+    }
+
+    function extendProductVex() {
+        if (!currentProductVexData) return;
+        const v = currentProductVexData;
+        if (v.status) document.getElementById('triage-status').value = v.status;
+        if (v.justification) document.getElementById('triage-justification').value = v.justification;
+        if (v.impact_statement) document.getElementById('triage-impact').value = v.impact_statement;
+        updateJustificationDescription();
+        if (typeof showToast === 'function') {
+            showToast('Form pre-filled with existing Product VEX decision! Submit to request component approval.', true);
+        }
+    }
+
+    function openTriageModal(vulnId, pkgName, instVer) {
+        document.getElementById('triage-vuln-id').value = vulnId;
+        document.getElementById('triage-pkg-name').value = pkgName;
+        document.getElementById('triage-inst-ver').value = instVer;
+        document.getElementById('triage-display-vuln').innerText = vulnId;
+        document.getElementById('triage-display-pkg').innerText = pkgName + ' v' + instVer;
+        updateJustificationDescription();
+        checkAndRenderProductVex(vulnId, pkgName, instVer);
+        document.getElementById('triage-modal').showModal();
+    }
+
+    async function submitTriageForm(event) {
+        event.preventDefault();
+        const vulnId = document.getElementById('triage-vuln-id').value;
+        const payload = {
+            vulnerability_id: vulnId,
+            status: document.getElementById('triage-status').value,
+            justification: document.getElementById('triage-justification').value,
+            impact_statement: document.getElementById('triage-impact').value,
+            expires_at: document.getElementById('triage-expiration').value,
+            release_asset_id: document.getElementById('triage-release-asset-id').value || null,
+            package_name: document.getElementById('triage-pkg-name').value || null,
+            installed_version: document.getElementById('triage-inst-ver').value || null
+        };
+
+        try {
+            const resp = await fetch(`/api/vulnerabilities/${vulnId}/triage`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            if (resp.ok) {
+                document.getElementById('triage-modal').close();
+                showToast(data.message || 'VEX proposal submitted for System Admin approval!', true);
+                setTimeout(() => { window.location.reload(); }, 1200);
+            } else {
+                showToast('Error: ' + (data.description || data.message || 'Failed to submit triage.'), false);
+            }
+        } catch (err) {
+            showToast('Request error: ' + err, false);
+        }
+    }
+
     function showTab(name) {
         document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
         document.querySelectorAll('.scan-tab').forEach(b => {
@@ -323,13 +528,11 @@
         const btn = document.getElementById('tab-' + name);
         btn.classList.add('active');
         btn.setAttribute('aria-selected', 'true');
-        // Persist selection in URL hash without adding a history entry
         history.replaceState(null, '', '#tab-' + name);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        // Restore tab from URL query param or hash on load
         const urlParams = new URLSearchParams(window.location.search);
         const tabParam = urlParams.get('tab');
         const hash = window.location.hash.replace('#tab-', '').replace('#', '');
