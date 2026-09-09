@@ -14,10 +14,12 @@ from rover import auth
 from rover.eol_proxy import EolProxyAllResource, EolProxyProductResource
 from rover.routes.admin import (
     AdminAlertsResource,
+    AdminAuditLogsResource,
     AdminDestinationsResource,
     AdminInvitesCreateResource,
     AdminInvitesResendResource,
     AdminInvitesRevokeResource,
+    AdminNotificationHistoryResource,
     AdminRedirectResource,
     AdminUsersResource,
     ConfigResource,
@@ -142,11 +144,15 @@ def create_app() -> falcon.asgi.App:
     app.add_route("/accept-invite", AcceptInviteResource())
     app.add_route("/admin/alerts", AdminAlertsResource())
     app.add_route("/admin/notifications", AdminAlertsResource())
+    app.add_route(
+        "/api/admin/notifications/history", AdminNotificationHistoryResource()
+    )
     app.add_route("/admin/notifications/destinations", AdminDestinationsResource())
     app.add_route("/admin/credentials", AdminCredentialsResource())
     app.add_route(
         "/admin/credentials/{credential_id}/delete", AdminCredentialDeleteResource()
     )
+    app.add_route("/api/admin/audit_logs", AdminAuditLogsResource())
 
     # Direct asset creation
     app.add_route("/repo", RepositoryResource())

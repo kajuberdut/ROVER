@@ -78,6 +78,15 @@ def get_active_admin_notifications() -> list[dict[str, Any]]:
         return results
 
 
+def get_admin_notifications_count() -> int:
+    """Returns total count of admin notifications recorded in the system."""
+    with get_db_connection() as conn:
+        return (
+            conn.execute(select(func.count()).select_from(admin_notifications)).scalar()
+            or 0
+        )
+
+
 def get_all_admin_notifications(limit: int = 50) -> list[dict[str, Any]]:
     """Returns both active and dismissed notifications for history/log viewing."""
     with get_db_connection() as conn:
@@ -101,6 +110,59 @@ def get_all_admin_notifications(limit: int = 50) -> list[dict[str, Any]]:
                 data["metadata"] = {}
             results.append(data)
         return results
+
+
+def get_paginated_admin_notifications(
+    page: int = 1, page_size: int = 10
+) -> dict[str, Any]:
+    """Returns paginated admin notifications (both active and dismissed) for history/log viewing."""
+    import math
+
+    page = max(1, page)
+    page_size = max(1, min(100, page_size))
+    offset = (page - 1) * page_size
+
+    with get_db_connection() as conn:
+        total = (
+            conn.execute(select(func.count()).select_from(admin_notifications)).scalar()
+            or 0
+        )
+
+        rows = conn.execute(
+            select(admin_notifications)
+            .order_by(admin_notifications.c.created_at.desc())
+            .offset(offset)
+            .limit(page_size)
+        ).fetchall()
+
+        results = []
+        for row in rows:
+            data = dict(row._mapping)
+            m_raw = data.get("metadata_json")
+            if isinstance(m_raw, (dict, list)):
+                data["metadata"] = m_raw
+            elif isinstance(m_raw, (str, bytes)):
+                try:
+                    data["metadata"] = json.loads(m_raw)
+                except Exception:
+                    data["metadata"] = {}
+            else:
+                data["metadata"] = {}
+
+            if hasattr(data.get("created_at"), "isoformat"):
+                data["created_at"] = data["created_at"].isoformat()
+
+            results.append(data)
+
+        total_pages = max(1, math.ceil(total / page_size)) if total > 0 else 1
+
+        return {
+            "items": results,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        }
 
 
 def dismiss_admin_notification(notification_id: str) -> None:

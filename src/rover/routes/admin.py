@@ -47,6 +47,17 @@ class ConfigResource:
             saved_toml = config.read_raw_config()
             # Update global settings in memory
             config.settings = config.load_config()
+
+            admin_user = getattr(req.context, "user", None) or {}
+            db.log_audit_event(
+                action="config.update",
+                resource_type="config",
+                resource_id="rover.toml",
+                user_sub=admin_user.get("sub"),
+                user_email=admin_user.get("email"),
+                ip_address=req.remote_addr,
+            )
+
             resp.text = template.render(
                 user=getattr(req.context, "user", None),
                 title="Configuration",
@@ -107,11 +118,31 @@ class AdminUsersResource:
             resp.media = {"error": "Missing sub"}
             return
 
+        admin_user = getattr(req.context, "user", None) or {}
+
         if action == "set_role":
             role = form.get("role")
             db.set_user_role(sub, role)
+            db.log_audit_event(
+                action="user.role_update",
+                resource_type="user",
+                resource_id=sub,
+                user_sub=admin_user.get("sub"),
+                user_email=admin_user.get("email"),
+                changes={"target_sub": sub, "new_role": role},
+                ip_address=req.remote_addr,
+            )
         elif action == "revoke_api_tokens":
             count = db.revoke_all_user_api_tokens(sub)
+            db.log_audit_event(
+                action="user.api_tokens_revoke_all",
+                resource_type="user",
+                resource_id=sub,
+                user_sub=admin_user.get("sub"),
+                user_email=admin_user.get("email"),
+                changes={"target_sub": sub, "revoked_count": count},
+                ip_address=req.remote_addr,
+            )
             resp.media = {"ok": True, "count": count}
             return
 
@@ -186,6 +217,16 @@ class AdminInvitesCreateResource:
                 logger.error(f"Failed to deliver invite email to {email}: {e}")
                 email_sent = False
 
+        db.log_audit_event(
+            action="user.invite_create",
+            resource_type="user_invite",
+            resource_id=invite["id"],
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            changes={"email": email, "role": role, "send_email": send_email},
+            ip_address=req.remote_addr,
+        )
+
         resp.media = {
             "ok": True,
             "invite": invite,
@@ -209,8 +250,18 @@ class AdminInvitesRevokeResource:
             }
             return
 
+        user = getattr(req.context, "user", None) or {}
+
         success = db.revoke_user_invite(invite_id)
         if success:
+            db.log_audit_event(
+                action="user.invite_revoke",
+                resource_type="user_invite",
+                resource_id=invite_id,
+                user_sub=user.get("sub"),
+                user_email=user.get("email"),
+                ip_address=req.remote_addr,
+            )
             resp.media = {"ok": True}
         else:
             resp.status = falcon.HTTP_404
@@ -231,6 +282,8 @@ class AdminInvitesResendResource:
                 "error": "User invitations are currently disabled on this system."
             }
             return
+
+        user = getattr(req.context, "user", None) or {}
 
         invite = db.get_user_invite_by_id(invite_id)
         if not invite or invite["status"] != "pending":
@@ -270,6 +323,17 @@ class AdminInvitesResendResource:
             "to_email": invite["email"],
         }
         sent = deliver_notification(default_dest, payload, vault_secret=vault_secret)
+
+        db.log_audit_event(
+            action="user.invite_resend",
+            resource_type="user_invite",
+            resource_id=invite_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            changes={"recipient_email": invite["email"]},
+            ip_address=req.remote_addr,
+        )
+
         resp.media = {"ok": True, "email_sent": sent}
 
 
@@ -281,13 +345,13 @@ class AdminAlertsResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         active_notifications = db.get_active_admin_notifications()
-        all_notifications = db.get_all_admin_notifications(limit=100)
+        total_history_count = db.get_admin_notifications_count()
         template = template_env.get_template("admin_alerts.html")
         resp.text = template.render(
             user=getattr(req.context, "user", None),
             title="System Admin Alerts",
             active_notifications=active_notifications,
-            all_notifications=all_notifications,
+            total_history_count=total_history_count,
             expiration_intervals=config.settings.vex.expiration_intervals,
         )
         resp.content_type = falcon.MEDIA_HTML
@@ -318,6 +382,22 @@ class AdminAlertsResource:
             resp.media = {"error": "Invalid action or notification_id"}
 
 
+class AdminNotificationHistoryResource:
+    """GET /api/admin/notifications/history — Paginated notification log history."""
+
+    @falcon.before(permissions.require_system_admin)
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        page = req.get_param_as_int("page", default=1) or 1
+        limit = req.get_param_as_int("limit", default=10) or 10
+
+        data = db.get_paginated_admin_notifications(page=page, page_size=limit)
+
+        resp.status = falcon.HTTP_200
+        resp.media = data
+
+
 class AdminDestinationsResource:
     """Admin-only notification destinations management UI."""
 
@@ -333,3 +413,30 @@ class AdminDestinationsResource:
             destinations=destinations,
         )
         resp.content_type = falcon.MEDIA_HTML
+
+
+class AdminAuditLogsResource:
+    """GET /api/admin/audit_logs — Returns historical audit logs for system administrators."""
+
+    @falcon.before(permissions.require_system_admin)
+    async def on_get(
+        self, req: falcon.asgi.Request, resp: falcon.asgi.Response
+    ) -> None:
+        action = req.get_param("action")
+        resource_type = req.get_param("resource_type")
+        resource_id = req.get_param("resource_id")
+        user_sub = req.get_param("user_sub")
+        limit = req.get_param_as_int("limit", default=100) or 100
+        offset = req.get_param_as_int("offset", default=0) or 0
+
+        logs = db.get_audit_logs(
+            limit=limit,
+            offset=offset,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            user_sub=user_sub,
+        )
+
+        resp.status = falcon.HTTP_200
+        resp.media = {"audit_logs": logs, "count": len(logs)}

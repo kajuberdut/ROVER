@@ -10,6 +10,10 @@ from .assets import (
     get_repository,
     update_image_hash,
 )
+from .audit import (
+    get_audit_logs,
+    log_audit_event,
+)
 from .ci_metadata import (
     add_ci_image_metadata,
     get_ci_image_metadata,
@@ -86,7 +90,9 @@ from .notifications import (
     create_admin_notification,
     dismiss_admin_notification,
     get_active_admin_notifications,
+    get_admin_notifications_count,
     get_all_admin_notifications,
+    get_paginated_admin_notifications,
     restore_admin_notification,
 )
 from .products import (
@@ -278,7 +284,9 @@ __all__ = [
     "accept_user_invite",
     "create_admin_notification",
     "get_active_admin_notifications",
+    "get_admin_notifications_count",
     "get_all_admin_notifications",
+    "get_paginated_admin_notifications",
     "dismiss_admin_notification",
     "restore_admin_notification",
     "add_credential",
@@ -336,4 +344,6 @@ __all__ = [
     "TriageState",
     "VexJustification",
     "VexSpecType",
+    "log_audit_event",
+    "get_audit_logs",
 ]

@@ -168,13 +168,15 @@
 
     <!-- Notification History Section -->
 
-    {% if all_notifications %}
-    <details style="margin-top: 1rem;" open>
+    <details id="notification-history-details" style="margin-top: 1rem;" ontoggle="onHistoryToggle(this)">
         <summary style="font-weight: 600; cursor: pointer; font-size: 1rem; color: var(--pico-muted-color);">
-            📜 Notification Log History ({{ all_notifications|length }})
+            📜 Notification Log History (<span id="history-total-count">{{ total_history_count|default(0) }}</span>)
         </summary>
         <div style="margin-top: 1rem;">
-            <figure>
+            <div id="history-loading-spinner" style="display: none; padding: 1rem; text-align: center; color: var(--pico-muted-color);">
+                ⏳ Loading notification history...
+            </div>
+            <figure id="history-table-wrapper">
                 <table class="striped" style="font-size: 0.85rem;">
                     <thead>
                         <tr>
@@ -185,97 +187,187 @@
                             <th style="text-align: right;">Action & Resources</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for notif in all_notifications %}
-                        <tr>
-                            <td style="white-space: nowrap;">{{ notif.created_at | humanize_time }}</td>
-                            <td><code>{{ notif.source_tool }}</code></td>
-                            <td>
-                                <div><strong>{{ notif.title }}</strong></div>
-                                {% if notif.metadata and (notif.metadata.current_version or notif.metadata.available_version) %}
-                                <div style="font-size: 0.75rem; color: var(--pico-muted-color);">
-                                    Version: {{ notif.metadata.current_version or 'N/A' }} → {{ notif.metadata.available_version or 'N/A' }}
-                                </div>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if notif.is_dismissed %}
-                                <span style="color: var(--pico-muted-color);">Dismissed</span>
-                                {% else %}
-                                <span style="color: #00aaff; font-weight: bold;">Active</span>
-                                {% endif %}
-                            </td>
-                            <td style="text-align: right; white-space: nowrap;">
-                                <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
-                                    {% if notif.source_tool == "trivy" %}
-                                    <a href="https://github.com/aquasecurity/trivy/releases" 
-                                       target="_blank" rel="noopener noreferrer" 
-                                       class="outline" 
-                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
-                                        🔗 Release Notes
-                                    </a>
-                                    {% elif notif.source_tool == "semgrep" %}
-                                    <a href="https://github.com/semgrep/semgrep/releases" 
-                                       target="_blank" rel="noopener noreferrer" 
-                                       class="outline" 
-                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
-                                        🔗 Release Notes
-                                    </a>
-                                    {% elif notif.source_tool == "snyk" %}
-                                    <a href="https://github.com/snyk/cli/releases" 
-                                       target="_blank" rel="noopener noreferrer" 
-                                       class="outline" 
-                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
-                                        🔗 Release Notes
-                                    </a>
-                                    {% elif notif.source_tool == "helm" %}
-                                    <a href="https://github.com/helm/helm/releases" 
-                                       target="_blank" rel="noopener noreferrer" 
-                                       class="outline" 
-                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
-                                        🔗 Release Notes
-                                    </a>
-                                    {% endif %}
-                                    <a href="/config" 
-                                       class="outline" 
-                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
-                                        ⚙️ Config
-                                    </a>
-                                    {% if notif.category == "scanner_update" %}
-                                    <a href="/docs/guide/guides/scanners/index.html#updating-scanner-versions" 
-                                       target="_blank" 
-                                       class="outline" 
-                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
-                                        📖 Guide
-                                    </a>
-                                    {% endif %}
-
-                                    {% if notif.is_dismissed %}
-                                    <button onclick="updateNotificationStatus('{{ notif.id }}', 'restore')" 
-                                            class="outline secondary" 
-                                            style="font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-bottom: 0; cursor: pointer;">
-                                        ↩ Re-open
-                                    </button>
-                                    {% else %}
-                                    <button onclick="updateNotificationStatus('{{ notif.id }}', 'dismiss')" 
-                                            class="secondary" 
-                                            style="font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-bottom: 0; cursor: pointer;">
-                                        ✓ Dismiss
-                                    </button>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
+                    <tbody id="history-table-body">
+                        <!-- Populated dynamically via JS -->
                     </tbody>
                 </table>
             </figure>
+
+            <!-- Pagination Controls Bar -->
+            <div id="history-pagination-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.82rem; color: var(--pico-muted-color);">
+                <div id="history-pagination-info">
+                    Showing page 1 of 1 (0 total notifications)
+                </div>
+                <div style="display: flex; gap: 0.35rem; align-items: center;">
+                    <button type="button" id="history-prev-btn" onclick="navigateHistoryPage(-1)" class="outline secondary" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; height: 32px; margin: 0; width: auto;" disabled>
+                        ← Previous
+                    </button>
+                    <span id="history-page-numbers" style="display: flex; gap: 0.25rem;"></span>
+                    <button type="button" id="history-next-btn" onclick="navigateHistoryPage(1)" class="outline secondary" style="font-size: 0.75rem; padding: 0.25rem 0.65rem; height: 32px; margin: 0; width: auto;" disabled>
+                        Next →
+                    </button>
+                </div>
+            </div>
         </div>
     </details>
-    {% endif %}
 </section>
 
 <script>
+let currentHistoryPage = 1;
+const historyPageSize = 10;
+let isHistoryLoaded = false;
+
+function onHistoryToggle(detailsEl) {
+    if (detailsEl.open && !isHistoryLoaded) {
+        loadHistoryPage(1);
+    }
+}
+
+async function loadHistoryPage(page) {
+    const spinner = document.getElementById('history-loading-spinner');
+    const tbody = document.getElementById('history-table-body');
+    if (spinner) spinner.style.display = 'block';
+
+    try {
+        const resp = await fetch(`/api/admin/notifications/history?page=${page}&limit=${historyPageSize}`);
+        if (!resp.ok) throw new Error('Failed to load notification history');
+        const data = await resp.json();
+
+        currentHistoryPage = data.page;
+        isHistoryLoaded = true;
+
+        const countEl = document.getElementById('history-total-count');
+        if (countEl) countEl.textContent = data.total;
+
+        renderHistoryRows(data.items);
+        renderHistoryPagination(data.page, data.total_pages, data.total, data.items ? data.items.length : 0);
+    } catch (err) {
+        console.error("Error loading notification history:", err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--pico-del-color);">Error loading notification history.</td></tr>`;
+    } finally {
+        if (spinner) spinner.style.display = 'none';
+    }
+}
+
+function navigateHistoryPage(delta) {
+    const targetPage = currentHistoryPage + delta;
+    if (targetPage >= 1) {
+        loadHistoryPage(targetPage);
+    }
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function renderHistoryRows(items) {
+    const tbody = document.getElementById('history-table-body');
+    if (!tbody) return;
+
+    if (!items || items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--pico-muted-color);">No notifications recorded in log history.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = items.map(notif => {
+        let dateStr = 'Just now';
+        if (notif.created_at) {
+            try {
+                dateStr = new Date(notif.created_at).toLocaleString();
+            } catch (e) {
+                dateStr = notif.created_at;
+            }
+        }
+
+        const sourceTool = escapeHtml(notif.source_tool || 'system');
+        const title = escapeHtml(notif.title || '');
+        const currentVer = notif.metadata ? notif.metadata.current_version : null;
+        const availVer = notif.metadata ? notif.metadata.available_version : null;
+
+        let verSub = '';
+        if (currentVer || availVer) {
+            verSub = `<div style="font-size: 0.75rem; color: var(--pico-muted-color);">Version: ${escapeHtml(currentVer || 'N/A')} → ${escapeHtml(availVer || 'N/A')}</div>`;
+        }
+
+        const isDismissed = notif.is_dismissed;
+        const statusBadge = isDismissed
+            ? `<span style="color: var(--pico-muted-color);">Dismissed</span>`
+            : `<span style="color: #00aaff; font-weight: bold;">Active</span>`;
+
+        let releaseNotesLink = '';
+        if (sourceTool === 'trivy') {
+            releaseNotesLink = `<a href="https://github.com/aquasecurity/trivy/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">🔗 Release Notes</a>`;
+        } else if (sourceTool === 'semgrep') {
+            releaseNotesLink = `<a href="https://github.com/semgrep/semgrep/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">🔗 Release Notes</a>`;
+        } else if (sourceTool === 'snyk') {
+            releaseNotesLink = `<a href="https://github.com/snyk/cli/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">🔗 Release Notes</a>`;
+        } else if (sourceTool === 'helm') {
+            releaseNotesLink = `<a href="https://github.com/helm/helm/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">🔗 Release Notes</a>`;
+        }
+
+        let guideLink = '';
+        if (notif.category === 'scanner_update') {
+            guideLink = `<a href="/docs/guide/guides/scanners/index.html#updating-scanner-versions" target="_blank" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">📖 Guide</a>`;
+        }
+
+        const actionBtn = isDismissed
+            ? `<button onclick="updateNotificationStatus('${notif.id}', 'restore')" class="outline secondary" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-bottom: 0; cursor: pointer;">↩ Re-open</button>`
+            : `<button onclick="updateNotificationStatus('${notif.id}', 'dismiss')" class="secondary" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-bottom: 0; cursor: pointer;">✓ Dismiss</button>`;
+
+        return `<tr>
+            <td style="white-space: nowrap;">${dateStr}</td>
+            <td><code>${sourceTool}</code></td>
+            <td>
+                <div><strong>${title}</strong></div>
+                ${verSub}
+            </td>
+            <td>${statusBadge}</td>
+            <td style="text-align: right; white-space: nowrap;">
+                <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
+                    ${releaseNotesLink}
+                    <a href="/config" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">⚙️ Config</a>
+                    ${guideLink}
+                    ${actionBtn}
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function renderHistoryPagination(page, totalPages, totalItems, currentItemsCount) {
+    const infoEl = document.getElementById('history-pagination-info');
+    const prevBtn = document.getElementById('history-prev-btn');
+    const nextBtn = document.getElementById('history-next-btn');
+    const numbersEl = document.getElementById('history-page-numbers');
+
+    if (infoEl) {
+        infoEl.textContent = `Showing page ${page} of ${totalPages} (${totalItems} total notifications)`;
+    }
+
+    if (prevBtn) prevBtn.disabled = page <= 1;
+    if (nextBtn) nextBtn.disabled = page >= totalPages;
+
+    if (numbersEl) {
+        let pagesHtml = '';
+        for (let p = 1; p <= totalPages; p++) {
+            if (p === page) {
+                pagesHtml += `<button type="button" class="primary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; height: 32px; margin: 0; width: auto; font-weight: bold;">${p}</button>`;
+            } else if (p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1)) {
+                pagesHtml += `<button type="button" onclick="loadHistoryPage(${p})" class="outline secondary" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; height: 32px; margin: 0; width: auto;">${p}</button>`;
+            } else if (p === page - 2 || p === page + 2) {
+                pagesHtml += `<span style="padding: 0 0.2rem; align-self: center;">...</span>`;
+            }
+        }
+        numbersEl.innerHTML = pagesHtml;
+    }
+}
+
 async function updateNotificationStatus(id, actionName) {
     try {
         const params = new URLSearchParams();
@@ -291,7 +383,12 @@ async function updateNotificationStatus(id, actionName) {
         });
 
         if (resp.ok) {
-            window.location.reload();
+            const detailsEl = document.getElementById('notification-history-details');
+            if (detailsEl && detailsEl.open) {
+                loadHistoryPage(currentHistoryPage);
+            } else {
+                window.location.reload();
+            }
         } else {
             showToast('Failed to update notification status.', false);
         }

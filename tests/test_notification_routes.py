@@ -154,3 +154,38 @@ def test_rule_add_and_remove_recipient_routes(client: testing.TestClient) -> Non
 
     recips_after = db.get_rule_recipient_emails(rule["id"])
     assert "alice@rover.local" not in recips_after
+
+
+def test_admin_notification_history_pagination_route(
+    client: testing.TestClient,
+) -> None:
+    headers_admin = get_auth_headers("system_admin")
+    headers_user = get_auth_headers("developer")
+
+    # Seed notifications
+    notif_id = db.create_admin_notification(
+        title="Pagination Test Alert",
+        message="Testing history endpoint",
+        category="scanner_update",
+        source_tool="trivy",
+        metadata_dict={"current_version": "0.72.0", "available_version": "0.74.0"},
+    )
+    assert notif_id is not None
+
+    # System admin can query history endpoint
+    res_admin = client.simulate_get(
+        "/api/admin/notifications/history?page=1&limit=5", headers=headers_admin
+    )
+    assert res_admin.status_code == 200
+    data = res_admin.json
+    assert "items" in data
+    assert data["total"] >= 1
+    assert data["page"] == 1
+    assert data["page_size"] == 5
+    assert any(n["id"] == notif_id for n in data["items"])
+
+    # Non-admin cannot query history endpoint
+    res_user = client.simulate_get(
+        "/api/admin/notifications/history?page=1&limit=5", headers=headers_user
+    )
+    assert res_user.status_code == 403
