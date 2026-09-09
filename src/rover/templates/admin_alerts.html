@@ -12,7 +12,9 @@
 <section class="notifications-container" style="max-width: 900px; margin: 0 auto; padding-top: 1rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
         <div>
-            <h2 style="margin-bottom: 0.25rem;">🚨 System Admin Alerts</h2>
+            <h2 style="margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                {{ icon('alert-triangle', size=22) }} System Admin Alerts
+            </h2>
             <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
                 System-level operational notices, version updates, and administrative alerts requiring system admin attention.
             </p>
@@ -61,59 +63,61 @@
                         <!-- Actionable Security Guidance -->
                         {% if notif.category == "scanner_update" %}
                         <div style="background: rgba(255, 170, 0, 0.08); border-left: 3px solid #ffaa00; padding: 0.6rem 0.85rem; font-size: 0.85rem; border-radius: 0 4px 4px 0; margin-top: 0.6rem; margin-bottom: 0.6rem;">
-                            <strong style="color: #ffaa00;">🛡️ Security Guidance:</strong>
+                            <strong style="color: #ffaa00; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                {{ icon('shield-alert', size=15) }} Security Guidance:
+                            </strong>
                             Upstream scanner releases should be inspected prior to updating. Verify the release notes and digest on GitHub, then update <code>[scanners.{{ notif.source_tool }}_image]</code> in your ROVER Configuration.
                             <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
                                 {% if notif.source_tool == "trivy" %}
                                 <a href="https://github.com/aquasecurity/trivy/releases" 
                                    target="_blank" rel="noopener noreferrer" 
                                    class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
-                                    🔗 Inspect Release Notes
+                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    {{ icon('external-link', size=13) }} Inspect Release Notes
                                 </a>
                                 {% elif notif.source_tool == "semgrep" %}
                                 <a href="https://github.com/semgrep/semgrep/releases" 
                                    target="_blank" rel="noopener noreferrer" 
                                    class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
-                                    🔗 Inspect Release Notes
+                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    {{ icon('external-link', size=13) }} Inspect Release Notes
                                 </a>
                                 {% elif notif.source_tool == "snyk" %}
                                 <a href="https://github.com/snyk/cli/releases" 
                                    target="_blank" rel="noopener noreferrer" 
                                    class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
-                                    🔗 Inspect Release Notes
+                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    {{ icon('external-link', size=13) }} Inspect Release Notes
                                 </a>
                                 {% elif notif.source_tool == "helm" %}
                                 <a href="https://github.com/helm/helm/releases" 
                                    target="_blank" rel="noopener noreferrer" 
                                    class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
-                                    🔗 Inspect Release Notes
+                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    {{ icon('external-link', size=13) }} Inspect Release Notes
                                 </a>
                                 {% endif %}
                                 <a href="/config" 
                                    class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
-                                    ⚙️ Edit Configuration
+                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    {{ icon('settings', size=13) }} Edit Configuration
                                 </a>
                                 <a href="/docs/guide/guides/scanners/index.html#updating-scanner-versions" 
                                    target="_blank" 
                                    class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
-                                    📖 View Configuration Guide
+                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                    {{ icon('book-open', size=13) }} View Configuration Guide
                                 </a>
                             </div>
                         </div>
                         {% elif notif.category == "vex_triage_approval" %}
                         <div style="background: rgba(0, 150, 255, 0.08); border-left: 3px solid var(--pico-primary); padding: 0.85rem 1rem; font-size: 0.85rem; border-radius: 0 4px 4px 0; margin-top: 0.75rem; margin-bottom: 0.75rem;">
                             <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.6rem;">
-                                <strong style="color: var(--pico-primary); font-size: 0.9rem;">
+                                <strong style="color: var(--pico-primary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.35rem;">
                                     {% if notif.metadata and notif.metadata.is_extension %}
-                                    ⚡ Product VEX Extension Proposal
+                                    {{ icon('zap', size=15) }} Product VEX Extension Proposal
                                     {% else %}
-                                    📋 VEX Proposal Action
+                                    {{ icon('file-text', size=15) }} VEX Proposal Action
                                     {% endif %}
                                 </strong>
                                 <span style="font-size: 0.82rem; color: var(--pico-muted-color);">
@@ -121,8 +125,8 @@
                                 </span>
                             </div>
                             {% if notif.metadata and notif.metadata.is_extension %}
-                            <div style="background: rgba(0, 170, 255, 0.12); border: 1px solid rgba(0, 170, 255, 0.3); padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.82rem; margin-bottom: 0.6rem; color: #00aaff;">
-                                ⚡ <strong>Extension Request:</strong> Extends previously approved Product VEX (from <em>{{ notif.metadata.original_package }}</em>) to <strong>{{ notif.metadata.target_package }}</strong>.
+                            <div style="background: rgba(0, 170, 255, 0.12); border: 1px solid rgba(0, 170, 255, 0.3); padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.82rem; margin-bottom: 0.6rem; color: #00aaff; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                {{ icon('zap', size=13) }} <strong>Extension Request:</strong> Extends previously approved Product VEX (from <em>{{ notif.metadata.original_package }}</em>) to <strong>{{ notif.metadata.target_package }}</strong>.
                             </div>
                             {% endif %}
                             <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem;">
@@ -136,11 +140,11 @@
                                     </select>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap;">
-                                    <button type="button" onclick="approveTriageProposal('{{ notif.metadata.triage_id }}', '{{ notif.id }}')" class="primary" style="font-size: 0.8rem; padding: 0 0.9rem; height: 34px; margin: 0; width: auto; white-space: nowrap; border-radius: 4px;">
-                                        ✓ Approve Proposal
+                                    <button type="button" onclick="approveTriageProposal('{{ notif.metadata.triage_id }}', '{{ notif.id }}')" class="primary" style="font-size: 0.8rem; padding: 0 0.9rem; height: 34px; margin: 0; width: auto; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                        {{ icon('check-circle', size=14) }} Approve Proposal
                                     </button>
-                                    <button type="button" onclick="rejectTriageProposal('{{ notif.metadata.triage_id }}', '{{ notif.id }}')" class="secondary outline" style="font-size: 0.8rem; padding: 0 0.9rem; height: 34px; margin: 0; width: auto; white-space: nowrap; border-radius: 4px;">
-                                        ✗ Reject Proposal
+                                    <button type="button" onclick="rejectTriageProposal('{{ notif.metadata.triage_id }}', '{{ notif.id }}')" class="secondary outline" style="font-size: 0.8rem; padding: 0 0.9rem; height: 34px; margin: 0; width: auto; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                        {{ icon('x-circle', size=14) }} Reject Proposal
                                     </button>
                                 </div>
                             </div>
@@ -154,8 +158,8 @@
                     <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;">
                         <button onclick="dismissNotification('{{ notif.id }}')" 
                                 class="secondary" 
-                                style="font-size: 0.8rem; padding: 0.3rem 0.75rem; margin-bottom: 0; cursor: pointer;">
-                            ✓ Dismiss
+                                style="font-size: 0.8rem; padding: 0.3rem 0.75rem; margin-bottom: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;">
+                            {{ icon('check-circle', size=14) }} Dismiss
                         </button>
                     </div>
                 </div>
@@ -171,8 +175,10 @@
     <details id="notification-history-details" style="margin-top: 1.5rem; border: 1px solid var(--pico-border-color); border-radius: 8px; background: var(--pico-card-background-color, rgba(255,255,255,0.02)); overflow: hidden;" ontoggle="onHistoryToggle(this)">
         <summary style="font-weight: 600; cursor: pointer; font-size: 0.95rem; padding: 0.85rem 1.25rem; display: flex; align-items: center; justify-content: space-between; user-select: none; background: rgba(0, 0, 0, 0.05); border-radius: 8px;">
             <div style="display: flex; align-items: center; gap: 0.6rem;">
-                <span id="history-toggle-icon" style="display: inline-block; transition: transform 0.2s ease; font-size: 0.85rem; color: var(--pico-primary);">▶</span>
-                <span style="color: var(--pico-color);">📜 Notification Log History</span>
+                <span id="history-toggle-icon" style="display: inline-flex; align-items: center; transition: transform 0.2s ease; color: var(--pico-primary);">{{ icon('chevron-right', size=15) }}</span>
+                <span style="color: var(--pico-color); display: inline-flex; align-items: center; gap: 0.4rem;">
+                    {{ icon('clock', size=16) }} Notification Log History
+                </span>
                 <span id="history-total-count" style="font-size: 0.85rem; color: var(--pico-muted-color); font-weight: normal;"></span>
             </div>
             <span id="history-expand-label" class="outline secondary" style="font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 4px; border: 1px solid var(--pico-border-color); color: var(--pico-muted-color);">
@@ -181,7 +187,7 @@
         </summary>
         <div style="padding: 1rem 1.25rem; border-top: 1px solid var(--pico-border-color);">
             <div id="history-loading-spinner" style="display: none; padding: 1.5rem; text-align: center; color: var(--pico-muted-color);">
-                ⏳ Loading notification history log...
+                <span style="display: inline-flex; align-items: center; gap: 0.4rem;">{{ icon('clock', size=15) }} Loading notification history log...</span>
             </div>
             <figure id="history-table-wrapper" style="margin-bottom: 0;">
                 <table class="striped" style="font-size: 0.85rem; margin-bottom: 0;">
@@ -223,6 +229,14 @@
 let currentHistoryPage = 1;
 const historyPageSize = 10;
 let isHistoryLoaded = false;
+
+const SVG_ICONS = {
+    externalLink: `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lucide-icon"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+    settings: `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lucide-icon"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    bookOpen: `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lucide-icon"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+    rotateCcw: `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lucide-icon"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`,
+    checkCircle: `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lucide-icon"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`
+};
 
 function onHistoryToggle(detailsEl) {
     const icon = document.getElementById('history-toggle-icon');
@@ -318,23 +332,23 @@ function renderHistoryRows(items) {
 
         let releaseNotesLink = '';
         if (sourceTool === 'trivy') {
-            releaseNotesLink = `<a href="https://github.com/aquasecurity/trivy/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">🔗 Release Notes</a>`;
+            releaseNotesLink = `<a href="https://github.com/aquasecurity/trivy/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem;">${SVG_ICONS.externalLink} Release Notes</a>`;
         } else if (sourceTool === 'semgrep') {
-            releaseNotesLink = `<a href="https://github.com/semgrep/semgrep/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">🔗 Release Notes</a>`;
+            releaseNotesLink = `<a href="https://github.com/semgrep/semgrep/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem;">${SVG_ICONS.externalLink} Release Notes</a>`;
         } else if (sourceTool === 'snyk') {
-            releaseNotesLink = `<a href="https://github.com/snyk/cli/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">🔗 Release Notes</a>`;
+            releaseNotesLink = `<a href="https://github.com/snyk/cli/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem;">${SVG_ICONS.externalLink} Release Notes</a>`;
         } else if (sourceTool === 'helm') {
-            releaseNotesLink = `<a href="https://github.com/helm/helm/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">🔗 Release Notes</a>`;
+            releaseNotesLink = `<a href="https://github.com/helm/helm/releases" target="_blank" rel="noopener noreferrer" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem;">${SVG_ICONS.externalLink} Release Notes</a>`;
         }
 
         let guideLink = '';
         if (notif.category === 'scanner_update') {
-            guideLink = `<a href="/docs/guide/guides/scanners/index.html#updating-scanner-versions" target="_blank" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">📖 Guide</a>`;
+            guideLink = `<a href="/docs/guide/guides/scanners/index.html#updating-scanner-versions" target="_blank" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem;">${SVG_ICONS.bookOpen} Guide</a>`;
         }
 
         const actionBtn = isDismissed
-            ? `<button onclick="updateNotificationStatus('${notif.id}', 'restore')" class="outline secondary" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-bottom: 0; cursor: pointer;">↩ Re-open</button>`
-            : `<button onclick="updateNotificationStatus('${notif.id}', 'dismiss')" class="secondary" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-bottom: 0; cursor: pointer;">✓ Dismiss</button>`;
+            ? `<button onclick="updateNotificationStatus('${notif.id}', 'restore')" class="outline secondary" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-bottom: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem;">${SVG_ICONS.rotateCcw} Re-open</button>`
+            : `<button onclick="updateNotificationStatus('${notif.id}', 'dismiss')" class="secondary" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-bottom: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem;">${SVG_ICONS.checkCircle} Dismiss</button>`;
 
         return `<tr>
             <td style="white-space: nowrap;">${dateStr}</td>
@@ -347,7 +361,7 @@ function renderHistoryRows(items) {
             <td style="text-align: right; white-space: nowrap;">
                 <div style="display: flex; gap: 0.4rem; justify-content: flex-end; align-items: center;">
                     ${releaseNotesLink}
-                    <a href="/config" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">⚙️ Config</a>
+                    <a href="/config" class="outline" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem;">${SVG_ICONS.settings} Config</a>
                     ${guideLink}
                     ${actionBtn}
                 </div>
@@ -454,4 +468,3 @@ async function rejectTriageProposal(triageId, notifId) {
 }
 </script>
 {% endblock %}
-
