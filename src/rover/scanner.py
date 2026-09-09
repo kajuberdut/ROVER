@@ -101,8 +101,15 @@ def run_helm_ingestion(
     )
 
 
+from rover.scanner_updates import (
+    check_scanner_updates,
+    check_scanner_updates_at_startup,
+)
+
 __all__ = [
     "DockerContainer",
+    "check_scanner_updates",
+    "check_scanner_updates_at_startup",
     "db",
     "fetch_helm_chart_versions",
     "resolve_image_hash",

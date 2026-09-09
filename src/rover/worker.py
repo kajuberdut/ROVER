@@ -318,6 +318,13 @@ async def worker_loop() -> None:
         f"Starting async multi-process worker loop (max_concurrent={MAX_CONCURRENT_JOBS})"
     )
     from rover.db import claim_next_scanner_job
+    from rover.scanner_updates import check_scanner_updates_at_startup
+
+    # Perform start-time check for newer upstream scanner images
+    try:
+        await asyncio.to_thread(check_scanner_updates_at_startup)
+    except Exception as exc:
+        logger.warning(f"Startup check for scanner updates failed: {exc}")
 
     active_tasks: set[asyncio.Task[None]] = set()
 
