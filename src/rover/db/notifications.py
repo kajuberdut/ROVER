@@ -149,8 +149,9 @@ def get_paginated_admin_notifications(
             else:
                 data["metadata"] = {}
 
-            if hasattr(data.get("created_at"), "isoformat"):
-                data["created_at"] = data["created_at"].isoformat()
+            for k, v in list(data.items()):
+                if hasattr(v, "isoformat"):
+                    data[k] = v.isoformat()
 
             results.append(data)
 

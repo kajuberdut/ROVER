@@ -345,13 +345,11 @@ class AdminAlertsResource:
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
         active_notifications = db.get_active_admin_notifications()
-        total_history_count = db.get_admin_notifications_count()
         template = template_env.get_template("admin_alerts.html")
         resp.text = template.render(
             user=getattr(req.context, "user", None),
             title="System Admin Alerts",
             active_notifications=active_notifications,
-            total_history_count=total_history_count,
             expiration_intervals=config.settings.vex.expiration_intervals,
         )
         resp.content_type = falcon.MEDIA_HTML

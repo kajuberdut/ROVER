@@ -170,7 +170,7 @@
 
     <details id="notification-history-details" style="margin-top: 1rem;" ontoggle="onHistoryToggle(this)">
         <summary style="font-weight: 600; cursor: pointer; font-size: 1rem; color: var(--pico-muted-color);">
-            📜 Notification Log History (<span id="history-total-count">{{ total_history_count|default(0) }}</span>)
+            📜 Notification Log History <span id="history-total-count" style="font-weight: normal; font-size: 0.95rem;"></span>
         </summary>
         <div style="margin-top: 1rem;">
             <div id="history-loading-spinner" style="display: none; padding: 1rem; text-align: center; color: var(--pico-muted-color);">
@@ -237,7 +237,7 @@ async function loadHistoryPage(page) {
         isHistoryLoaded = true;
 
         const countEl = document.getElementById('history-total-count');
-        if (countEl) countEl.textContent = data.total;
+        if (countEl && typeof data.total === 'number') countEl.textContent = `(${data.total})`;
 
         renderHistoryRows(data.items);
         renderHistoryPagination(data.page, data.total_pages, data.total, data.items ? data.items.length : 0);
