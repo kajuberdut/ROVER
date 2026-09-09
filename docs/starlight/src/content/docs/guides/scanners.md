@@ -53,3 +53,52 @@ R.O.V.E.R. uses intelligent caching to optimize scan performance and prevent unn
 - **What is Cached**: Release dates, End-of-Life status, and LTS flags fetched from `endoflife.date`.
 - **How It Works**: EOL lifecycle records for major components (e.g., `postgresql 17`, `python 3.12`) are stored in the local database (`eol_cache`).
 - **Cache Duration**: **Persistent local cache** per component version string to minimize external network calls and avoid API rate limits.
+
+---
+
+## Updating Scanner Versions
+
+When upstream scanner updates (e.g., Trivy or Semgrep releases) are published, R.O.V.E.R. automatically notifies system administrators with a `scanner_update` alert.
+
+### How to Update Scanner Configurations
+
+1. **Inspect Upstream Release Notes**: Click **🔗 Inspect Release Notes** in the alert or visit the upstream scanner repository on GitHub to verify breaking changes, bug fixes, and release digests.
+2. **Navigate to ROVER Configuration**:
+   - Go to the **Configuration** page in the ROVER Web UI (`/config`).
+   - Or edit your deployment configuration file (`rover.toml`).
+3. **Update Image Parameter**:
+   - Under the `[scanners]` section, update the target image parameter to the new version tag or pinned digest.
+   - For Trivy: Update `[scanners.trivy_image]` (e.g., `aquasec/trivy:0.74.0` or `aquasec/trivy@sha256:...`).
+   - For Semgrep: Update `[scanners.semgrep_image]` (e.g., `semgrep/semgrep:1.16.0` or `semgrep/semgrep@sha256:...`).
+4. **Save Configuration**: Click **Save Changes** in the Web UI or restart the service stack if modifying `rover.toml`.
+5. **Verify Scan Execution**: Future scan runs will automatically invoke the updated scanner container version.
+
+---
+
+### Security Best Practice: Pinning SHA256 Image Digests
+
+While mutable tags like `:0.74.0` specify a release version, tag references can theoretically be overwritten or tampered with in image registries.
+
+#### Advantages of Digest Pinning (`@sha256:...`)
+- **Immutability & Integrity**: A cryptographic `sha256` digest permanently references the exact content-addressable image manifest. It cannot be altered even if the registry tag is updated or overwritten.
+- **Supply Chain Security**: Prevents image spoofing, accidental downstream tag updates, and dependency confusion attacks.
+- **Reproducibility**: Guarantees identical scanner environments across all ROVER deployments and automated CI/CD pipelines.
+
+#### How to Find the SHA256 Image Digest
+You can obtain the `sha256` digest for an updated scanner image using any of the following methods:
+
+1. **GitHub Release Notes & Signatures**: Upstream releases (such as Trivy GitHub Releases) publish official release provenance files (`checksums.txt`, Cosign signatures, or build attestations) containing the cryptographic SHA-256 digests.
+2. **Container Registry UI**: On GitHub Container Registry (GHCR) or Docker Hub, navigate to the image tag details page (e.g., `ghcr.io/aquasecurity/trivy` or `hub.docker.com/r/aquasec/trivy`) to view the published `Digest` SHA-256 hash.
+3. **CLI Inspection via Docker**:
+   Pull the updated image tag locally and inspect its repository digest:
+   ```bash
+   docker pull aquasec/trivy:0.74.0
+   docker inspect --format='{{index .RepoDigests 0}}' aquasec/trivy:0.74.0
+   # Output: aquasec/trivy@sha256:a1b2c3d4e5...
+   ```
+4. **CLI Inspection via `crane` or `skopeo`**:
+   Inspect the digest directly from the registry without pulling the image layers:
+   ```bash
+   crane digest aquasec/trivy:0.74.0
+   ```
+
