@@ -78,6 +78,20 @@
                                    style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
                                     🔗 Inspect Release Notes
                                 </a>
+                                {% elif notif.source_tool == "snyk" %}
+                                <a href="https://github.com/snyk/cli/releases" 
+                                   target="_blank" rel="noopener noreferrer" 
+                                   class="outline" 
+                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
+                                    🔗 Inspect Release Notes
+                                </a>
+                                {% elif notif.source_tool == "helm" %}
+                                <a href="https://github.com/helm/helm/releases" 
+                                   target="_blank" rel="noopener noreferrer" 
+                                   class="outline" 
+                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px;">
+                                    🔗 Inspect Release Notes
+                                </a>
                                 {% endif %}
                                 <a href="/config" 
                                    class="outline" 
@@ -207,12 +221,34 @@
                                        style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
                                         🔗 Release Notes
                                     </a>
+                                    {% elif notif.source_tool == "snyk" %}
+                                    <a href="https://github.com/snyk/cli/releases" 
+                                       target="_blank" rel="noopener noreferrer" 
+                                       class="outline" 
+                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
+                                        🔗 Release Notes
+                                    </a>
+                                    {% elif notif.source_tool == "helm" %}
+                                    <a href="https://github.com/helm/helm/releases" 
+                                       target="_blank" rel="noopener noreferrer" 
+                                       class="outline" 
+                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
+                                        🔗 Release Notes
+                                    </a>
                                     {% endif %}
                                     <a href="/config" 
                                        class="outline" 
                                        style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
                                         ⚙️ Config
                                     </a>
+                                    {% if notif.category == "scanner_update" %}
+                                    <a href="/docs/guide/guides/scanners/index.html#updating-scanner-versions" 
+                                       target="_blank" 
+                                       class="outline" 
+                                       style="font-size: 0.75rem; padding: 0.15rem 0.5rem; text-decoration: none; border-radius: 4px;">
+                                        📖 Guide
+                                    </a>
+                                    {% endif %}
 
                                     {% if notif.is_dismissed %}
                                     <button onclick="updateNotificationStatus('{{ notif.id }}', 'restore')" 
