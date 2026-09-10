@@ -104,6 +104,10 @@
         }
 
         .user-menu summary::-webkit-details-marker { display: none; }
+        
+        /* ── Universal Accordion Summary Marker Reset ── */
+        details > summary::-webkit-details-marker { display: none; }
+        details > summary::marker { display: none; content: ""; }
 
         /* Trigger button; mirrors old summary appearance */
         .user-menu-trigger {
@@ -261,25 +265,35 @@
         .breadcrumb-back:hover { text-decoration: underline; }
 
         /* ── Toast notification ── */
-        #global-toast {
+        #global-toast,
+        #global-toast:popover-open {
             position: fixed;
             top: 1rem;
             right: 1rem;
-            z-index: 9999;
+            bottom: auto;
+            left: auto;
+            inset: 1rem 1rem auto auto;
+            z-index: 2147483647;
             transform: translateX(150%);
             transition: transform 0.4s ease-out;
             margin: 0;
             padding: 1rem 1.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
             background-color: var(--pico-del-color);
             color: white;
             border-radius: var(--pico-border-radius);
             display: flex;
             align-items: center;
             gap: 1rem;
+            border: none;
+            width: max-content;
+            max-width: calc(100vw - 2rem);
         }
 
-        #global-toast.show { transform: translateX(0); }
+        #global-toast.show,
+        #global-toast:popover-open.show {
+            transform: translateX(0);
+        }
 
         #global-toast button.close {
             background: none;
@@ -328,6 +342,17 @@
             if (btn) btn.setAttribute('aria-expanded', opening ? 'true' : 'false');
         }
 
+        let toastTimeout = null;
+
+        function hideToast() {
+            const toast = document.getElementById('global-toast');
+            if (!toast) return;
+            toast.classList.remove('show');
+            if (typeof toast.hidePopover === 'function') {
+                try { toast.hidePopover(); } catch(e) {}
+            }
+        }
+
         function showToast(message, isSuccess = false) {
             const toast = document.getElementById('global-toast');
             const messageEl = document.getElementById('global-toast-message');
@@ -339,9 +364,15 @@
             } else {
                 toast.style.backgroundColor = 'var(--pico-del-color, #ef4444)';
             }
+
+            if (typeof toast.showPopover === 'function') {
+                try { toast.showPopover(); } catch(e) {}
+            }
             toast.classList.add('show');
-            setTimeout(() => {
-                toast.classList.remove('show');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                hideToast();
             }, 4000);
         }
 
@@ -525,10 +556,9 @@
         </article>
     </dialog>
 
-    <div id="global-toast">
+    <div id="global-toast" popover="manual">
         <span id="global-toast-message">An error occurred.</span>
-        <button class="close" onclick="document.getElementById('global-toast').classList.remove('show');"
-            aria-label="Close">&times;</button>
+        <button class="close" onclick="hideToast();" aria-label="Close">&times;</button>
     </div>
 
     <script>

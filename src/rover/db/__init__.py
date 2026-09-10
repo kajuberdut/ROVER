@@ -89,6 +89,7 @@ from .notification_rules import (
 from .notifications import (
     create_admin_notification,
     dismiss_admin_notification,
+    dismiss_outdated_scanner_notifications,
     get_active_admin_notifications,
     get_admin_notifications_count,
     get_all_admin_notifications,
@@ -288,6 +289,7 @@ __all__ = [
     "get_all_admin_notifications",
     "get_paginated_admin_notifications",
     "dismiss_admin_notification",
+    "dismiss_outdated_scanner_notifications",
     "restore_admin_notification",
     "add_credential",
     "get_credentials",

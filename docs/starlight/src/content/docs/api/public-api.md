@@ -37,3 +37,4 @@ Create API tokens in **User Settings** > **🔑 API Tokens** (`/settings/tokens`
 | `GET` | `/api/schedules/{id}/logs` | Retrieve schedule execution audit history logs and live scanner progress. |
 | `GET` | `/api/eol/all` | Fetch all cached End-Of-Life component lifecycle records. |
 | `GET` | `/api/helm/repo/charts` | Discover charts from a remote Helm repository `index.yaml`. |
+| `GET` | `/api/admin/audit_logs` | Retrieve system-wide administrative audit logs with filtering by action, resource, or user. |

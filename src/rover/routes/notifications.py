@@ -144,7 +144,7 @@ class NotificationDestinationCreateResource:
 
         is_default = form.get("is_default") in ("true", "1", True, "on")
 
-        db.add_notification_destination(
+        dest_res = db.add_notification_destination(
             name=name,
             destination_type=dest_type,
             scope=scope,
@@ -153,6 +153,24 @@ class NotificationDestinationCreateResource:
             user_sub=user["sub"] if scope == "user" else None,
             product_id=product_id if scope == "product" else None,
             is_default=is_default,
+        )
+        dest_id_str = (
+            dest_res.get("id") if isinstance(dest_res, dict) else str(dest_res)
+        )
+
+        db.log_audit_event(
+            action="notification_destination.create",
+            resource_type="notification_destination",
+            resource_id=dest_id_str,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            changes={
+                "name": name,
+                "type": dest_type,
+                "scope": scope,
+                "is_default": is_default,
+            },
+            ip_address=req.remote_addr,
         )
 
         referer = req.get_header("Referer", default="/admin/notifications/destinations")
@@ -169,6 +187,15 @@ class NotificationDestinationDeleteResource:
             raise falcon.HTTPUnauthorized()
 
         db.delete_notification_destination(dest_id)
+        db.log_audit_event(
+            action="notification_destination.delete",
+            resource_type="notification_destination",
+            resource_id=dest_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            ip_address=req.remote_addr,
+        )
+
         referer = req.get_header("Referer", default="/admin/notifications/destinations")
         raise falcon.HTTPFound(referer)
 
@@ -246,6 +273,16 @@ class NotificationDestinationUpdateResource:
             is_default=is_default,
         )
 
+        db.log_audit_event(
+            action="notification_destination.update",
+            resource_type="notification_destination",
+            resource_id=dest_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            changes={"name": name, "is_default": is_default},
+            ip_address=req.remote_addr,
+        )
+
         referer = req.get_header("Referer", default="/admin/notifications/destinations")
         raise falcon.HTTPFound(referer)
 
@@ -260,6 +297,16 @@ class NotificationDestinationSetDefaultResource:
             raise falcon.HTTPUnauthorized()
 
         db.set_default_smtp_destination(dest_id)
+
+        db.log_audit_event(
+            action="notification_destination.set_default",
+            resource_type="notification_destination",
+            resource_id=dest_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            ip_address=req.remote_addr,
+        )
+
         referer = req.get_header("Referer", default="/admin/notifications/destinations")
         raise falcon.HTTPFound(referer)
 
@@ -332,7 +379,7 @@ class NotificationRuleCreateResource:
             recipient_user_subs = [user["sub"]]
             custom_emails = []
 
-        db.add_notification_rule(
+        rule_res = db.add_notification_rule(
             destination_id=destination_id,
             event_type=event_type,
             scope=scope,
@@ -342,6 +389,25 @@ class NotificationRuleCreateResource:
             product_id=product_id if scope == "product" else None,
             recipient_user_subs=recipient_user_subs,
             recipient_emails=custom_emails,
+        )
+        rule_id_str = (
+            rule_res.get("id") if isinstance(rule_res, dict) else str(rule_res)
+        )
+
+        db.log_audit_event(
+            action="notification_rule.create",
+            resource_type="notification_rule",
+            resource_id=rule_id_str,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            changes={
+                "destination_id": destination_id,
+                "event_type": event_type,
+                "scope": scope,
+                "product_id": product_id,
+                "min_severity": min_severity,
+            },
+            ip_address=req.remote_addr,
         )
 
         referer = req.get_header("Referer", default="/user/settings/notifications")
@@ -357,6 +423,15 @@ class NotificationRuleDeleteResource:
             raise falcon.HTTPUnauthorized()
 
         db.delete_notification_rule(rule_id)
+        db.log_audit_event(
+            action="notification_rule.delete",
+            resource_type="notification_rule",
+            resource_id=rule_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            ip_address=req.remote_addr,
+        )
+
         referer = req.get_header("Referer", default="/user/settings/notifications")
         raise falcon.HTTPFound(referer)
 

@@ -227,6 +227,7 @@
                             <button type="button" id="btn_fetch_helm_charts" class="outline secondary" style="width:auto; white-space:nowrap;">Fetch Charts</button>
                         </div>
                     </label>
+                    <div id="helm-error-alert" style="display: none; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.55rem 0.85rem; border-radius: 6px; font-size: 0.85rem; margin-top: 0.75rem;"></div>
                     <div class="grid" style="margin-top: 1rem;">
                         <label>Chart Name
                             <select name="chart_name" id="chart_name" required>
@@ -268,12 +269,16 @@
 
     let helmDataCache = {};
     document.getElementById('btn_fetch_helm_charts').addEventListener('click', function() {
-        const urlParams = document.getElementById('helm_repo_url').value;
-        if (!urlParams) {
-            showToast('Please enter a Helm Repository URL first.', false);
+        const helmInput = document.getElementById('helm_repo_url');
+        const errorAlert = document.getElementById('helm-error-alert');
+        if (errorAlert) errorAlert.style.display = 'none';
+
+        if (!helmInput.checkValidity()) {
+            helmInput.reportValidity();
             return;
         }
 
+        const urlParams = helmInput.value;
         const btn = this;
         const chartSelect = document.getElementById('chart_name');
         const versionSelect = document.getElementById('chart_version');
@@ -287,13 +292,24 @@
             .then(data => {
                 btn.removeAttribute('aria-busy');
                 if (data.error) {
-                    showToast('Error fetching charts: ' + data.error, false);
+                    const errMsg = 'Error fetching charts: ' + data.error;
+                    if (errorAlert) {
+                        errorAlert.textContent = errMsg;
+                        errorAlert.style.display = 'block';
+                    }
+                    showToast(errMsg, false);
                     chartSelect.innerHTML = '<option value="" disabled selected>Error loading charts</option>';
                     return;
                 }
 
                 const chartNames = Object.keys(data).sort();
                 if (chartNames.length === 0) {
+                    const errMsg = 'No Helm charts found at the specified URL.';
+                    if (errorAlert) {
+                        errorAlert.textContent = errMsg;
+                        errorAlert.style.display = 'block';
+                    }
+                    showToast(errMsg, false);
                     chartSelect.innerHTML = '<option value="" disabled selected>No charts found</option>';
                     return;
                 }
@@ -310,6 +326,12 @@
             .catch(err => {
                 btn.removeAttribute('aria-busy');
                 console.error(err);
+                const errMsg = 'Network error fetching Helm charts.';
+                if (errorAlert) {
+                    errorAlert.textContent = errMsg;
+                    errorAlert.style.display = 'block';
+                }
+                showToast(errMsg, false);
                 chartSelect.innerHTML = '<option value="" disabled selected>Error loading charts</option>';
             });
     });

@@ -11,7 +11,10 @@ import asyncio
 import threading
 
 from rover import worker
+from rover.db.connection import init_db
 from rover.routes import create_app
+
+init_db()
 
 app = create_app()
 

@@ -39,6 +39,7 @@ class ReleaseSbomResource:
                 all_components.extend(comps)
 
         if fmt == "cyclonedx":
+            cyclonedx_vex_doc = vex.generate_cyclonedx_vex_document(release_id)
             payload = {
                 "bomFormat": "CycloneDX",
                 "specVersion": "1.6",
@@ -56,6 +57,7 @@ class ReleaseSbomResource:
                     }
                     for c in all_components
                 ],
+                "vulnerabilities": cyclonedx_vex_doc.get("vulnerabilities", []),
             }
         else:
             payload = {
@@ -195,6 +197,7 @@ class VulnerabilityTriageResource:
 
             meta = {
                 "triage_id": triage_id,
+                "vulnerability_id": vuln_id,
                 "vulnerability_ledger_id": ledger_id,
                 "requested_by": user_email,
                 "requested_expiration": expires_at or "30 days",
@@ -213,6 +216,21 @@ class VulnerabilityTriageResource:
         except (KeyError, ValueError, RuntimeError, TypeError) as e:
             # Catch notification metadata construction or payload errors so they do not block the HTTP proposal
             logger.warning(f"Failed to dispatch triage approval notification: {e}")
+
+        db.log_audit_event(
+            action="vulnerability.triage_submit",
+            resource_type="vulnerability",
+            resource_id=vuln_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            changes={
+                "status": status,
+                "justification": justification,
+                "impact_statement": impact_statement,
+                "expires_at": expires_at,
+            },
+            ip_address=req.remote_addr,
+        )
 
         resp.status = falcon.HTTP_201
         resp.media = {
@@ -255,6 +273,20 @@ class TriageApproveResource:
         )
         if not success:
             raise falcon.HTTPBadRequest(description="Failed to approve triage decision")
+
+        db.log_audit_event(
+            action="vulnerability.triage_approve",
+            resource_type="vulnerability_triage",
+            resource_id=triage_id,
+            user_sub=admin_sub,
+            user_email=user.get("email"),
+            changes={
+                "triage_id": triage_id,
+                "approved_by": admin_sub,
+                "expires_at": override_expires_at,
+            },
+            ip_address=req.remote_addr,
+        )
 
         vuln_id_val = (
             triage_rec.get("vulnerability_id")

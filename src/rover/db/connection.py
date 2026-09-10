@@ -25,3 +25,17 @@ def get_db_connection() -> Generator[Connection, None, None]:
     """
     with engine.begin() as conn:
         yield conn
+
+
+def init_db() -> None:
+    """Ensure all SQLAlchemy metadata tables (including audit_logs) exist."""
+    from rover.db import schema
+
+    try:
+        schema.metadata.create_all(engine)
+    except Exception as err:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            f"Could not run schema metadata.create_all: {err}"
+        )

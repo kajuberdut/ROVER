@@ -11,14 +11,14 @@
 {% block content %}
 <section class="notifications-container" style="max-width: 900px; margin: 0 auto; padding-top: 1rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-        <div>
-            <h2 style="margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+        <hgroup style="margin-bottom: 0;">
+            <h2 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
                 {{ icon('alert-triangle', size=22) }} System Admin Alerts
             </h2>
-            <p style="color: var(--pico-muted-color); font-size: 0.9rem; margin-bottom: 0;">
+            <h3 style="color: var(--pico-muted-color); font-size: 0.9rem; font-weight: normal; margin-bottom: 0;">
                 System-level operational notices, version updates, and administrative alerts requiring system admin attention.
-            </p>
-        </div>
+            </h3>
+        </hgroup>
         <div>
             <span class="brand-pill" style="font-size: 0.9rem; padding: 0.35rem 0.85rem;">
                 {{ active_notifications|length }} Active Alert{{ 's' if active_notifications|length != 1 else '' }}
@@ -32,137 +32,140 @@
     </h3>
 
     {% if active_notifications %}
-        <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2.5rem;">
+        {% set ns_scanner = namespace(has_update=false) %}
         {% for notif in active_notifications %}
-            <article id="notif-card-{{ notif.id }}" style="margin-bottom: 0; padding: 1.25rem; border-left: 4px solid var(--pico-primary); background: var(--pico-card-background-color, #1e232a);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 280px;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; flex-wrap: wrap;">
-                            <span style="font-weight: 700; font-size: 1.05rem;">{{ notif.title }}</span>
-                            <span class="role-badge" style="background: rgba(0, 150, 255, 0.15); color: #00aaff; border: 1px solid rgba(0, 150, 255, 0.3); font-size: 0.75rem; text-transform: uppercase;">
-                                {{ notif.source_tool }}
-                            </span>
-                            <span class="role-badge" style="background: rgba(255, 170, 0, 0.15); color: #ffaa00; border: 1px solid rgba(255, 170, 0, 0.3); font-size: 0.75rem;">
-                                {{ notif.category }}
-                            </span>
-                        </div>
-                        <p style="margin-bottom: 0.6rem; font-size: 0.95rem; line-height: 1.4;">
-                            {{ notif.message.split(' Approve:')[0] }}
-                        </p>
+            {% if notif.category == "scanner_update" %}
+                {% set ns_scanner.has_update = true %}
+            {% endif %}
+        {% endfor %}
+
+        {% if ns_scanner.has_update %}
+        <!-- Shared Guidance & Configuration Banner -->
+        <div style="background: rgba(0, 150, 255, 0.06); border: 1px solid rgba(0, 150, 255, 0.2); border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; color: var(--pico-color);">
+                <span style="color: var(--pico-primary); display: inline-flex; align-items: center;">
+                    {{ icon('shield-alert', size=16) }}
+                </span>
+                <span>
+                    Inspect release notes &amp; image digests on GitHub prior to updating <code>[scanners.*_image]</code> in your configuration.
+                </span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: nowrap;">
+                <a href="/config" class="outline" style="font-size: 0.75rem; padding: 0.2rem 0.65rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap;">
+                    {{ icon('settings', size=13) }} Edit Configuration
+                </a>
+                <a href="/docs/guide/guides/scanners/index.html#updating-scanner-versions" target="_blank" class="outline secondary" style="font-size: 0.75rem; padding: 0.2rem 0.65rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap;">
+                    {{ icon('book-open', size=13) }} Configuration Guide
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2.5rem;">
+        {% for notif in active_notifications %}
+            <article id="notif-card-{{ notif.id }}" style="margin-bottom: 0; padding: 0.85rem 1.15rem; border-left: 4px solid var(--pico-primary); border-radius: var(--pico-border-radius, 8px); background: var(--pico-card-background-color);">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                    <!-- Left Column: Tool Badge, Title, Version Transition, Timestamp -->
+                    <div style="display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; flex: 1; min-width: 280px;">
+                        <span class="role-badge" style="background: rgba(0, 150, 255, 0.15); color: #00aaff; border: 1px solid rgba(0, 150, 255, 0.3); font-size: 0.72rem; text-transform: uppercase; white-space: nowrap;">
+                            {{ notif.source_tool }}
+                        </span>
+                        <span style="font-weight: 700; font-size: 0.95rem;">{{ notif.title }}</span>
+
                         {% if notif.metadata and (notif.metadata.current_version or notif.metadata.available_version) %}
-                        <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--pico-muted-color); background: rgba(0,0,0,0.15); padding: 0.4rem 0.75rem; border-radius: 4px; width: fit-content; margin-bottom: 0.5rem;">
-                            {% if notif.metadata.current_version %}
-                            <span>Current: <strong>{{ notif.metadata.current_version }}</strong></span>
-                            {% endif %}
-                            {% if notif.metadata.available_version %}
-                            <span>Available: <strong style="color: #2e7d32;">{{ notif.metadata.available_version }}</strong></span>
-                            {% endif %}
-                        </div>
+                        <span style="font-size: 0.8rem; color: var(--pico-muted-color); background: rgba(0,0,0,0.12); padding: 0.15rem 0.5rem; border-radius: 4px; white-space: nowrap;">
+                            {{ notif.metadata.current_version or 'N/A' }} → <strong style="color: #2e7d32;">{{ notif.metadata.available_version or 'N/A' }}</strong>
+                        </span>
                         {% endif %}
 
-                        <!-- Actionable Security Guidance -->
-                        {% if notif.category == "scanner_update" %}
-                        <div style="background: rgba(255, 170, 0, 0.08); border-left: 3px solid #ffaa00; padding: 0.6rem 0.85rem; font-size: 0.85rem; border-radius: 0 4px 4px 0; margin-top: 0.6rem; margin-bottom: 0.6rem;">
-                            <strong style="color: #ffaa00; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                {{ icon('shield-alert', size=15) }} Security Guidance:
-                            </strong>
-                            Upstream scanner releases should be inspected prior to updating. Verify the release notes and digest on GitHub, then update <code>[scanners.{{ notif.source_tool }}_image]</code> in your ROVER Configuration.
-                            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
-                                {% if notif.source_tool == "trivy" %}
-                                <a href="https://github.com/aquasecurity/trivy/releases" 
-                                   target="_blank" rel="noopener noreferrer" 
-                                   class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                    {{ icon('external-link', size=13) }} Inspect Release Notes
-                                </a>
-                                {% elif notif.source_tool == "semgrep" %}
-                                <a href="https://github.com/semgrep/semgrep/releases" 
-                                   target="_blank" rel="noopener noreferrer" 
-                                   class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                    {{ icon('external-link', size=13) }} Inspect Release Notes
-                                </a>
-                                {% elif notif.source_tool == "snyk" %}
-                                <a href="https://github.com/snyk/cli/releases" 
-                                   target="_blank" rel="noopener noreferrer" 
-                                   class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                    {{ icon('external-link', size=13) }} Inspect Release Notes
-                                </a>
-                                {% elif notif.source_tool == "helm" %}
-                                <a href="https://github.com/helm/helm/releases" 
-                                   target="_blank" rel="noopener noreferrer" 
-                                   class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                    {{ icon('external-link', size=13) }} Inspect Release Notes
-                                </a>
-                                {% endif %}
-                                <a href="/config" 
-                                   class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                    {{ icon('settings', size=13) }} Edit Configuration
-                                </a>
-                                <a href="/docs/guide/guides/scanners/index.html#updating-scanner-versions" 
-                                   target="_blank" 
-                                   class="outline" 
-                                   style="font-size: 0.75rem; padding: 0.2rem 0.6rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                    {{ icon('book-open', size=13) }} View Configuration Guide
-                                </a>
-                            </div>
-                        </div>
-                        {% elif notif.category == "vex_triage_approval" %}
-                        <div style="background: rgba(0, 150, 255, 0.08); border-left: 3px solid var(--pico-primary); padding: 0.85rem 1rem; font-size: 0.85rem; border-radius: 0 4px 4px 0; margin-top: 0.75rem; margin-bottom: 0.75rem;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.6rem;">
-                                <strong style="color: var(--pico-primary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                    {% if notif.metadata and notif.metadata.is_extension %}
-                                    {{ icon('zap', size=15) }} Product VEX Extension Proposal
-                                    {% else %}
-                                    {{ icon('file-text', size=15) }} VEX Proposal Action
-                                    {% endif %}
-                                </strong>
-                                <span style="font-size: 0.82rem; color: var(--pico-muted-color);">
-                                    Requested Expiration: <strong style="color: var(--pico-color);">{{ (notif.metadata and notif.metadata.requested_expiration) or '30 days' }}</strong>
-                                </span>
-                            </div>
-                            {% if notif.metadata and notif.metadata.is_extension %}
-                            <div style="background: rgba(0, 170, 255, 0.12); border: 1px solid rgba(0, 170, 255, 0.3); padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.82rem; margin-bottom: 0.6rem; color: #00aaff; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                {{ icon('zap', size=13) }} <strong>Extension Request:</strong> Extends previously approved Product VEX (from <em>{{ notif.metadata.original_package }}</em>) to <strong>{{ notif.metadata.target_package }}</strong>.
-                            </div>
-                            {% endif %}
-                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem;">
-                                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap;">
-                                    <span style="font-size: 0.82rem; font-weight: 600; white-space: nowrap;">Approved Expiration:</span>
-                                    <select id="approve-exp-{{ notif.id }}" style="font-size: 0.8rem; padding: 0 0.5rem; width: auto; margin: 0; height: 34px; line-height: 34px;">
-                                        {% for interval in expiration_intervals | default(['30 days', '90 days', '6 months']) %}
-                                        <option value="{{ interval }}" {% if notif.metadata and notif.metadata.requested_expiration == interval %}selected{% endif %}>{{ interval }}</option>
-                                        {% endfor %}
-                                        <option value="indefinite" {% if notif.metadata and notif.metadata.requested_expiration in ['indefinite', 'none'] %}selected{% endif %}>No Expiration (Indefinite)</option>
-                                    </select>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap;">
-                                    <button type="button" onclick="approveTriageProposal('{{ notif.metadata.triage_id }}', '{{ notif.id }}')" class="primary" style="font-size: 0.8rem; padding: 0 0.9rem; height: 34px; margin: 0; width: auto; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                        {{ icon('check-circle', size=14) }} Approve Proposal
-                                    </button>
-                                    <button type="button" onclick="rejectTriageProposal('{{ notif.metadata.triage_id }}', '{{ notif.id }}')" class="secondary outline" style="font-size: 0.8rem; padding: 0 0.9rem; height: 34px; margin: 0; width: auto; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
-                                        {{ icon('x-circle', size=14) }} Reject Proposal
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        <div style="font-size: 0.75rem; color: var(--pico-muted-color); margin-top: 0.4rem;">
-                            Received {{ notif.created_at | humanize_time }}
-                        </div>
+                        <span style="font-size: 0.75rem; color: var(--pico-muted-color); white-space: nowrap;">
+                            • {{ notif.created_at | humanize_time }}
+                        </span>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem; align-items: flex-end;">
+
+                    <!-- Right Column: Action Links (Release Notes + Dismiss) -->
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+                        {% if notif.category == "scanner_update" %}
+                            {% if notif.source_tool == "trivy" %}
+                            <a href="https://github.com/aquasecurity/trivy/releases" 
+                               target="_blank" rel="noopener noreferrer" 
+                               class="outline" 
+                               style="font-size: 0.75rem; padding: 0.25rem 0.65rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                                {{ icon('external-link', size=13) }} Release Notes
+                            </a>
+                            {% elif notif.source_tool == "semgrep" %}
+                            <a href="https://github.com/semgrep/semgrep/releases" 
+                               target="_blank" rel="noopener noreferrer" 
+                               class="outline" 
+                               style="font-size: 0.75rem; padding: 0.25rem 0.65rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                                {{ icon('external-link', size=13) }} Release Notes
+                            </a>
+                            {% elif notif.source_tool == "snyk" %}
+                            <a href="https://github.com/snyk/cli/releases" 
+                               target="_blank" rel="noopener noreferrer" 
+                               class="outline" 
+                               style="font-size: 0.75rem; padding: 0.25rem 0.65rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                                {{ icon('external-link', size=13) }} Release Notes
+                            </a>
+                            {% elif notif.source_tool == "helm" %}
+                            <a href="https://github.com/helm/helm/releases" 
+                               target="_blank" rel="noopener noreferrer" 
+                               class="outline" 
+                               style="font-size: 0.75rem; padding: 0.25rem 0.65rem; text-decoration: none; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                                {{ icon('external-link', size=13) }} Release Notes
+                            </a>
+                            {% endif %}
+                        {% endif %}
+
                         <button onclick="dismissNotification('{{ notif.id }}')" 
                                 class="secondary" 
-                                style="font-size: 0.8rem; padding: 0.3rem 0.75rem; margin-bottom: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem;">
-                            {{ icon('check-circle', size=14) }} Dismiss
+                                style="font-size: 0.75rem; padding: 0.25rem 0.65rem; margin-bottom: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; white-space: nowrap;">
+                            {{ icon('check-circle', size=13) }} Dismiss
                         </button>
                     </div>
                 </div>
+
+                <!-- Custom Card Body for VEX Triage Proposals if applicable -->
+                {% if notif.category == "vex_triage_approval" %}
+                <div style="background: rgba(0, 150, 255, 0.08); border-left: 3px solid var(--pico-primary); padding: 0.85rem 1rem; font-size: 0.85rem; border-radius: 0 4px 4px 0; margin-top: 0.75rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.6rem;">
+                        <strong style="color: var(--pico-primary); font-size: 0.9rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+                            {% if notif.metadata and notif.metadata.is_extension %}
+                            {{ icon('zap', size=15) }} Product VEX Extension Proposal
+                            {% else %}
+                            {{ icon('file-text', size=15) }} VEX Proposal Action
+                            {% endif %}
+                        </strong>
+                        <span style="font-size: 0.82rem; color: var(--pico-muted-color);">
+                            Requested Expiration: <strong style="color: var(--pico-color);">{{ (notif.metadata and notif.metadata.requested_expiration) or '30 days' }}</strong>
+                        </span>
+                    </div>
+                    {% if notif.metadata and notif.metadata.is_extension %}
+                    <div style="background: rgba(0, 170, 255, 0.12); border: 1px solid rgba(0, 170, 255, 0.3); padding: 0.4rem 0.75rem; border-radius: 4px; font-size: 0.82rem; margin-bottom: 0.6rem; color: #00aaff; display: inline-flex; align-items: center; gap: 0.35rem;">
+                        {{ icon('zap', size=13) }} <strong>Extension Request:</strong> Extends previously approved Product VEX (from <em>{{ notif.metadata.original_package }}</em>) to <strong>{{ notif.metadata.target_package }}</strong>.
+                    </div>
+                    {% endif %}
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap;">
+                            <span style="font-size: 0.82rem; font-weight: 600; white-space: nowrap;">Approved Expiration:</span>
+                            <select id="approve-exp-{{ notif.id }}" style="font-size: 0.8rem; padding: 0 0.5rem; width: auto; margin: 0; height: 34px; line-height: 34px;">
+                                {% for interval in expiration_intervals | default(['30 days', '90 days', '6 months']) %}
+                                <option value="{{ interval }}" {% if notif.metadata and notif.metadata.requested_expiration == interval %}selected{% endif %}>{{ interval }}</option>
+                                {% endfor %}
+                                <option value="indefinite" {% if notif.metadata and notif.metadata.requested_expiration in ['indefinite', 'none'] %}selected{% endif %}>No Expiration (Indefinite)</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap;">
+                            <button type="button" onclick="approveTriageProposal('{{ notif.metadata.triage_id }}', '{{ notif.id }}')" class="primary" style="font-size: 0.8rem; padding: 0 0.9rem; height: 34px; margin: 0; width: auto; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                {{ icon('check-circle', size=14) }} Approve Proposal
+                            </button>
+                            <button type="button" onclick="rejectTriageProposal('{{ notif.metadata.triage_id }}', '{{ notif.id }}')" class="secondary outline" style="font-size: 0.8rem; padding: 0 0.9rem; height: 34px; margin: 0; width: auto; white-space: nowrap; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.35rem;">
+                                {{ icon('x-circle', size=14) }} Reject Proposal
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </article>
 
         {% endfor %}
@@ -173,7 +176,7 @@
     <!-- Notification History Section -->
 
     <details id="notification-history-details" style="margin-top: 1.5rem; border: 1px solid var(--pico-border-color); border-radius: 8px; background: var(--pico-card-background-color, rgba(255,255,255,0.02)); overflow: hidden;" ontoggle="onHistoryToggle(this)">
-        <summary style="font-weight: 600; cursor: pointer; font-size: 0.95rem; padding: 0.85rem 1.25rem; display: flex; align-items: center; justify-content: space-between; user-select: none; background: rgba(0, 0, 0, 0.05); border-radius: 8px;">
+        <summary style="font-weight: 600; cursor: pointer; font-size: 0.95rem; padding: 0.85rem 1.25rem; display: flex; align-items: center; justify-content: space-between; user-select: none; background: rgba(0, 0, 0, 0.05); border-radius: 8px; list-style: none;">
             <div style="display: flex; align-items: center; gap: 0.6rem;">
                 <span id="history-toggle-icon" style="display: inline-flex; align-items: center; transition: transform 0.2s ease; color: var(--pico-primary);">{{ icon('chevron-right', size=15) }}</span>
                 <span style="color: var(--pico-color); display: inline-flex; align-items: center; gap: 0.4rem;">

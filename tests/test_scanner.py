@@ -125,7 +125,9 @@ def test_run_trivy_scan_image_no_tag():
         assert results == {"Vulnerabilities": []}
         assert commit_hash == "latest"
         assert tags_str == "ubuntu"
-        mock_container_instance.with_command.assert_called_with("image ubuntu -f json")
+        mock_container_instance.with_command.assert_called_with(
+            "image ubuntu --list-all-pkgs -f json"
+        )
 
 
 def test_run_trivy_scan_image_with_git_ref():
@@ -151,7 +153,7 @@ def test_run_trivy_scan_image_with_git_ref():
         assert commit_hash == "latest"
         assert tags_str == "ubuntu:20.04"
         mock_container_instance.with_command.assert_called_with(
-            "image ubuntu:20.04 -f json"
+            "image ubuntu:20.04 --list-all-pkgs -f json"
         )
 
 
@@ -179,7 +181,7 @@ def test_run_trivy_scan_image_with_existing_tag_and_git_ref():
         assert commit_hash == "latest"
         assert tags_str == "ubuntu:22.04"
         mock_container_instance.with_command.assert_called_with(
-            "image ubuntu:22.04 -f json"
+            "image ubuntu:22.04 --list-all-pkgs -f json"
         )
 
 
@@ -324,7 +326,7 @@ def test_run_semgrep_scan_clone_failure(mock_docker_from_env):
     )
 
     with patch("rover.scanner.DockerContainer") as MockDockerContainer:
-        with pytest.raises(docker.errors.ContainerError, match="Command.*clone.*"):
+        with pytest.raises(Exception, match=".*repository not found.*"):
             run_semgrep_scan("https://github.com/example/nonexistent")
 
         # Semgrep container should never have been instantiated

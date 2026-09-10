@@ -184,3 +184,53 @@ def restore_admin_notification(notification_id: str) -> None:
             .where(admin_notifications.c.id == notification_id)
             .values(is_dismissed=False, dismissed_at=None)
         )
+
+
+def dismiss_outdated_scanner_notifications(
+    source_tool: str, current_version: str
+) -> None:
+    """Dismisses active scanner update notifications for `source_tool` when configured image version >= available version."""
+    import re
+
+    def _parse_semver(v_str: str) -> tuple[int, int, int]:
+        cleaned = re.sub(r"^[vV]", "", v_str.strip())
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", cleaned)
+        if match:
+            return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        return (0, 0, 0)
+
+    curr_tuple = _parse_semver(current_version)
+    if curr_tuple == (0, 0, 0):
+        return
+
+    with get_db_connection() as conn:
+        active_notifs = conn.execute(
+            select(admin_notifications).where(
+                admin_notifications.c.source_tool == source_tool,
+                admin_notifications.c.category == "scanner_update",
+                admin_notifications.c.is_dismissed.is_(False),
+            )
+        ).fetchall()
+
+        for notif in active_notifs:
+            m_raw = notif._mapping.get("metadata_json")
+            metadata = {}
+            if isinstance(m_raw, (str, bytes)):
+                try:
+                    metadata = json.loads(m_raw)
+                except Exception:  # noqa: S110
+                    pass
+            elif isinstance(m_raw, dict):
+                metadata = m_raw
+
+            avail_v = metadata.get("available_version")
+            if avail_v:
+                avail_tuple = _parse_semver(avail_v)
+                if curr_tuple >= avail_tuple and avail_tuple != (0, 0, 0):
+                    conn.execute(
+                        update(admin_notifications)
+                        .where(admin_notifications.c.id == notif._mapping["id"])
+                        .values(
+                            is_dismissed=True, dismissed_at=func.current_timestamp()
+                        )
+                    )

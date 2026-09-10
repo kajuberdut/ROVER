@@ -39,26 +39,20 @@ def add_ci_image_metadata(
         return True
     except IntegrityError:
         with get_db_connection() as conn:
-            row = conn.execute(
-                select(
-                    ci_image_metadata.c.repo_uri, ci_image_metadata.c.commit_hash
-                ).where(ci_image_metadata.c.image_hash == image_hash)
-            ).fetchone()
-
-            if row and row.repo_uri == repo_uri and row.commit_hash == commit_hash:
-                conn.execute(
-                    update(ci_image_metadata)
-                    .where(ci_image_metadata.c.image_hash == image_hash)
-                    .values(
-                        metadata_json=metadata_json,
-                        image_tags=tags_json,
-                        ci_job_url=ci_job_url,
-                        created_by_user_sub=user_sub,
-                        created_by_token_id=token_id,
-                    )
+            conn.execute(
+                update(ci_image_metadata)
+                .where(ci_image_metadata.c.image_hash == image_hash)
+                .values(
+                    repo_uri=repo_uri,
+                    commit_hash=commit_hash,
+                    metadata_json=metadata_json,
+                    image_tags=tags_json,
+                    ci_job_url=ci_job_url,
+                    created_by_user_sub=user_sub,
+                    created_by_token_id=token_id,
                 )
-                return True
-        return False
+            )
+            return True
 
 
 def get_ci_image_metadata(image_hash: str) -> dict[str, Any] | None:

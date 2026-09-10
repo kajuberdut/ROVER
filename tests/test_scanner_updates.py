@@ -123,3 +123,45 @@ def test_check_scanner_updates_at_startup_handles_exception() -> None:
     ):
         # Should not raise exception
         check_scanner_updates_at_startup()
+
+
+def test_auto_dismiss_scanner_update_on_version_pin_update() -> None:
+    # 1. Clear any active Trivy notifications from prior test runs
+    for n in db.get_active_admin_notifications():
+        if n["source_tool"] == "trivy":
+            db.dismiss_admin_notification(n["id"])
+
+    # 2. Create an active Trivy update notification for v0.74.0
+    notif_id = db.create_admin_notification(
+        title="Trivy Scanner Update Available (v0.74.0)",
+        message="Version 0.74.0 of Trivy is now available.",
+        category="scanner_update",
+        source_tool="trivy",
+        metadata_dict={"current_version": "0.72.0", "available_version": "0.74.0"},
+    )
+    assert notif_id is not None
+
+    # Verify notification is active
+    active = db.get_active_admin_notifications()
+    assert any(n["id"] == notif_id for n in active)
+
+    # 2. Update configured trivy image pin to 0.74.0
+    mock_settings = MagicMock()
+    mock_settings.scanners.trivy_image = "aquasec/trivy:0.74.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f"
+    mock_settings.scanners.semgrep_image = "semgrep/semgrep:1.15.0"
+    mock_settings.scanners.snyk_image = "snyk/snyk:alpine@sha256:12345"
+    mock_settings.scanners.helm_image = "alpine/helm:3.16.2"
+
+    def mock_fetch(repo_slug, timeout=5, url_opener=None):
+        if repo_slug == "aquasecurity/trivy":
+            return "0.74.0"
+        return "1.15.0"
+
+    with patch(
+        "rover.scanner_updates.fetch_latest_upstream_release", side_effect=mock_fetch
+    ):
+        check_scanner_updates(settings_obj=mock_settings)
+
+    # 3. Verify the notification was automatically dismissed
+    active_after = db.get_active_admin_notifications()
+    assert not any(n["id"] == notif_id for n in active_after)

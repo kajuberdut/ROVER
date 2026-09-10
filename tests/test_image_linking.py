@@ -50,3 +50,32 @@ def test_image_link_repo_and_report_integration() -> None:
 
     assert semgrep_job is not None
     assert semgrep_job["target_url"] == source_url
+
+
+def test_update_existing_ci_image_metadata() -> None:
+    image_hash = "sha256:test_update_hash_123"
+    # Initial link
+    res1 = db.add_ci_image_metadata(
+        image_hash=image_hash,
+        repo_uri="https://github.com/nginx/nginx",
+        commit_hash="1.16.0",
+        metadata_dict={"source": "initial"},
+    )
+    assert res1 is True
+
+    meta1 = db.get_ci_image_metadata(image_hash)
+    assert meta1 is not None
+    assert meta1["commit_hash"] == "1.16.0"
+
+    # Edit/update existing link with corrected git_ref
+    res2 = db.add_ci_image_metadata(
+        image_hash=image_hash,
+        repo_uri="https://github.com/nginx/nginx",
+        commit_hash="release-1.16.0",
+        metadata_dict={"source": "manual_link_edit"},
+    )
+    assert res2 is True
+
+    meta2 = db.get_ci_image_metadata(image_hash)
+    assert meta2 is not None
+    assert meta2["commit_hash"] == "release-1.16.0"

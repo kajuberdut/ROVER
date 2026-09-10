@@ -63,7 +63,7 @@
                                 {% elif rule.event_type == 'eol.warning' %}
                                     background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);
                                 {% else %}
-                                    background: var(--pico-primary-background); color: var(--pico-primary);
+                                    background: var(--pico-primary); color: var(--pico-primary-inverse);
                                 {% endif %}
                             ">
                                 {{ rule.event_type }}
@@ -90,7 +90,7 @@
                                     {% if rule.min_severity == 'CRITICAL' %}background: #dc2626; color: #fff;
                                     {% elif rule.min_severity == 'HIGH' %}background: #ea580c; color: #fff;
                                     {% elif rule.min_severity == 'MEDIUM' %}background: #d97706; color: #fff;
-                                    {% else %}background: var(--pico-primary-background); color: var(--pico-primary);
+                                    {% else %}background: var(--pico-primary); color: var(--pico-primary-inverse);
                                     {% endif %}
                                 ">
                                     {{ rule.min_severity }}

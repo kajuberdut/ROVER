@@ -27,29 +27,34 @@
         {% endif %}
     </td>
     <td>
-        <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 1.1em;">
+        <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 1.05em;">
             {% if ns.has_data %}
-            {% if ns.critical > 0 %}<span style="color: #d32f2f;" title="Critical Risk">●</span>
-            {% elif ns.high > 0 %}<span style="color: #f57c00;" title="High Risk">●</span>
-            {% elif ns.medium > 0 %}<span style="color: #fbc02d;" title="Medium Risk">●</span>
-            {% elif ns.low > 0 %}<span style="color: #388e3c;" title="Low Risk">●</span>
-            {% else %}<span style="color: #388e3c;" title="Clean">●</span>{% endif %}
-            {% else %}
-            <span style="color: grey;" title="No Scan Data">○</span>
+            {% if ns.critical > 0 %}<span style="color: #ef4444;" title="Critical Risk">●</span>
+            {% elif ns.high > 0 %}<span style="color: #f97316;" title="High Risk">●</span>
+            {% elif ns.medium > 0 %}<span style="color: #eab308;" title="Medium Risk">●</span>
+            {% elif ns.low > 0 %}<span style="color: #10b981;" title="Low Risk">●</span>
+            {% else %}<span style="color: #10b981;" title="Clean">●</span>{% endif %}
             {% endif %}
             <span title="{{ asset.asset_name }}">{{ asset.asset_name | short_url }}</span>
         </div>
         {% if asset.asset_type == 'image' %}
             {% if asset.source_repo_url %}
-            <div style="font-size: 0.8em; color: var(--pico-muted-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">
-                <span title="Linked to Source Code">{{ icon('link', size=13) }}</span>
+            <div style="font-size: 0.8em; color: var(--pico-muted-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+                <span title="Linked to Source Code" style="color: var(--pico-primary);">{{ icon('link', size=13) }}</span>
                 <a href="{{ asset.source_repo_url }}" target="_blank" style="color: inherit; text-decoration: none;">{{ asset.source_repo_url | short_url }}</a>
+                {% set is_read_write = user and (user.role == "system_admin" or product_role in ["admin", "read_write"]) %}
+                {% if is_read_write %}
+                <button class="outline secondary" style="padding: 0.05rem 0.35rem; font-size: 0.85em; margin-bottom: 0; margin-left: 0.25rem; border-radius: 4px; background: transparent; height: auto;" data-asset-id="{{ asset.asset_id }}" data-asset-name="{{ asset.asset_name }}" data-repo-url="{{ asset.source_repo_url or '' }}" data-git-ref="{{ asset.image_source_git_ref or '' }}" onclick="openLinkRepoModalFromElem(this)" title="Edit linked source repository">{{ icon('edit-2', size=12) }} Edit</button>
+                {% endif %}
             </div>
             {% else %}
-            <div style="font-size: 0.8em; color: var(--pico-del-color); margin-top: 0.25rem; display: flex; align-items: center; gap: 0.25rem;">
+            <div style="font-size: 0.78em; margin-top: 0.35rem; display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 0.15rem 0.55rem; border-radius: 4px; font-weight: 500;">
                 <span title="Missing Source Code Annotations for Semgrep">{{ icon('alert-triangle', size=13) }}</span>
                 <span>Missing Source Link</span>
-                <button class="outline" style="padding: 0.1rem 0.3rem; font-size: 0.8em; border-color: var(--pico-del-color); color: var(--pico-del-color); margin-bottom: 0; margin-left: 0.5rem; border-radius: 4px;" onclick="openLinkRepoModal('{{ asset.asset_id }}', '{{ asset.asset_name }}')">Link</button>
+                {% set is_read_write = user and (user.role == "system_admin" or product_role in ["admin", "read_write"]) %}
+                {% if is_read_write %}
+                <button class="outline" style="padding: 0.05rem 0.35rem; font-size: 0.85em; border-color: rgba(245, 158, 11, 0.5); color: #fbbf24; margin-bottom: 0; margin-left: 0.25rem; border-radius: 4px; background: transparent; height: auto;" data-asset-id="{{ asset.asset_id }}" data-asset-name="{{ asset.asset_name }}" data-repo-url="" data-git-ref="" onclick="openLinkRepoModalFromElem(this)">Link</button>
+                {% endif %}
             </div>
             {% endif %}
         {% endif %}
@@ -86,11 +91,11 @@
         {% elif asset.latest_scan_status == 'running' %}
         <span aria-busy="true" style="white-space: nowrap;">Running...</span>
         {% elif asset.latest_scan_status == 'completed' %}
-        <span style="white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem;">{{ icon('check-circle', size=14) }} Completed</span>
+        <span style="white-space: nowrap; display: inline-flex; align-items: center; gap: 0.25rem; color: #10b981;">{{ icon('check-circle', size=14) }} Completed</span>
         {% elif asset.latest_scan_status == 'failed' %}
-        <span style="white-space: nowrap; color: #d32f2f; display: inline-flex; align-items: center; gap: 0.25rem;">{{ icon('x-circle', size=14) }} Failed</span>
+        <span style="white-space: nowrap; color: #ef4444; display: inline-flex; align-items: center; gap: 0.25rem;">{{ icon('x-circle', size=14) }} Failed</span>
         {% else %}
-        <span style="white-space: nowrap; color: grey;">Not Scanned</span>
+        <span style="white-space: nowrap; color: var(--pico-muted-color);">Not Scanned</span>
         {% endif %}
     </td>
     <td style="white-space: nowrap; color: var(--pico-muted-color); font-size: 0.85em;">{{ asset.latest_scan_time |
@@ -113,17 +118,17 @@
             {% endif %}
 
             {% if vulns_ns.total_vulns > 0 %}
-                <kbd style="background-color: {% if vulns_ns.has_critical %}#d32f2f{% elif vulns_ns.has_high %}#f57c00{% else %}#6200ee{% endif %}; border: none; color: white; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+                <kbd style="background-color: {% if vulns_ns.has_critical %}#ef4444{% elif vulns_ns.has_high %}#f97316{% else %}#8b5cf6{% endif %}; border: none; color: white; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 4px;">
                     {{ icon('shield-alert', size=13) }} {{ vulns_ns.total_vulns }} Findings
                 </kbd>
             {% elif vulns_ns.any_scanned and vulns_ns.all_clean %}
-                <kbd style="background-color: transparent; border: 1px solid #388e3c; color: #388e3c; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem;">
+                <kbd style="background-color: transparent; border: 1px solid #10b981; color: #10b981; font-weight: bold; font-family: inherit; font-size: 0.8em; padding: 0.2rem 0.55rem; display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 4px;">
                     {{ icon('shield-check', size=13) }} All Clean
                 </kbd>
             {% elif asset.latest_scan_status in ['queued', 'running'] %}
                 <span aria-busy="true" style="font-size: 0.85em; color: var(--pico-muted-color);">Scanning...</span>
             {% else %}
-                <span style="color: grey; font-size: 0.85em;">No Findings</span>
+                <span style="color: var(--pico-muted-color); font-size: 0.85em;">No Findings</span>
             {% endif %}
         </div>
     </td>
@@ -140,7 +145,7 @@
             <a href="/reports/{{ asset.latest_scan_id }}?back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}" role="button" class="outline secondary"
                 style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; flex-shrink: 0;">{{ icon('file-text', size=14) }} View Report</a>
             {% else %}
-            <span style="color: grey; font-size: 0.82em; margin-right: 0.2rem;">No Report</span>
+            <button class="outline secondary" disabled style="display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem; font-size: 0.8rem; height: 32px; padding: 0 0.65rem; border-radius: 6px; margin: 0; white-space: nowrap; flex-shrink: 0; opacity: 0.5;">No Report</button>
             {% endif %}
             {% if is_read_write %}
             <button type="button" class="outline" title="Remove Asset"
@@ -157,31 +162,32 @@
     </td>
 </tr>
 
-<tr style="background: rgba(0, 0, 0, 0.02); border-bottom: 2px solid var(--pico-muted-border-color);">
-    <td colspan="7" style="padding: 0.75rem 1.25rem;">
-        <div style="font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--pico-muted-color); margin-bottom: 0.5rem;">
-            <span>Scanner Pipeline & Time Tracking</span>
+<tr style="background: rgba(0, 0, 0, 0.015); border-bottom: 2px solid var(--pico-border-color);">
+    <td colspan="7" style="padding: 0.85rem 1.25rem;">
+        <div style="font-size: 0.78em; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--pico-muted-color); margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.4rem;">
+            {{ icon('activity', size=13) }}
+            <span>Scanner Pipeline & Execution Times</span>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.6rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
             {% for badge in asset.badges %}
-            <div style="background: var(--pico-card-background-color, #1e293b); border: 1px solid var(--pico-border-color, #334155); border-radius: 8px; padding: 0.55rem 0.75rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.35rem;">
+            <div style="background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); border-radius: 8px; padding: 0.65rem 0.85rem; display: flex; flex-direction: column; justify-content: space-between; gap: 0.5rem; transition: border-color 0.2s ease-in-out;">
                 <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.4rem;">
-                    <div style="font-weight: 600; font-size: 0.85em; display: flex; align-items: center; gap: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <div style="font-weight: 600; font-size: 0.85em; display: flex; align-items: center; gap: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pico-color);">
                         <span>{{ icon(badge.icon, size=15) if badge.icon else '' }}</span>
                         <span>{{ badge.display_name }}</span>
                     </div>
                     {% if badge.status != 'none' %}
-                    <kbd style="background-color: {{ badge.bg }}; border: 1px solid {{ badge.border or badge.bg }}; color: {{ badge.color or 'white' }}; font-weight: bold; font-family: inherit; font-size: 0.75em; padding: 0.1rem 0.35rem; white-space: nowrap;"
+                    <kbd style="background-color: {{ badge.bg }}; border: 1px solid {{ badge.border or badge.bg }}; color: {{ badge.color or 'white' }}; font-weight: bold; font-family: inherit; font-size: 0.75em; padding: 0.12rem 0.45rem; border-radius: 4px; white-space: nowrap;"
                          {% if badge.tooltip %}data-tooltip="{{ badge.tooltip }}" data-placement="bottom"{% endif %}
                          {% if badge.busy %}aria-busy="true"{% endif %}>
                         {{ badge.label }}
                     </kbd>
                     {% else %}
-                    <kbd style="background-color: transparent; border: 1px solid var(--pico-muted-border-color, #444); color: var(--pico-muted-color, grey); font-family: inherit; font-size: 0.75em; padding: 0.1rem 0.35rem; white-space: nowrap;">Idle</kbd>
+                    <kbd style="background-color: transparent; border: 1px solid var(--pico-muted-border-color, #444); color: var(--pico-muted-color, grey); font-family: inherit; font-size: 0.75em; padding: 0.12rem 0.45rem; border-radius: 4px; white-space: nowrap;">Idle</kbd>
                     {% endif %}
                 </div>
 
-                <div style="font-size: 0.78em; color: var(--pico-muted-color); display: flex; flex-direction: column; gap: 0.2rem;">
+                <div style="font-size: 0.8em; color: var(--pico-muted-color); display: flex; flex-direction: column; gap: 0.25rem;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span>Time:</span>
                         <span style="font-weight: 600; color: var(--pico-color);">
@@ -189,7 +195,7 @@
                                 {% if badge.duration_str %}{{ badge.duration_str }}{% else %}Running...{% endif %}
                                 {% if badge.avg_str %}<span style="font-weight: normal; color: var(--pico-muted-color);"> (avg: {{ badge.avg_str }})</span>{% endif %}
                             {% elif badge.status == 'queued' %}
-                                <span style="color: #ff9800;">Queued</span>
+                                <span style="color: #f59e0b;">Queued</span>
                                 {% if badge.avg_str %}<span style="font-weight: normal; color: var(--pico-muted-color);"> (avg: {{ badge.avg_str }})</span>{% endif %}
                             {% elif badge.duration_str %}
                                 {{ badge.duration_str }}
@@ -205,16 +211,16 @@
                     {% endif %}
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.2rem; padding-top: 0.4rem; border-top: 1px solid rgba(128, 128, 128, 0.15);">
                     {% if is_read_write %}
                     <form method="POST" action="/releases/assets/{{ asset.release_asset_id }}/scan?scanner={{ badge.scanner_name }}" style="margin: 0;">
-                        <button type="submit" class="outline" title="Re-scan with {{ badge.display_name }}" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.4rem; font-size: 0.72em; margin-bottom: 0; border-radius: 4px; font-weight: 600;">{{ icon('search', size=12) }} Scan</button>
+                        <button type="submit" class="outline secondary" title="Re-scan with {{ badge.display_name }}" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.5rem; font-size: 0.75em; margin-bottom: 0; border-radius: 4px; font-weight: 600;">{{ icon('search', size=12) }} Scan</button>
                     </form>
                     {% else %}
                     <span></span>
                     {% endif %}
                     {% if badge.latest_scan_id %}
-                    <a href="/reports/{{ badge.latest_scan_id }}?tab={{ badge.scanner_name }}&back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}#tab-{{ badge.scanner_name }}" style="font-size: 0.75em; text-decoration: none; font-weight: 600; color: var(--pico-primary);">View Details →</a>
+                    <a href="/reports/{{ badge.latest_scan_id }}?tab={{ badge.scanner_name }}&back=/releases/{{ release.id }}&back_label={{ release.name | urlencode }} {{ release.version | urlencode }}#tab-{{ badge.scanner_name }}" style="font-size: 0.78em; text-decoration: none; font-weight: 600; color: var(--pico-primary); display: inline-flex; align-items: center; gap: 0.2rem;">View Details →</a>
                     {% endif %}
                 </div>
             </div>

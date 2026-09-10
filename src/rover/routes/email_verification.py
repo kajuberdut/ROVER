@@ -56,6 +56,13 @@ class ConfirmEmailResource:
 
         if target_type == "destination" and target_id:
             db.set_destination_verified(target_id, True)
+            db.log_audit_event(
+                action="destination.email_verify",
+                resource_type="notification_destination",
+                resource_id=target_id,
+                user_email=email,
+                ip_address=req.remote_addr,
+            )
         elif email:
             db.set_user_verified(email, True)
             if target_id:
@@ -66,6 +73,15 @@ class ConfirmEmailResource:
             )
             if user_obj:
                 set_user_session_cookie(resp, req, user_obj)
+
+            db.log_audit_event(
+                action="user.email_verify",
+                resource_type="user",
+                resource_id=email,
+                user_email=email,
+                changes={"target_type": target_type, "target_id": target_id},
+                ip_address=req.remote_addr,
+            )
 
         user = getattr(req.context, "user", None)
         template = template_env.get_template("confirm_email.html")
@@ -105,6 +121,13 @@ class ForgotPasswordResource:
             if db_user:
                 base_url = f"{req.scheme}://{req.forwarded_host or req.host}"
                 send_password_reset_email(email, base_url=base_url)
+                db.log_audit_event(
+                    action="user.password_reset_request",
+                    resource_type="user",
+                    resource_id=email,
+                    user_email=email,
+                    ip_address=req.remote_addr,
+                )
 
         template = template_env.get_template("forgot_password.html")
         resp.text = template.render(
@@ -183,6 +206,13 @@ class ResetPasswordResource:
 
         try:
             update_authelia_user_password(target_identity, new_password)
+            db.log_audit_event(
+                action="user.password_change",
+                resource_type="user",
+                resource_id=target_identity,
+                user_email=target_identity,
+                ip_address=req.remote_addr,
+            )
             template = template_env.get_template("reset_password.html")
             resp.text = template.render(
                 user=getattr(req.context, "user", None),

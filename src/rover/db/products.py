@@ -285,6 +285,10 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
         SELECT sj.*, ROW_NUMBER() OVER(PARTITION BY sj.target_url, COALESCE(sj.git_ref, '') ORDER BY sj.created_at DESC) as rn
         FROM scanner_jobs sj
         WHERE sj.scanner_name = 'trivy'
+    ),
+    LatestCiMetadata AS (
+        SELECT cm.*, ROW_NUMBER() OVER(PARTITION BY cm.image_hash ORDER BY cm.created_at DESC) as rn
+        FROM ci_image_metadata cm
     )
     SELECT 
         pa.id as release_asset_id,
@@ -310,7 +314,7 @@ def get_release_assets_with_latest_scans(release_id: str) -> list[dict[str, Any]
     FROM release_assets pa
     LEFT JOIN repositories r ON pa.asset_type = 'repo' AND pa.asset_id = r.id
     LEFT JOIN images i ON pa.asset_type = 'image' AND pa.asset_id = i.id
-    LEFT JOIN ci_image_metadata cim ON pa.asset_type = 'image' AND i.image_hash = cim.image_hash
+    LEFT JOIN LatestCiMetadata cim ON pa.asset_type = 'image' AND i.image_hash = cim.image_hash AND cim.rn = 1
     LEFT JOIN major_components e ON pa.asset_type = 'major_component' AND pa.asset_id = e.id
     LEFT JOIN LatestScans ls ON 
         (ls.rn = 1) AND 

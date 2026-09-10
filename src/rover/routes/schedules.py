@@ -73,6 +73,21 @@ class ProductSchedulesResource:
             logger.info(
                 f"User {user_sub} created scheduled scan '{name}' ({schedule_id}) for product {product_id}"
             )
+            db.log_audit_event(
+                action="schedule.create",
+                resource_type="scheduled_scan",
+                resource_id=schedule_id,
+                user_sub=user_sub,
+                user_email=user.get("email") if user else None,
+                changes={
+                    "name": name,
+                    "product_id": product_id,
+                    "cron_expression": cron_expression,
+                    "release_id": release_id,
+                    "enabled": enabled,
+                },
+                ip_address=req.remote_addr,
+            )
             resp.status = falcon.HTTP_201
             resp.text = json.dumps(
                 {"schedule_id": schedule_id, "message": "Schedule created successfully"}
@@ -102,12 +117,22 @@ class ScheduleDetailResource:
         action = req.get_param("action") or "toggle"
         user = getattr(req.context, "user", None)
         user_sub = user.get("sub") if user else None
+        user_email = user.get("email") if user else None
 
         if action == "toggle":
             new_enabled = not schedule["enabled"]
             db.update_scheduled_scan(schedule_id, enabled=new_enabled)
             logger.info(
                 f"User {user_sub} toggled schedule {schedule_id} to enabled={new_enabled}"
+            )
+            db.log_audit_event(
+                action="schedule.update",
+                resource_type="scheduled_scan",
+                resource_id=schedule_id,
+                user_sub=user_sub,
+                user_email=user_email,
+                changes={"name": schedule.get("name"), "enabled": new_enabled},
+                ip_address=req.remote_addr,
             )
             resp.text = json.dumps({"schedule_id": schedule_id, "enabled": new_enabled})
             resp.content_type = falcon.MEDIA_JSON
@@ -122,6 +147,16 @@ class ScheduleDetailResource:
                 schedule_id, next_run_at=datetime.now(timezone.utc)
             )
             dispatched = dispatch_due_scheduled_scans()
+
+            db.log_audit_event(
+                action="schedule.trigger",
+                resource_type="scheduled_scan",
+                resource_id=schedule_id,
+                user_sub=user_sub,
+                user_email=user_email,
+                changes={"name": schedule.get("name"), "dispatched": dispatched},
+                ip_address=req.remote_addr,
+            )
 
             resp.text = json.dumps(
                 {
@@ -149,9 +184,24 @@ class ScheduleDetailResource:
 
         user = getattr(req.context, "user", None)
         user_sub = user.get("sub") if user else None
+        user_email = user.get("email") if user else None
 
         db.delete_scheduled_scan(schedule_id)
         logger.info(f"User {user_sub} deleted scheduled scan {schedule_id}")
+
+        db.log_audit_event(
+            action="schedule.delete",
+            resource_type="scheduled_scan",
+            resource_id=schedule_id,
+            user_sub=user_sub,
+            user_email=user_email,
+            changes={
+                "name": schedule.get("name"),
+                "product_id": schedule.get("product_id"),
+            },
+            ip_address=req.remote_addr,
+        )
+
         resp.text = json.dumps(
             {"schedule_id": schedule_id, "message": "Schedule deleted"}
         )

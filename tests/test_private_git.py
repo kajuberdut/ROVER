@@ -81,3 +81,33 @@ def test_get_authenticated_git_url_env_fallback() -> None:
     with patch.dict(os.environ, {"GITHUB_TOKEN": "ghp_env_token_777"}):
         auth_url = get_authenticated_git_url(url, vault_client=mock_vault)
         assert "ghp_env_token_777" in auth_url
+
+
+def test_parse_git_url_and_ref() -> None:
+    from rover.vault import parse_git_url_and_ref
+
+    # Clean URL without ref
+    url1, ref1 = parse_git_url_and_ref("https://github.com/nginx/nginx")
+    assert url1 == "https://github.com/nginx/nginx"
+    assert ref1 is None
+
+    # Full GitHub tree URL auto-extraction
+    url2, ref2 = parse_git_url_and_ref(
+        "https://github.com/nginx/nginx/tree/release-1.16.0"
+    )
+    assert url2 == "https://github.com/nginx/nginx"
+    assert ref2 == "release-1.16.0"
+
+    # Explicit ref override
+    url3, ref3 = parse_git_url_and_ref(
+        "https://github.com/nginx/nginx/tree/release-1.16.0", "custom-branch"
+    )
+    assert url3 == "https://github.com/nginx/nginx"
+    assert ref3 == "custom-branch"
+
+    # GitHub release tag URL
+    url4, ref4 = parse_git_url_and_ref(
+        "https://github.com/pallets/flask/releases/tag/2.3.0"
+    )
+    assert url4 == "https://github.com/pallets/flask"
+    assert ref4 == "2.3.0"

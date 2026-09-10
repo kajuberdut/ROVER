@@ -204,6 +204,20 @@ class AcceptInviteResource:
                     path="/",
                     max_age=86400,
                 )
+                db.log_audit_event(
+                    action="user.register_accept_invite",
+                    resource_type="user",
+                    resource_id=db_user["sub"],
+                    user_sub=db_user["sub"],
+                    user_email=email,
+                    changes={
+                        "username": username,
+                        "role": updated_invite["role"],
+                        "invite_id": invite.get("id"),
+                    },
+                    ip_address=req.remote_addr,
+                )
+
                 resp.media = {
                     "ok": True,
                     "role": updated_invite["role"],

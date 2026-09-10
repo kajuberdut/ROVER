@@ -21,6 +21,7 @@ Global roles define server-wide application access:
 ### `system_admin`
 - **Global Settings & Configuration**: Edit system configuration (`config.toml`), manage transport destinations, and configure server notification rules.
 - **User Governance**: Provision users, create and revoke invitation links, assign global roles, and invalidate API tokens.
+- **Security Audit Access**: Query historical security audit logs via `/api/admin/audit_logs` or inspect real-time SIEM log streams (`rover.audit`).
 - **Universal Product Authority**: Implicit `admin` rights across every product in the system without requiring explicit product assignment.
 - **Product Deletion**: Only a system admin may delete a product.
 

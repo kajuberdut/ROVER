@@ -1,5 +1,6 @@
 """src/rover/db/credentials.py — Database and OpenBao operations for managing credentials."""
 
+import logging
 import uuid
 from typing import Any
 
@@ -8,6 +9,8 @@ from sqlalchemy import delete, text
 from rover.db.connection import get_db_connection
 from rover.db.schema import credentials
 from rover.vault import OpenBaoClient
+
+logger = logging.getLogger(__name__)
 
 MASKED_SECRET_VALUE = "••••••••"  # noqa: S105
 
@@ -141,24 +144,61 @@ def get_unmasked_secret_by_type_info(
 ) -> tuple[str | None, dict[str, Any] | None]:
     """Fetches unmasked secret and metadata dictionary from OpenBao by credential type or name."""
     # 1. Search DB credentials table for matching records
-    with get_db_connection() as conn:
-        is_git_lookup = credential_type in ("git_token", "github_token")
-        if product_id:
+    try:
+        with get_db_connection() as conn:
+            is_git_lookup = credential_type in ("git_token", "github_token")
+            if product_id:
+                query = text("""
+                    SELECT id, name, type, scope, product_id FROM credentials
+                    WHERE product_id = :product_id
+                      AND (
+                          type = :type
+                          OR (:is_git_lookup = TRUE AND type IN ('git_token', 'github_token'))
+                          OR name = :hostname
+                          OR name = :type
+                      )
+                    ORDER BY (CASE WHEN type = :type THEN 1 ELSE 2 END), created_at DESC
+                """)
+                rows = conn.execute(
+                    query,
+                    {
+                        "product_id": product_id,
+                        "type": credential_type,
+                        "hostname": hostname or "",
+                        "is_git_lookup": is_git_lookup,
+                    },
+                ).fetchall()
+                for r in rows:
+                    sec = get_unmasked_secret(
+                        name=r.name,
+                        scope=r.scope,
+                        product_id=r.product_id,
+                        vault_client=vault_client,
+                    )
+                    if sec:
+                        info = {
+                            "id": r.id,
+                            "name": r.name,
+                            "type": r.type,
+                            "scope": r.scope,
+                            "product_id": r.product_id,
+                        }
+                        return sec, info
+
+            # Fallback check across all credentials (product or system) ordered by exact type match first, then product, then latest created_at
             query = text("""
                 SELECT id, name, type, scope, product_id FROM credentials
-                WHERE product_id = :product_id
-                  AND (
-                      type = :type
-                      OR (:is_git_lookup = TRUE AND type IN ('git_token', 'github_token'))
-                      OR name = :hostname
-                      OR name = :type
-                  )
-                ORDER BY (CASE WHEN type = :type THEN 1 ELSE 2 END), created_at DESC
+                WHERE (
+                    type = :type
+                    OR (:is_git_lookup = TRUE AND type IN ('git_token', 'github_token'))
+                    OR name = :hostname
+                    OR name = :type
+                )
+                ORDER BY (CASE WHEN type = :type THEN 1 WHEN scope = 'product' THEN 2 ELSE 3 END), created_at DESC
             """)
             rows = conn.execute(
                 query,
                 {
-                    "product_id": product_id,
                     "type": credential_type,
                     "hostname": hostname or "",
                     "is_git_lookup": is_git_lookup,
@@ -180,42 +220,9 @@ def get_unmasked_secret_by_type_info(
                         "product_id": r.product_id,
                     }
                     return sec, info
-
-        # Fallback check across all credentials (product or system) ordered by exact type match first, then product, then latest created_at
-        query = text("""
-            SELECT id, name, type, scope, product_id FROM credentials
-            WHERE (
-                type = :type
-                OR (:is_git_lookup = TRUE AND type IN ('git_token', 'github_token'))
-                OR name = :hostname
-                OR name = :type
-            )
-            ORDER BY (CASE WHEN type = :type THEN 1 WHEN scope = 'product' THEN 2 ELSE 3 END), created_at DESC
-        """)
-        rows = conn.execute(
-            query,
-            {
-                "type": credential_type,
-                "hostname": hostname or "",
-                "is_git_lookup": is_git_lookup,
-            },
-        ).fetchall()
-        for r in rows:
-            sec = get_unmasked_secret(
-                name=r.name,
-                scope=r.scope,
-                product_id=r.product_id,
-                vault_client=vault_client,
-            )
-            if sec:
-                info = {
-                    "id": r.id,
-                    "name": r.name,
-                    "type": r.type,
-                    "scope": r.scope,
-                    "product_id": r.product_id,
-                }
-                return sec, info
+    except Exception as e:
+        # Catch database connection or query execution errors so fallback mechanisms can operate offline
+        logger.warning(f"Database credential lookup skipped or failed: {e}")
 
     # 2. Fallback direct Vault path checks (for direct mock_vault or standard key names)
     if product_id:

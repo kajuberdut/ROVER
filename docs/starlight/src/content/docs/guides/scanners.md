@@ -102,3 +102,8 @@ You can obtain the `sha256` digest for an updated scanner image using any of the
    crane digest aquasec/trivy:0.74.0
    ```
 
+> [!IMPORTANT]
+> **Digest Resolution Precedence When Updating Image References**  
+> When combining both a tag and a digest (e.g., `aquasec/trivy:0.74.0@sha256:digest`), Docker engine resolves and executes the container strictly based on the `@sha256:digest` value and ignores the human-readable `:0.74.0` tag.  
+> Whenever you upgrade a scanner image version, ensure you update **both** the tag string and the corresponding SHA-256 digest in `config.toml` (or `/config`). If only the tag is changed while keeping an old SHA-256 digest, Docker will continue executing the older image layer.
+

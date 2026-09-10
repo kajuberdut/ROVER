@@ -50,7 +50,13 @@ def test_trivy_log_notice_parser() -> None:
 📣 Notices:
   - Version 0.72.0 of Trivy is now available, current version is 0.69.3.
 """
-    with patch("rover.db.create_admin_notification") as mock_create:
+    with (
+        patch(
+            "rover.config.get_scanner_image",
+            return_value="aquasec/trivy:0.69.3",
+        ),
+        patch("rover.db.create_admin_notification") as mock_create,
+    ):
         _check_and_raise_trivy_notices(stdout, stderr)
         mock_create.assert_called_once_with(
             title="Trivy Scanner Update Available (v0.72.0)",
@@ -62,6 +68,22 @@ def test_trivy_log_notice_parser() -> None:
                 "available_version": "0.72.0",
             },
         )
+
+
+def test_trivy_log_notice_parser_dismisses_when_up_to_date() -> None:
+    stdout = ""
+    stderr = "Version 0.72.0 of Trivy is now available, current version is 0.69.3."
+    with (
+        patch(
+            "rover.config.get_scanner_image",
+            return_value="aquasec/trivy:0.74.0",
+        ),
+        patch("rover.db.create_admin_notification") as mock_create,
+        patch("rover.db.dismiss_outdated_scanner_notifications") as mock_dismiss,
+    ):
+        _check_and_raise_trivy_notices(stdout, stderr)
+        mock_create.assert_not_called()
+        mock_dismiss.assert_called_once_with("trivy", "0.74.0")
 
 
 class MockVaultClient:

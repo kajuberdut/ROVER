@@ -498,3 +498,22 @@ vex_statements = Table(
         server_default=func.current_timestamp(),
     ),
 )
+
+audit_logs = Table(
+    "audit_logs",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("user_sub", String, default=None, index=True),
+    Column("user_email", String, default=None),
+    Column("action", String, nullable=False, index=True),
+    Column("resource_type", String, nullable=False),
+    Column("resource_id", String, default=None),
+    Column("changes_json", JSON, server_default="{}"),
+    Column("ip_address", String, default=None),
+    Column(
+        "created_at",
+        TIMESTAMP(timezone=True),
+        server_default=func.current_timestamp(),
+        index=True,
+    ),
+)

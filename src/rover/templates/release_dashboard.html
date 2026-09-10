@@ -12,37 +12,46 @@
 {% set is_admin = user.role == "system_admin" or product_role == "admin" %}
 {% set is_read_write = is_admin or product_role == "read_write" %}
 {% set is_read = is_read_write or product_role == "read" %}
-<section style="margin-bottom: 1.5rem;">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap;">
-        <hgroup style="margin-bottom: 0; flex: 1; min-width: 0; overflow-wrap: anywhere;">
-            <h1 style="margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                <span>{{ release.name }} v{{ release.version }}</span>
-                {% if release.is_end_of_life %}
-                <span class="role-badge" style="font-size: 0.7rem; padding: 0.15rem 0.5rem; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">EOL</span>
-                {% endif %}
-            </h1>
-            <p style="margin-bottom: 0; color: var(--pico-muted-color); font-size: 0.9rem;">Asset Management & Vulnerability Pipeline</p>
-        </hgroup>
+<section style="margin-bottom: 2rem;">
+    <!-- Title & Subtitle Row -->
+    <div style="margin-bottom: 1.25rem;">
+        <h1 style="margin-bottom: 0.25rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <span>{{ release.name }} v{{ release.version }}</span>
+            {% if release.is_end_of_life %}
+            <span class="role-badge" style="font-size: 0.7rem; padding: 0.15rem 0.5rem; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3);">EOL</span>
+            {% endif %}
+        </h1>
+        <p style="margin-bottom: 0; color: var(--pico-muted-color); font-size: 0.9rem;">Asset Management & Vulnerability Pipeline</p>
+    </div>
+
+    <!-- Action & Export Toolbar Row -->
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; background: var(--pico-card-background-color); border: 1px solid var(--pico-border-color); padding: 0.75rem 1rem; border-radius: 8px;">
+        <!-- Export Artifacts Pill Group -->
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+            <span style="font-size: 0.8rem; font-weight: 600; color: var(--pico-muted-color); text-transform: uppercase; letter-spacing: 0.05em; margin-right: 0.25rem;">Export:</span>
+            <a href="/api/releases/{{ release.id }}/sbom?format=cyclonedx" download="release-sbom-cyclonedx.json" class="outline secondary" style="height: 32px; padding: 0 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
+                {{ icon('download', size=14) }} CycloneDX
+            </a>
+            <a href="/api/releases/{{ release.id }}/sbom?format=spdx" download="release-sbom-spdx.json" class="outline secondary" style="height: 32px; padding: 0 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
+                {{ icon('download', size=14) }} SPDX
+            </a>
+            <a href="/api/releases/{{ release.id }}/vex.json" download="release-vex.openvex.json" class="outline secondary" style="height: 32px; padding: 0 0.65rem; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
+                {{ icon('shield', size=14) }} OpenVEX
+            </a>
+        </div>
+
+        <!-- Management Actions -->
         <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-            <a href="/api/releases/{{ release.id }}/sbom?format=cyclonedx" download="release-sbom-cyclonedx.json" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
-                {{ icon('download', size=16) }} SBOM (CycloneDX)
-            </a>
-            <a href="/api/releases/{{ release.id }}/sbom?format=spdx" download="release-sbom-spdx.json" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
-                {{ icon('download', size=16) }} SBOM (SPDX)
-            </a>
-            <a href="/api/releases/{{ release.id }}/vex.json" download="release-vex.openvex.json" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap; text-decoration: none;">
-                {{ icon('shield', size=16) }} OpenVEX
-            </a>
             {% if not release.is_end_of_life and is_read_write %}
             <button type="button" onclick="document.getElementById('add-asset-modal').showModal();"
-                style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
-                {{ icon('plus', size=16) }} Add Asset
+                style="height: 34px; padding: 0 0.85rem; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+                {{ icon('plus', size=15) }} Add Asset
             </button>
             {% endif %}
             {% if not release.is_end_of_life and is_read %}
             <form action="/releases/{{ release.id }}/scan" method="POST" style="margin-bottom: 0; display: inline;">
-                <button type="submit" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
-                    {{ icon('search', size=16) }} Scan All Assets
+                <button type="submit" class="outline secondary" style="height: 34px; padding: 0 0.85rem; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+                    {{ icon('search', size=15) }} Scan All Assets
                 </button>
             </form>
             {% endif %}
@@ -50,13 +59,13 @@
             <form action="/releases/{{ release.id }}/eol" method="POST" style="margin-bottom: 0; display: inline;">
                 {% if release.is_end_of_life %}
                 <input type="hidden" name="action" value="unmark_eol">
-                <button type="submit" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
-                    {{ icon('rotate-ccw', size=16) }} Reactivate
+                <button type="submit" class="outline secondary" style="height: 34px; padding: 0 0.85rem; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+                    {{ icon('rotate-ccw', size=15) }} Reactivate
                 </button>
                 {% else %}
                 <input type="hidden" name="action" value="mark_eol">
-                <button type="submit" class="outline secondary" style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
-                    {{ icon('calendar', size=16) }} Mark as EOL
+                <button type="submit" class="outline secondary" style="height: 34px; padding: 0 0.85rem; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; white-space: nowrap;">
+                    {{ icon('calendar', size=15) }} Mark as EOL
                 </button>
                 {% endif %}
             </form>
@@ -68,8 +77,8 @@
                 expectedText: `I understand`,
                 buttonText: `Permanently Delete`
             })"
-                style="height: 36px; padding: 0 0.85rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); white-space: nowrap;">
-                {{ icon('trash-2', size=16) }} Delete Release
+                style="height: 34px; padding: 0 0.85rem; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.4rem; margin-bottom: 0; border-radius: 6px; color: #ef4444; border-color: rgba(239, 68, 68, 0.4); white-space: nowrap;">
+                {{ icon('trash-2', size=15) }} Delete Release
             </button>
             {% endif %}
         </div>
@@ -296,25 +305,40 @@
 </dialog>
 
 <dialog id="link-repo-modal">
-    <article>
+    <article style="max-width: 540px;">
         <header>
             <button aria-label="Close" rel="prev"
                 onclick="closeLinkRepoModal();"></button>
             <strong>Link Source Repository</strong>
         </header>
         <form style="margin-bottom: 0;" id="link-repo-form" onsubmit="submitLinkRepo(event)">
-            <fieldset id="link-repo-fieldset">
-                <p style="margin-bottom: 1rem; color: var(--pico-muted-color); font-size: 0.85em;">
+            <fieldset id="link-repo-fieldset" style="margin-bottom: 0; padding: 0; border: none;">
+                <p style="margin-bottom: 1.25rem; color: var(--pico-muted-color); font-size: 0.85em; line-height: 1.4;">
                     Linking <strong id="link-target-image-name"></strong> to a source code repository will automatically trigger a Semgrep SAST scan on that repository, providing full-spectrum analysis for this image artifact.
                 </p>
                 <div id="link-repo-error" role="alert" style="display:none; background: color-mix(in srgb, var(--pico-del-color) 15%, transparent); border: 1px solid var(--pico-del-color); border-radius: var(--pico-border-radius); padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.875em; color: var(--pico-del-color);"></div>
-                <label>GitHub Repository URL
-                    <input type="url" name="source_repo_url" id="link-repo-url" placeholder="https://github.com/organization/repo" required>
-                </label>
-                <label>Git Ref (Optional)
-                    <input type="text" name="source_git_ref" id="link-repo-ref" placeholder="Branch, tag, or exact commit hash (e.g. main)">
-                </label>
-                <button type="submit" id="link-repo-submit" style="margin-top: 1rem; width: 100%;">Link and Scan</button>
+
+                <div style="margin-bottom: 1.25rem;">
+                    <label for="link-repo-url" style="font-weight: 600; margin-bottom: 0.35rem; display: block; font-size: 0.9em;">
+                        GitHub Repository URL <span style="color: var(--pico-del-color);">*</span>
+                    </label>
+                    <input type="url" name="source_repo_url" id="link-repo-url" placeholder="https://github.com/organization/repo or full /tree/release-1.16.0 link" required style="margin-bottom: 0.35rem;">
+                    <small style="color: var(--pico-muted-color); display: block; line-height: 1.4; font-size: 0.78em;">
+                        You can paste base repository URLs or full GitHub links (e.g. <code style="font-size: 0.85em; padding: 0.1rem 0.35rem;">https://github.com/nginx/nginx/tree/release-1.16.0</code>).
+                    </small>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label for="link-repo-ref" style="font-weight: 600; margin-bottom: 0.35rem; display: block; font-size: 0.9em;">
+                        Git Ref <span style="color: var(--pico-del-color);">*</span>
+                    </label>
+                    <input type="text" name="source_git_ref" id="link-repo-ref" placeholder="Branch, tag (e.g. release-1.16.0), or exact commit hash" required style="margin-bottom: 0.35rem;">
+                    <small style="color: var(--pico-muted-color); display: block; line-height: 1.4; font-size: 0.78em;">
+                        ROVER matches exact upstream branch names, tag names (e.g. <code style="font-size: 0.85em; padding: 0.1rem 0.35rem;">release-1.16.0</code> or <code style="font-size: 0.85em; padding: 0.1rem 0.35rem;">v1.16.0</code>), or commit hashes.
+                    </small>
+                </div>
+
+                <button type="submit" id="link-repo-submit" style="margin-top: 0.25rem; width: 100%;">Link and Scan</button>
             </fieldset>
         </form>
     </article>
@@ -341,20 +365,40 @@
 <script>
     let _linkRepoAssetId = null;
 
-    function openLinkRepoModal(assetId, assetName) {
+    function openLinkRepoModal(assetId, assetName, initialUrl = '', initialRef = '') {
         _linkRepoAssetId = assetId;
         document.getElementById('link-target-image-name').textContent = assetName;
-        document.getElementById('link-repo-url').value = '';
-        document.getElementById('link-repo-ref').value = '';
+        document.getElementById('link-repo-url').value = initialUrl || '';
+        document.getElementById('link-repo-ref').value = initialRef || '';
         document.getElementById('link-repo-error').style.display = 'none';
         document.getElementById('link-repo-error').textContent = '';
         const btn = document.getElementById('link-repo-submit');
-        btn.textContent = 'Link and Scan';
+        btn.textContent = initialUrl ? 'Update Link and Scan' : 'Link and Scan';
         btn.removeAttribute('aria-busy');
         btn.disabled = false;
         document.getElementById('link-repo-fieldset').disabled = false;
         document.getElementById('link-repo-modal').showModal();
     }
+
+    function openLinkRepoModalFromElem(elem) {
+        if (!elem) return;
+        const assetId = elem.dataset.assetId;
+        const assetName = elem.dataset.assetName;
+        const repoUrl = elem.dataset.repoUrl || '';
+        const gitRef = elem.dataset.gitRef || '';
+        openLinkRepoModal(assetId, assetName, repoUrl, gitRef);
+    }
+
+    // Auto-parse full tree/blob/tag/commit URLs pasted into link-repo-url
+    const linkRepoUrlRegex = new RegExp("^(https?://[^/]+/[^/]+/[^/]+?)(?:/tree/|/blob/|/releases/tag/|/commit/|/-/tree/|/-/commit/)([^/]+)(?:/.*)?$");
+    document.getElementById('link-repo-url').addEventListener('input', function(e) {
+        const val = e.target.value.trim();
+        const m = val.match(linkRepoUrlRegex);
+        if (m) {
+            e.target.value = m[1];
+            document.getElementById('link-repo-ref').value = m[2];
+        }
+    });
 
     function closeLinkRepoModal() {
         document.getElementById('link-repo-modal').close();
@@ -363,6 +407,12 @@
     async function submitLinkRepo(e) {
         e.preventDefault();
         if (!_linkRepoAssetId) return;
+
+        const form = document.getElementById('link-repo-form');
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
 
         const btn = document.getElementById('link-repo-submit');
         const fieldset = document.getElementById('link-repo-fieldset');
@@ -379,7 +429,7 @@
         try {
             const params = new URLSearchParams();
             params.append('source_repo_url', url);
-            if (ref) params.append('source_git_ref', ref);
+            params.append('source_git_ref', ref);
 
             const resp = await fetch(`/api/images/${_linkRepoAssetId}/link_repo`, {
                 method: 'POST',

@@ -551,6 +551,16 @@ class CallbackResource:
         # Set persistent secure cookie for ROVER
         set_user_session_cookie(resp, req, db_user, max_age=86400)
 
+        db.log_audit_event(
+            action="user.login",
+            resource_type="user",
+            resource_id=db_user["sub"],
+            user_sub=db_user["sub"],
+            user_email=db_user.get("email"),
+            changes={"name": db_user.get("name"), "role": db_user.get("role")},
+            ip_address=req.remote_addr,
+        )
+
         # Redirect to target page (defaulting to dashboard)
         next_url = state_data.get("next") or "/"
         if not next_url.startswith("/") or next_url.startswith("//"):
@@ -563,6 +573,18 @@ class LogoutResource:
     async def on_get(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response
     ) -> None:
+        user = getattr(req.context, "user", None) or {}
+        user_sub = user.get("sub")
+        if user_sub:
+            db.log_audit_event(
+                action="user.logout",
+                resource_type="user",
+                resource_id=user_sub,
+                user_sub=user_sub,
+                user_email=user.get("email"),
+                ip_address=req.remote_addr,
+            )
+
         # Unset local session & auth state cookies
         resp.unset_cookie(COOKIE_NAME, path="/")
         resp.unset_cookie("rover_auth_state", path="/")

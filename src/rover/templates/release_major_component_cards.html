@@ -54,6 +54,10 @@
     </footer>
 </article>
 {% else %}
-<p style="color: var(--pico-muted-color); font-style: italic;">No major components are currently being tracked for this
-    release.</p>
+<div style="grid-column: 1 / -1; background: var(--pico-card-background-color); border: 1px dashed var(--pico-border-color); border-radius: 8px; padding: 2rem 1.5rem; text-align: center; color: var(--pico-muted-color);">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+        <span style="opacity: 0.6;">{{ icon('layers', size=24) }}</span>
+        <span style="font-weight: 500; font-size: 0.9em;">No major components tracked for this release.</span>
+    </div>
+</div>
 {% endfor %}

@@ -197,14 +197,25 @@ class ImageLinkRepoResource:
                 )
 
         form = await req.get_media()
-        source_repo_url = form.get("source_repo_url")
-        source_git_ref = form.get("source_git_ref")
+        raw_repo_url = form.get("source_repo_url")
+        raw_git_ref = form.get("source_git_ref")
 
         image = db.get_image(image_id)
         if not image:
             raise falcon.HTTPNotFound(description="Image not found")
 
-        if source_repo_url:
+        if raw_repo_url:
+            source_repo_url, source_git_ref = vault.parse_git_url_and_ref(
+                raw_repo_url, raw_git_ref
+            )
+            if not source_git_ref:
+                resp.status = falcon.HTTP_400
+                resp.media = {
+                    "status": "error",
+                    "message": "Git ref is required. Please specify a branch, tag, or commit hash.",
+                }
+                return
+
             image_hash = image.get("image_hash")
             if not image_hash:
                 image_hash = await asyncio.to_thread(
@@ -230,6 +241,21 @@ class ImageLinkRepoResource:
 
             db.add_repository(source_repo_url)
             db.create_semgrep_job(source_repo_url, git_ref=source_git_ref or None)
+
+            db.log_audit_event(
+                action="image.link_repo",
+                resource_type="image",
+                resource_id=image_id,
+                user_sub=user.get("sub"),
+                user_email=user.get("email"),
+                changes={
+                    "image_name": image["name"],
+                    "repo_url": source_repo_url,
+                    "git_ref": source_git_ref,
+                },
+                ip_address=req.remote_addr,
+            )
+
             resp.media = {
                 "status": "ok",
                 "message": "Repository linked and scan enqueued.",

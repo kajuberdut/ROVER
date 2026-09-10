@@ -179,20 +179,45 @@ When creating or updating templates in `src/rover/templates/`:
    {% endblock %}
    ```
 
-2. **Card Headers**: Place title and subtitle text in standard flex header layouts:
+5. **Page Header & Subtitle Standardization (`<hgroup>`)**:
+   Always structure top page headers using a flex box wrapper with `<hgroup>` to maintain uniform font sizes, line heights, and margins across all application pages:
    ```html
-   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-       <div>
-           <h2>Title</h2>
-           <p style="color: var(--pico-muted-color); font-size: 0.9rem;">Description text...</p>
-       </div>
+   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+       <hgroup style="margin-bottom: 0;">
+           <h2 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+               {{ icon('alert-triangle', size=22) }} System Admin Alerts
+           </h2>
+           <h3 style="color: var(--pico-muted-color); font-size: 0.9rem; font-weight: normal; margin-bottom: 0;">
+               System-level operational notices and version updates requiring attention.
+           </h3>
+       </hgroup>
        <div>
            <a href="/target" role="button" class="secondary outline">Action</a>
        </div>
    </div>
    ```
 
-3. **Forms & Modals**: Wrap form controls inside native `<fieldset>` and `<label>` tags provided by Pico CSS for automatic vertical alignment.
+6. **Accordion Summaries & Marker Reset (`<details>` & `<summary>`)**:
+   - **Marker Reset**: Universal rules in `base.html` automatically hide default browser disclosure triangles (`summary::-webkit-details-marker`, `summary::marker`). When building custom summaries, explicitly include `list-style: none;` on the `<summary>` tag.
+   - **Custom Accordions**: Ensure custom summary headers render an explicit SVG toggle icon (`{{ icon('chevron-right', size=15) }}`) with CSS transition for 90° rotation on expansion.
+
+7. **Card Title & Badge Flex Alignment**:
+   - To prevent long title text from splitting multi-word badge pills or causing orphan badge wrapping, wrap titles and badges in a flex container with explicit shrink protection:
+   ```html
+   <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+       <span style="font-weight: 700; font-size: 1.05rem; flex: 1; min-width: 200px;">Title Text</span>
+       <div style="display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0;">
+           <span class="role-badge" style="white-space: nowrap;">Badge 1</span>
+           <span class="role-badge" style="white-space: nowrap;">Badge 2</span>
+       </div>
+   </div>
+   ```
+
+8. **Streamlined Queue Cards & Shared Banner Pattern**:
+   - **Shared Top Banner**: When multiple queue items share identical static guidance or universal action links (`Edit Configuration`, `Configuration Guide`), place a single notice banner at the top of the queue section rather than repeating identical callout boxes inside every card.
+   - **Compact Queue Items**: Compact individual alert/notification cards into clean, low-profile single-row flex items (~55px–65px height) showing: `[TOOL]` badge, Title, Version transition pill (`3.16.2 → 4.2.4`), Timestamp (`• 28 mins ago`), Item-specific action link (`[↗ Release Notes]`), and `Dismiss` button.
+
+9. **Forms & Modals**: Wrap form controls inside native `<fieldset>` and `<label>` tags provided by Pico CSS for automatic vertical alignment.
 
 ---
 

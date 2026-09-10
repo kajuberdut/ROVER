@@ -291,3 +291,46 @@ def sanitize_git_url(url: str) -> str:
             )
         )
     return url
+
+
+def parse_git_url_and_ref(
+    url: str, git_ref: str | None = None
+) -> tuple[str, str | None]:
+    """Parses a Git URL and extracts clean repository base URL and git_ref.
+
+    Handles GitHub, GitLab, and Bitbucket tree/blob/tag/commit URLs.
+    Example:
+      'https://github.com/nginx/nginx/tree/release-1.16.0' -> ('https://github.com/nginx/nginx', 'release-1.16.0')
+      'https://github.com/owner/repo/releases/tag/v1.0.0' -> ('https://github.com/owner/repo', 'v1.0.0')
+      'https://github.com/owner/repo/commit/abc1234' -> ('https://github.com/owner/repo', 'abc1234')
+    """
+    if not url:
+        return url, git_ref
+
+    import re
+
+    clean_url = url.strip()
+    extracted_ref = git_ref.strip() if git_ref and git_ref.strip() else None
+
+    # Matches GitHub/GitLab/Bitbucket deep link patterns:
+    # https://github.com/owner/repo/tree/ref_name
+    # https://github.com/owner/repo/blob/ref_name/path
+    # https://github.com/owner/repo/releases/tag/ref_name
+    # https://github.com/owner/repo/commit/commit_hash
+    # https://gitlab.com/owner/repo/-/tree/ref_name
+    # https://gitlab.com/owner/repo/-/commit/commit_hash
+    patterns = [
+        r"^(https?://[^/]+/[^/]+/[^/]+?)(?:/tree/|/blob/|/releases/tag/|/commit/|/-/tree/|/-/commit/)([^/]+)(?:/.*)?$",
+    ]
+
+    for pat in patterns:
+        m = re.match(pat, clean_url)
+        if m:
+            base_repo = m.group(1).rstrip("/")
+            url_ref = m.group(2)
+            if not extracted_ref:
+                extracted_ref = url_ref
+            clean_url = base_repo
+            break
+
+    return clean_url, extracted_ref

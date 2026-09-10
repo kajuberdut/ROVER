@@ -30,26 +30,41 @@ def _check_and_raise_trivy_notices(stdout: str, stderr: str) -> None:
         current_version = match.group(2)
 
         try:
-            from rover import db
+            from rover import config, db
+            from rover.scanner_updates import (
+                extract_version_from_image_ref,
+                is_newer_version,
+            )
 
-            title = f"Trivy Scanner Update Available (v{available_version})"
-            message = (
-                f"Version {available_version} of Trivy is now available. "
-                f"The current version running in ROVER is {current_version}."
+            configured_image = config.get_scanner_image("trivy")
+            configured_ver = (
+                extract_version_from_image_ref(configured_image) or current_version
             )
-            db.create_admin_notification(
-                title=title,
-                message=message,
-                category="scanner_update",
-                source_tool="trivy",
-                metadata_dict={
-                    "current_version": current_version,
-                    "available_version": available_version,
-                },
-            )
-            logger.info(
-                f"Recorded admin notification for Trivy update: v{current_version} -> v{available_version}"
-            )
+
+            if is_newer_version(available_version, configured_ver):
+                title = f"Trivy Scanner Update Available (v{available_version})"
+                message = (
+                    f"Version {available_version} of Trivy is now available. "
+                    f"The current version running in ROVER is {configured_ver}."
+                )
+                db.create_admin_notification(
+                    title=title,
+                    message=message,
+                    category="scanner_update",
+                    source_tool="trivy",
+                    metadata_dict={
+                        "current_version": configured_ver,
+                        "available_version": available_version,
+                    },
+                )
+                logger.info(
+                    f"Recorded admin notification for Trivy update: v{configured_ver} -> v{available_version}"
+                )
+            else:
+                db.dismiss_outdated_scanner_notifications("trivy", configured_ver)
+                logger.info(
+                    f"Auto-dismissed outdated Trivy update notifications: configured v{configured_ver} >= available v{available_version}"
+                )
         except (KeyError, ValueError, RuntimeError, TypeError) as e:
             # Catch metadata payload construction errors so scanner notices do not interrupt execution
             logger.warning(f"Failed to record Trivy update notification: {e}")
@@ -226,7 +241,8 @@ def _clone_and_resolve_git_repo(
     """Clones the repository at target_url, checks out git_ref, and resolves commit hash and tags."""
     import os
 
-    auth_url = vault.get_authenticated_git_url(target_url)
+    clean_url, clean_ref = vault.parse_git_url_and_ref(target_url, git_ref)
+    auth_url = vault.get_authenticated_git_url(clean_url)
     env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
     try:
         runner(
@@ -239,13 +255,13 @@ def _clone_and_resolve_git_repo(
         err_msg = (
             e.stderr.decode("utf-8") if isinstance(e.stderr, bytes) else str(e.stderr)
         )
-        logger.error(f"Failed to clone repository: {err_msg}")
-        raise Exception("Failed to clone target repository") from e
+        logger.error(f"Failed to clone repository '{clean_url}': {err_msg}")
+        raise Exception(f"Failed to clone repository '{clean_url}'") from e
 
-    if git_ref:
+    if clean_ref:
         try:
             runner(
-                ["git", "checkout", git_ref],
+                ["git", "checkout", clean_ref],
                 cwd=tmpdir,
                 check=True,
                 capture_output=True,
@@ -256,8 +272,11 @@ def _clone_and_resolve_git_repo(
                 if isinstance(e.stderr, bytes)
                 else str(e.stderr)
             )
-            logger.error(f"Failed to checkout ref {git_ref}: {err_msg}")
-            raise Exception(f"Failed to checkout git reference: {git_ref}") from e
+            logger.error(f"Failed to checkout ref {clean_ref}: {err_msg}")
+            raise Exception(
+                f"Git reference '{clean_ref}' not found in '{clean_url}'. "
+                f"Please verify exact branch, tag (e.g. 'release-1.16.0' or 'v1.16.0'), or commit hash."
+            ) from e
 
     try:
         res = runner(
@@ -310,8 +329,8 @@ def _record_vulnerabilities_to_ledger(
                         severity=sev,
                         fixed_version=f_ver,
                     )
-    except (KeyError, TypeError, ValueError, RuntimeError) as e:
-        # Catch missing vulnerability attributes or ledger mapping errors
+    except Exception as e:
+        # Catch database connection/insertion errors or vulnerability ledger mapping errors
         logger.warning(f"Failed to record asset vulnerabilities: {e}")
 
 
@@ -362,6 +381,37 @@ def _extract_and_record_sbom(
                     }
                 )
 
+            # Fallback: Extract packages from Vulnerabilities list if Packages list was omitted
+            seen_names = {c["name"] for c in sbom_comps}
+            for vuln in res_item.get("Vulnerabilities", []) or []:
+                p_name = vuln.get("PkgName")
+                if not p_name or p_name in seen_names:
+                    continue
+                p_ver = vuln.get("InstalledVersion", "unknown")
+                purl = (
+                    vuln.get("PkgIdentifier", {}).get("PURL")
+                    if isinstance(vuln.get("PkgIdentifier"), dict)
+                    else None
+                )
+                cpe = (
+                    vuln.get("PkgIdentifier", {}).get("CPE")
+                    if isinstance(vuln.get("PkgIdentifier"), dict)
+                    else None
+                )
+                seen_names.add(p_name)
+                sbom_comps.append(
+                    {
+                        "name": p_name,
+                        "version": p_ver,
+                        "purl": purl,
+                        "cpe": cpe,
+                        "license_spdx": None,
+                        "component_type": (
+                            "library" if target_type == "repo" else "container"
+                        ),
+                    }
+                )
+
         if release_asset_id and (sbom_comps or json_str):
             try:
                 db.add_sbom(
@@ -371,7 +421,9 @@ def _extract_and_record_sbom(
                     raw_payload=json_str,
                     components=sbom_comps,
                 )
-            except (KeyError, TypeError, ValueError, RuntimeError) as e:
+            except Exception as e:
+                # Catch database connection/insertion errors or payload parsing errors
+                logger.warning(f"Failed to record SBOM data: {e}")
                 # Catch component dictionary payload formatting or database insertion errors
                 logger.warning(f"Failed to record SBOM data: {e}")
 
@@ -528,9 +580,11 @@ class TrivyScannerPlugin:
             vex_flag = f"--vex {vex_path} " if vex_path else ""
             if target_type == "repo":
                 container.with_volume_mapping(tmpdir, "/src", "ro")
-                container.with_command(f"fs /src {vex_flag}-f json")
+                container.with_command(f"fs /src --list-all-pkgs {vex_flag}-f json")
             else:
-                container.with_command(f"image {image_target} {vex_flag}-f json")
+                container.with_command(
+                    f"image {image_target} --list-all-pkgs {vex_flag}-f json"
+                )
 
             try:
                 container.start()

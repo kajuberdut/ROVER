@@ -136,7 +136,7 @@ def test_trivy_scan_vex_and_db_ingestion():
 
     # Verify container command includes --vex flag
     mock_container.with_command.assert_called_with(
-        "image nginx:latest --vex /tmp/vendor.vex.json -f json"
+        "image nginx:latest --list-all-pkgs --vex /tmp/vendor.vex.json -f json"
     )
 
     # Verify ScanResult SBOM fields

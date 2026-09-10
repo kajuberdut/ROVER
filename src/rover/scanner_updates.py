@@ -162,6 +162,8 @@ def check_scanner_updates(
                         "available_version": available_ver,
                     }
                 )
+        else:
+            db.dismiss_outdated_scanner_notifications(tool_key, current_ver)
 
     return notifications_created
 

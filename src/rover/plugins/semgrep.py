@@ -115,17 +115,18 @@ class SemgrepScannerPlugin:
             docker_client.volumes.create(name=volume_name)
             logger.info(f"Created Docker volume {volume_name} for semgrep clone")
 
-            is_commit = bool(git_ref and re.fullmatch(r"[0-9a-f]{7,40}", git_ref))
+            clean_url, clean_ref = vault.parse_git_url_and_ref(target_url, git_ref)
+            is_commit = bool(clean_ref and re.fullmatch(r"[0-9a-f]{7,40}", clean_ref))
 
-            auth_url = vault.get_authenticated_git_url(target_url)
+            auth_url = vault.get_authenticated_git_url(clean_url)
 
             if is_commit:
                 clone_args = ["clone", auth_url, "/src"]
-            elif git_ref:
+            elif clean_ref:
                 clone_args = [
                     "clone",
                     "--branch",
-                    git_ref,
+                    clean_ref,
                     "--depth",
                     "1",
                     auth_url,
@@ -134,28 +135,81 @@ class SemgrepScannerPlugin:
             else:
                 clone_args = ["clone", "--depth", "1", auth_url, "/src"]
 
-            docker_client.containers.run(
-                "alpine/git",
-                command=clone_args,
-                volumes={volume_name: {"bind": "/src", "mode": "rw"}},
-                remove=True,
-                stdout=True,
-                stderr=True,
-            )
-
-            if is_commit:
+            try:
                 docker_client.containers.run(
                     "alpine/git",
-                    command=["-C", "/src", "checkout", git_ref],
+                    command=clone_args,
                     volumes={volume_name: {"bind": "/src", "mode": "rw"}},
                     remove=True,
                     stdout=True,
                     stderr=True,
                 )
-                logger.info(f"Checked out commit {git_ref} in volume {volume_name}")
+            except docker.errors.ContainerError as e:
+                # If shallow clone with --branch clean_ref failed, retry with full clone & explicit checkout
+                if clean_ref and not is_commit:
+                    logger.warning(
+                        f"Shallow clone with --branch '{clean_ref}' failed ({e}). Retrying full clone and checkout..."
+                    )
+                    try:
+                        docker_client.containers.run(
+                            "alpine/git",
+                            command=["clone", auth_url, "/src"],
+                            volumes={volume_name: {"bind": "/src", "mode": "rw"}},
+                            remove=True,
+                            stdout=True,
+                            stderr=True,
+                        )
+                        docker_client.containers.run(
+                            "alpine/git",
+                            command=["-C", "/src", "checkout", clean_ref],
+                            volumes={volume_name: {"bind": "/src", "mode": "rw"}},
+                            remove=True,
+                            stdout=True,
+                            stderr=True,
+                        )
+                    except docker.errors.ContainerError as checkout_err:
+                        err_bytes = getattr(checkout_err, "stderr", b"") or b""
+                        err_str = (
+                            err_bytes.decode("utf-8")
+                            if isinstance(err_bytes, bytes)
+                            else str(err_bytes)
+                        )
+                        logger.error(f"Git checkout '{clean_ref}' failed: {err_str}")
+                        raise Exception(
+                            f"Git reference '{clean_ref}' not found in '{clean_url}'. "
+                            f"Please verify exact branch, tag (e.g. 'release-1.16.0' or 'v1.16.0'), or commit hash."
+                        ) from checkout_err
+                else:
+                    err_bytes = getattr(e, "stderr", b"") or b""
+                    err_str = (
+                        err_bytes.decode("utf-8")
+                        if isinstance(err_bytes, bytes)
+                        else str(err_bytes)
+                    )
+                    raise Exception(
+                        f"Git clone failed for '{clean_url}' (ref '{clean_ref or 'default'}'): {err_str.strip() or str(e)}"
+                    ) from e
+
+            if is_commit and clean_ref:
+                try:
+                    docker_client.containers.run(
+                        "alpine/git",
+                        command=["-C", "/src", "checkout", clean_ref],
+                        volumes={volume_name: {"bind": "/src", "mode": "rw"}},
+                        remove=True,
+                        stdout=True,
+                        stderr=True,
+                    )
+                    logger.info(
+                        f"Checked out commit {clean_ref} in volume {volume_name}"
+                    )
+                except docker.errors.ContainerError as e:
+                    raise Exception(
+                        f"Git commit hash '{clean_ref}' not found in repository '{clean_url}'."
+                    ) from e
 
             logger.info(
-                f"Cloned {target_url} (ref={git_ref or 'default'}) into volume {volume_name}"
+                f"Cloned {clean_url} (ref={clean_ref or 'default'}) into volume {volume_name}"
             )
 
             commit_hash = "unknown"
