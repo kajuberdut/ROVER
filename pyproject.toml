@@ -66,7 +66,7 @@ lint = { cmd = "ruff check --fix .", help = "Lint code using ruff" }
 format = { cmd = "ruff format .", help = "Format code using ruff" }
 vulture = { cmd = "vulture src/", help = "Find dead code" }
 mypy = { cmd = "mypy src/", help = "Run mypy" }
-clean = { cmd = "python -c \"import shutil, glob; [shutil.rmtree(p, ignore_errors=True) for p in ['.pytest_cache', '.mypy_cache', '.ruff_cache', '.coverage', 'htmlcov', 'dist', 'build'] + glob.glob('**/__pycache__', recursive=True)]\"", help = "Clean test cache, coverage, and temporary build artifacts" }
+clean = { cmd = "python -c \"import shutil, glob; [shutil.rmtree(p, ignore_errors=True) for p in ['.pytest_cache', '.mypy_cache', '.ruff_cache', '.coverage', 'htmlcov', 'dist', 'build', 'cli/build', 'cli/dist'] + glob.glob('**/*.egg-info', recursive=True) + glob.glob('**/__pycache__', recursive=True)]\"", help = "Clean test cache, coverage, and temporary build artifacts" }
 verify = { sequence = ["lint", "format", "vulture", "test", "mypy"], help = "Run lint, format, vulture, test, and mypy in sequence" }
 up = { cmd = "docker compose -f docker/docker-compose.yml -p rover up -d --build", help = "Start the compose stack in Docker" }
 dev = { sequence = [{ cmd = "bin/dev-setup.sh" }, { cmd = "docker compose --env-file .env.dev -f docker/docker-compose.yml -f docker/docker-compose.dev.yml -p rover up -d --build" }], help = "Start the compose stack with Mailpit & WebhookHub dev mix-in" }
