@@ -1,5 +1,8 @@
+"""tests/test_cli.py — Unit and integration tests for ROVER CLI commands."""
+
 import json
 import sys
+import urllib.error
 from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -143,11 +146,172 @@ def test_cli_audit_logs_success_json() -> None:
         assert parsed["count"] == 0
 
 
-def test_cli_main_entrypoint() -> None:
+def test_cli_audit_logs_all_filter_options() -> None:
+    fake_args = MagicMock()
+    fake_args.token = "admin-token"
+    fake_args.url = "https://rover.local"
+    fake_args.action = "scans.trigger"
+    fake_args.resource_type = "release_asset"
+    fake_args.resource_id = "asset-99"
+    fake_args.user_sub = "sub-88"
+    fake_args.limit = 50
+    fake_args.offset = 10
+    fake_args.json = False
+
+    fake_data = {"audit_logs": [], "count": 0}
+    fake_response = MagicMock()
+    fake_response.read.return_value = json.dumps(fake_data).encode("utf-8")
+    fake_response.__enter__.return_value = fake_response
+
     with (
-        patch("sys.argv", ["rover-cli", "audit-logs", "--limit", "5"]),
-        patch.dict("os.environ", {"ROVER_API_TOKEN": "test-token"}),
-        patch("rover_cli.main.handle_audit_logs") as mock_handle,
+        patch("urllib.request.urlopen", return_value=fake_response) as mock_urlopen,
+        patch("sys.stdout", new_callable=StringIO) as mock_stdout,
     ):
-        main()
-        mock_handle.assert_called_once()
+        handle_audit_logs(fake_args)
+        output = mock_stdout.getvalue()
+        assert "No audit log records found." in output
+
+        req = mock_urlopen.call_args[0][0]
+        url = req.full_url
+        assert "https://rover.local/api/admin/audit_logs?" in url
+        assert "action=scans.trigger" in url
+        assert "resource_type=release_asset" in url
+        assert "resource_id=asset-99" in url
+        assert "user_sub=sub-88" in url
+        assert "limit=50" in url
+        assert "offset=10" in url
+
+
+def test_cli_audit_logs_missing_token() -> None:
+    fake_args = MagicMock()
+    fake_args.token = None
+
+    with (
+        patch.dict("os.environ", {}, clear=True),
+        patch("sys.stderr", new_callable=StringIO) as mock_stderr,
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        handle_audit_logs(fake_args)
+
+    assert exc_info.value.code == 1
+    assert (
+        "ROVER_API_TOKEN environment variable or --token flag is required"
+        in mock_stderr.getvalue()
+    )
+
+
+def test_cli_audit_logs_http_error_handling() -> None:
+    fake_args = MagicMock()
+    fake_args.token = "invalid-token"
+    fake_args.url = "http://localhost:8000"
+    fake_args.action = None
+    fake_args.resource_type = None
+    fake_args.resource_id = None
+    fake_args.user_sub = None
+    fake_args.limit = 10
+    fake_args.offset = 0
+    fake_args.json = False
+
+    http_err = urllib.error.HTTPError(
+        url="http://localhost:8000/api/admin/audit_logs",
+        code=403,
+        msg="Forbidden",
+        hdrs={},
+        fp=StringIO('{"error": "Forbidden: Requires system_admin role"}'),
+    )
+
+    with (
+        patch("urllib.request.urlopen", side_effect=http_err),
+        patch("sys.stderr", new_callable=StringIO) as mock_stderr,
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        handle_audit_logs(fake_args)
+
+    assert exc_info.value.code == 1
+    err_output = mock_stderr.getvalue()
+    assert "HTTP Error 403: Forbidden" in err_output
+    assert "Requires system_admin role" in err_output
+
+
+def test_cli_audit_logs_connection_error_handling() -> None:
+    fake_args = MagicMock()
+    fake_args.token = "admin-token"
+    fake_args.url = "http://unreachable-host:8000"
+    fake_args.action = None
+    fake_args.resource_type = None
+    fake_args.resource_id = None
+    fake_args.user_sub = None
+    fake_args.limit = 10
+    fake_args.offset = 0
+    fake_args.json = False
+
+    url_err = urllib.error.URLError(reason="Name or service not known")
+
+    with (
+        patch("urllib.request.urlopen", side_effect=url_err),
+        patch("sys.stderr", new_callable=StringIO) as mock_stderr,
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        handle_audit_logs(fake_args)
+
+    assert exc_info.value.code == 1
+    assert "Connection Error: Name or service not known" in mock_stderr.getvalue()
+
+
+def test_cli_main_entrypoint_aliases() -> None:
+    for cmd in ["audit-logs", "audit_logs", "audit"]:
+        with (
+            patch("sys.argv", ["rover-cli", cmd, "--limit", "5"]),
+            patch.dict("os.environ", {"ROVER_API_TOKEN": "test-token"}),
+            patch("rover_cli.main.handle_audit_logs") as mock_handle,
+        ):
+            main()
+            mock_handle.assert_called_once()
+
+
+@pytest.fixture
+def sqlite_test_db() -> None:
+    from sqlalchemy import create_engine
+
+    from rover.db import connection, schema
+
+    test_engine = create_engine("sqlite:///:memory:")
+    connection.engine = test_engine
+    schema.metadata.create_all(test_engine)
+
+
+def test_cli_integration_with_falcon_app(sqlite_test_db: None) -> None:
+    from falcon import testing
+
+    from rover.auth import COOKIE_NAME, cookie_serializer
+    from rover.db.audit import log_audit_event
+    from rover.routes import create_app
+
+    log_audit_event(
+        action="scans.trigger",
+        resource_type="release_asset",
+        resource_id="asset-777",
+        user_sub="admin-sub",
+        user_email="admin@rover.local",
+    )
+
+    app = create_app()
+    client = testing.TestClient(app)
+
+    session_data = {
+        "sub": "admin-sub",
+        "email": "admin@rover.local",
+        "name": "Test Admin",
+        "role": "system_admin",
+        "product_ids": [],
+    }
+    cookie_val = cookie_serializer.dumps(session_data)
+    headers = {"Cookie": f"{COOKIE_NAME}={cookie_val}"}
+
+    res = client.simulate_get(
+        "/api/admin/audit_logs?action=scans.trigger", headers=headers
+    )
+    assert res.status_code == 200
+    data = res.json
+    assert data["count"] == 1
+    assert data["audit_logs"][0]["resource_id"] == "asset-777"

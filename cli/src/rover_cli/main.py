@@ -7,6 +7,19 @@ import urllib.parse
 import urllib.request
 
 
+def _read_response_body(stream) -> str:
+    """Safely reads and decodes bytes or string from an HTTP response or error stream."""
+    if not stream:
+        return ""
+    try:
+        raw = stream.read()
+        if isinstance(raw, bytes):
+            return raw.decode("utf-8")
+        return str(raw)
+    except Exception:
+        return ""
+
+
 def handle_publish_metadata(args):
     """Handles the publish-metadata command."""
     token = args.token or os.environ.get("ROVER_API_TOKEN")
@@ -56,10 +69,10 @@ def handle_publish_metadata(args):
 
     try:
         with urllib.request.urlopen(req) as response:
-            resp_body = response.read().decode("utf-8")
+            resp_body = _read_response_body(response)
             print(f"Success ({response.status}): {resp_body}")
     except urllib.error.HTTPError as e:
-        resp_body = e.read().decode("utf-8") if e.fp else ""
+        resp_body = _read_response_body(e)
         print(f"HTTP Error {e.code}: {e.reason}", file=sys.stderr)
         if resp_body:
             print(resp_body, file=sys.stderr)
@@ -113,8 +126,8 @@ def handle_audit_logs(args):
 
     try:
         with urllib.request.urlopen(req) as response:
-            resp_body = response.read().decode("utf-8")
-            data = json.loads(resp_body)
+            resp_body = _read_response_body(response)
+            data = json.loads(resp_body) if resp_body else {}
             if args.json:
                 print(json.dumps(data, indent=2))
             else:
@@ -156,7 +169,7 @@ def handle_audit_logs(args):
                         )
                     )
     except urllib.error.HTTPError as e:
-        resp_body = e.read().decode("utf-8") if e.fp else ""
+        resp_body = _read_response_body(e)
         print(f"HTTP Error {e.code}: {e.reason}", file=sys.stderr)
         if resp_body:
             print(resp_body, file=sys.stderr)
