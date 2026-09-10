@@ -9,6 +9,8 @@ import json
 import os
 from datetime import datetime
 
+import falcon
+import falcon.asgi
 import jinja2
 
 template_dir = os.path.join(os.path.dirname(__file__), "..", "templates")
@@ -108,3 +110,20 @@ template_env.globals["get_active_notifications_count"] = _get_active_notificatio
 from rover.icons import render_icon
 
 template_env.globals["icon"] = render_icon
+
+
+def respond_action(
+    req: falcon.asgi.Request,
+    resp: falcon.asgi.Response,
+    redirect_url: str,
+    extra_json: dict[str, Any] | None = None,
+) -> None:
+    """Respond with JSON if requested by AJAX/API client, otherwise redirect."""
+    accept = req.get_header("Accept", default="").lower()
+    if "application/json" in accept or req.get_param("format") == "json":
+        payload: dict[str, Any] = {"ok": True}
+        if extra_json:
+            payload.update(extra_json)
+        resp.media = payload
+    else:
+        raise falcon.HTTPFound(redirect_url)

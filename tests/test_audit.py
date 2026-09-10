@@ -109,15 +109,14 @@ def test_api_token_revoke_endpoint() -> None:
     cleartext_token, token_id = db.create_api_token(
         user_sub="admin-sub", name="Test Revoke Token", permission="read"
     )
-    tokens_before = db.get_user_api_tokens("admin-sub")
-    assert any(t["id"] == token_id for t in tokens_before)
 
     app = create_app()
     client = testing.TestClient(app)
 
+    # 1. Test AJAX request (Accept: application/json) -> returns HTTP 200 JSON
     response = client.simulate_post(
         f"/settings/tokens/{token_id}/revoke",
-        headers=get_auth_headers("system_admin"),
+        headers={"Accept": "application/json", **get_auth_headers("system_admin")},
     )
     assert response.status_code == 200
     assert response.json == {"ok": True}
@@ -128,6 +127,17 @@ def test_api_token_revoke_endpoint() -> None:
     logs = db.get_audit_logs(action="user.api_token_revoke")
     assert len(logs) == 1
     assert logs[0]["resource_id"] == token_id
+
+    # 2. Test standard HTML form request (no Accept: application/json) -> returns HTTP 302 redirect
+    _, token_id2 = db.create_api_token(
+        user_sub="admin-sub", name="Test Revoke Token 2", permission="read"
+    )
+    response_form = client.simulate_post(
+        f"/settings/tokens/{token_id2}/revoke",
+        headers=get_auth_headers("system_admin"),
+    )
+    assert response_form.status_code == 302
+    assert response_form.headers["location"] == "/settings/tokens"
 
 
 def test_user_management_audit_events() -> None:

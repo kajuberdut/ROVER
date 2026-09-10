@@ -4,7 +4,7 @@ import falcon
 import falcon.asgi
 
 from rover import db
-from rover.routes._env import template_env
+from rover.routes._env import respond_action, template_env
 
 
 def _check_can_manage_tokens(req: falcon.asgi.Request) -> None:
@@ -50,7 +50,10 @@ class ApiTokenCreateResource:
         user = req.context.user
         cleartext_token, _ = db.create_api_token(user["sub"], name, permission)
 
-        raise falcon.HTTPFound(f"/settings/tokens?new_token={cleartext_token}")
+        redirect_url = f"/settings/tokens?new_token={cleartext_token}"
+        respond_action(
+            req, resp, redirect_url, extra_json={"new_token": cleartext_token}
+        )
 
 
 class ApiTokenRevokeResource:
@@ -68,4 +71,4 @@ class ApiTokenRevokeResource:
             user_email=user.get("email"),
             ip_address=req.remote_addr,
         )
-        resp.media = {"ok": True}
+        respond_action(req, resp, "/settings/tokens")

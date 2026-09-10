@@ -10,7 +10,7 @@ import falcon
 import falcon.asgi
 
 from rover import db, permissions
-from rover.routes._env import template_env
+from rover.routes._env import respond_action, template_env
 
 
 class RepositoryResource:
@@ -22,7 +22,7 @@ class RepositoryResource:
         if target_url:
             db.add_repository(target_url)
         referer = req.get_header("Referer", default="/")
-        raise falcon.HTTPFound(referer)
+        respond_action(req, resp, referer)
 
 
 class ImageResource:
@@ -38,7 +38,7 @@ class ImageResource:
             referer += "?tab=image"
         elif "tab=image" not in referer:
             referer += "&tab=image"
-        raise falcon.HTTPFound(referer)
+        respond_action(req, resp, referer)
 
 
 class MajorComponentResource:
@@ -57,7 +57,7 @@ class MajorComponentResource:
             referer += "?tab=major_component"
         elif "tab=major_component" not in referer:
             referer += "&tab=major_component"
-        raise falcon.HTTPFound(referer)
+        respond_action(req, resp, referer)
 
 
 class ReleaseAssetResource:
@@ -93,7 +93,7 @@ class ReleaseAssetResource:
         # Images can also use git_ref as their container tag
         if asset_type and asset_id:
             db.add_release_asset(release_id, asset_type, asset_id, git_ref)
-        raise falcon.HTTPFound(f"/releases/{release_id}")
+        respond_action(req, resp, f"/releases/{release_id}")
 
 
 class ReleaseAssetDetailResource:
@@ -117,7 +117,8 @@ class ReleaseAssetDetailResource:
                 user_email=user.get("email"),
                 ip_address=req.remote_addr,
             )
-        resp.media = {"ok": True}
+        referer = req.get_header("Referer", default="/releases")
+        respond_action(req, resp, referer)
 
 
 class ReleaseAssetsTableResource:

@@ -4,7 +4,7 @@ import falcon
 import falcon.asgi
 
 from rover import db, permissions
-from rover.routes._env import template_env
+from rover.routes._env import respond_action, template_env
 
 
 class AdminCredentialsResource:
@@ -46,7 +46,7 @@ class AdminCredentialsResource:
                 description=description,
             )
 
-        raise falcon.HTTPFound("/admin/credentials")
+        respond_action(req, resp, "/admin/credentials")
 
 
 class AdminCredentialDeleteResource:
@@ -67,4 +67,4 @@ class AdminCredentialDeleteResource:
             user_email=user.get("email"),
             ip_address=req.remote_addr,
         )
-        resp.media = {"ok": True}
+        respond_action(req, resp, "/admin/credentials")

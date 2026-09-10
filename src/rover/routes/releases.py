@@ -7,7 +7,7 @@ import falcon
 import falcon.asgi
 
 from rover import db, permissions
-from rover.routes._env import template_env
+from rover.routes._env import respond_action, template_env
 
 
 class ReleaseResource:
@@ -22,7 +22,7 @@ class ReleaseResource:
         if product_id and name and version:
             db.add_release(product_id, name, version)
         referer = req.get_header("Referer", default="/")
-        raise falcon.HTTPFound(referer)
+        respond_action(req, resp, referer)
 
 
 class ReleaseDashboardResource:
@@ -120,7 +120,7 @@ class ReleaseScanResource:
                 )
 
         referer = req.get_header("Referer", default=f"/releases/{release_id}")
-        raise falcon.HTTPFound(referer)
+        respond_action(req, resp, referer)
 
 
 class ReleaseEolResource:
@@ -135,7 +135,7 @@ class ReleaseEolResource:
         elif action == "unmark_eol":
             db.update_release_eol_status(release_id, is_eol=False)
         referer = req.get_header("Referer", default=f"/releases/{release_id}")
-        raise falcon.HTTPFound(referer)
+        respond_action(req, resp, referer)
 
 
 class AssetScanResource:
@@ -273,4 +273,7 @@ class ReleaseDeleteResource:
             user_email=user.get("email"),
             ip_address=req.remote_addr,
         )
-        resp.media = {"ok": True, "redirectUrl": f"/products/{product_id}"}
+        redirect_url = f"/products/{product_id}"
+        respond_action(
+            req, resp, redirect_url, extra_json={"redirectUrl": redirect_url}
+        )

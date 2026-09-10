@@ -4,7 +4,7 @@ import falcon
 import falcon.asgi
 
 from rover import db, permissions
-from rover.routes._env import template_env
+from rover.routes._env import respond_action, template_env
 
 
 class ProductResource:
@@ -18,7 +18,7 @@ class ProductResource:
         if name:
             db.add_product(name, description)
         referer = req.get_header("Referer", default="/")
-        raise falcon.HTTPFound(referer)
+        respond_action(req, resp, referer)
 
 
 class ProductDashboardResource:
@@ -63,7 +63,7 @@ class ProductDeleteResource:
             user_email=user.get("email"),
             ip_address=req.remote_addr,
         )
-        resp.media = {"ok": True, "redirectUrl": "/"}
+        respond_action(req, resp, "/", extra_json={"redirectUrl": "/"})
 
 
 class ProductPermissionsResource:
