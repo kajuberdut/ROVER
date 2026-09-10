@@ -32,3 +32,18 @@ rover-cli publish-metadata \
     --job-url "https://ci.example.com/job/123" \
     --tags "latest,v1.0.0"
 ```
+
+### `audit-logs`
+
+Retrieves and filters system audit log entries from `/api/admin/audit_logs` (requires `system_admin` privileges).
+
+```bash
+# Retrieve recent audit logs in tabular format
+rover-cli audit-logs --limit 20
+
+# Filter logs by action and output raw JSON
+rover-cli audit-logs --action user.invite_create --json
+
+# Filter logs by resource type and ID
+rover-cli audit-logs --resource-type user_invite --resource-id <invite_id>
+```
