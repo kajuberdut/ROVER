@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.parse
@@ -18,6 +19,24 @@ def _read_response_body(stream) -> str:
         return str(raw)
     except Exception:
         return ""
+
+
+def _get_ssl_context(args) -> ssl.SSLContext | None:
+    """Constructs an unverified SSL context if --insecure flag or ROVER_INSECURE env var is set."""
+    insecure_flag = getattr(args, "insecure", False)
+    env_insecure = os.environ.get("ROVER_INSECURE", "").lower() in ("1", "true", "yes")
+    env_skip_verify = os.environ.get("ROVER_SKIP_TLS_VERIFY", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    if insecure_flag or env_insecure or env_skip_verify:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    return None
 
 
 def handle_publish_metadata(args):
@@ -67,8 +86,10 @@ def handle_publish_metadata(args):
         method="POST",
     )
 
+    ssl_ctx = _get_ssl_context(args)
+
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, context=ssl_ctx) as response:
             resp_body = _read_response_body(response)
             print(f"Success ({response.status}): {resp_body}")
     except urllib.error.HTTPError as e:
@@ -124,8 +145,10 @@ def handle_audit_logs(args):
         method="GET",
     )
 
+    ssl_ctx = _get_ssl_context(args)
+
     try:
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, context=ssl_ctx) as response:
             resp_body = _read_response_body(response)
             data = json.loads(resp_body) if resp_body else {}
             if args.json:
@@ -188,6 +211,12 @@ def main():
     parser.add_argument(
         "--token",
         help="ROVER API Token (defaults to ROVER_API_TOKEN env var)",
+    )
+    parser.add_argument(
+        "--insecure",
+        "-k",
+        action="store_true",
+        help="Allow insecure SSL connections (skip TLS certificate verification)",
     )
 
     subparsers = parser.add_subparsers(

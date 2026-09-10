@@ -269,6 +269,40 @@ def test_cli_main_entrypoint_aliases() -> None:
             mock_handle.assert_called_once()
 
 
+def test_cli_insecure_ssl_context() -> None:
+    import ssl
+
+    from rover_cli.main import _get_ssl_context
+
+    # Default secure args
+    args_secure = MagicMock()
+    args_secure.insecure = False
+    with patch.dict("os.environ", {}, clear=True):
+        assert _get_ssl_context(args_secure) is None
+
+    # Insecure via flag
+    args_insecure = MagicMock()
+    args_insecure.insecure = True
+    ctx = _get_ssl_context(args_insecure)
+    assert ctx is not None
+    assert ctx.check_hostname is False
+    assert ctx.verify_mode == ssl.CERT_NONE
+
+    # Insecure via ROVER_INSECURE env var
+    with patch.dict("os.environ", {"ROVER_INSECURE": "1"}):
+        ctx_env = _get_ssl_context(args_secure)
+        assert ctx_env is not None
+        assert ctx_env.check_hostname is False
+        assert ctx_env.verify_mode == ssl.CERT_NONE
+
+    # Insecure via ROVER_SKIP_TLS_VERIFY env var
+    with patch.dict("os.environ", {"ROVER_SKIP_TLS_VERIFY": "true"}):
+        ctx_skip = _get_ssl_context(args_secure)
+        assert ctx_skip is not None
+        assert ctx_skip.check_hostname is False
+        assert ctx_skip.verify_mode == ssl.CERT_NONE
+
+
 @pytest.fixture
 def sqlite_test_db() -> None:
     from sqlalchemy import create_engine
