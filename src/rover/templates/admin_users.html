@@ -327,6 +327,7 @@
             message: `Are you sure you want to revoke all API tokens for <strong>${username}</strong>? This will immediately block their CI/CD pipeline access.`,
             actionUrl: '/admin/users',
             actionValue: 'revoke_api_tokens',
+            extraFields: { sub: sub },
             buttonText: 'Revoke API Tokens'
         });
     }

@@ -387,6 +387,20 @@
                 document.getElementById('global-confirm-action-input').value = 'delete';
             }
 
+            const extraContainer = document.getElementById('global-confirm-extra-inputs');
+            if (extraContainer) {
+                extraContainer.innerHTML = '';
+                if (options.extraFields) {
+                    for (const [key, val] of Object.entries(options.extraFields)) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = key;
+                        input.value = val;
+                        extraContainer.appendChild(input);
+                    }
+                }
+            }
+
             const btn = document.getElementById('global-confirm-btn');
             btn.value = options.buttonText || 'Confirm';
             
@@ -549,6 +563,7 @@
             </p>
             <form id="global-confirm-form" method="POST" style="margin-bottom: 0;">
                 <input type="hidden" name="action" value="delete" id="global-confirm-action-input">
+                <div id="global-confirm-extra-inputs"></div>
                 <input type="text" id="global-confirm-input" placeholder="" required style="display: none;">
                 <input type="submit" id="global-confirm-btn" value="Confirm" 
                        style="background-color: #d32f2f; border-color: #d32f2f; color: white;">
@@ -563,6 +578,46 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const confirmForm = document.getElementById('global-confirm-form');
+            if (confirmForm) {
+                confirmForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const btn = document.getElementById('global-confirm-btn');
+                    const origVal = btn.value;
+                    btn.disabled = true;
+                    btn.value = 'Processing...';
+
+                    try {
+                        const formData = new FormData(confirmForm);
+                        const resp = await fetch(confirmForm.action, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: new URLSearchParams(formData).toString()
+                        });
+
+                        if (resp.ok) {
+                            const data = await resp.json().catch(() => ({}));
+                            document.getElementById('global-confirm-modal').close();
+                            if (data.count !== undefined) {
+                                showToast(`Action completed (${data.count} items affected).`, true);
+                            } else {
+                                showToast('Action completed successfully.', true);
+                            }
+                            setTimeout(() => window.location.reload(), 400);
+                        } else {
+                            const data = await resp.json().catch(() => ({}));
+                            showToast('Action failed: ' + (data.error || resp.statusText), false);
+                            btn.disabled = false;
+                            btn.value = origVal;
+                        }
+                    } catch (err) {
+                        showToast('Action failed: ' + err, false);
+                        btn.disabled = false;
+                        btn.value = origVal;
+                    }
+                });
+            }
+
             // Global backdrop click-to-close listener for HTML5 <dialog> modals
             document.addEventListener('click', (e) => {
                 if (e.target.tagName === 'DIALOG' && e.target.hasAttribute('open')) {
