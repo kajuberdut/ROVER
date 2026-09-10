@@ -106,10 +106,18 @@ class ReleaseAssetDetailResource:
     ) -> None:
         form = await req.get_media()
         action = form.get("action")
+        user = getattr(req.context, "user", None) or {}
         if action == "delete":
             db.remove_release_asset(release_asset_id)
-        referer = req.get_header("Referer", default="/releases")
-        raise falcon.HTTPFound(referer)
+            db.log_audit_event(
+                action="release.asset_remove",
+                resource_type="release_asset",
+                resource_id=release_asset_id,
+                user_sub=user.get("sub"),
+                user_email=user.get("email"),
+                ip_address=req.remote_addr,
+            )
+        resp.media = {"ok": True}
 
 
 class ReleaseAssetsTableResource:

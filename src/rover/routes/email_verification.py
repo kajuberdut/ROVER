@@ -347,4 +347,8 @@ class UnsubscribeResource:
             for d in user_dests:
                 db.delete_notification_destination(d["id"])
 
-        raise falcon.HTTPFound("/user/subscriptions?unsubscribed=true")
+        accept = req.get_header("Accept", default="")
+        if "application/json" in accept.lower():
+            resp.media = {"ok": True}
+        else:
+            raise falcon.HTTPFound("/user/subscriptions?unsubscribed=true")

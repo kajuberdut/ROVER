@@ -53,8 +53,17 @@ class ProductDeleteResource:
     async def on_post(
         self, req: falcon.asgi.Request, resp: falcon.asgi.Response, product_id: str
     ) -> None:
+        user = getattr(req.context, "user", None) or {}
         db.delete_product(product_id)
-        raise falcon.HTTPFound("/")
+        db.log_audit_event(
+            action="product.delete",
+            resource_type="product",
+            resource_id=product_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            ip_address=req.remote_addr,
+        )
+        resp.media = {"ok": True, "redirectUrl": "/"}
 
 
 class ProductPermissionsResource:

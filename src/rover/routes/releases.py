@@ -259,7 +259,18 @@ class ReleaseDeleteResource:
     ) -> None:
         release = db.get_release(release_id)
         if not release:
-            raise falcon.HTTPFound("/?error=release_not_found")
+            resp.status = falcon.HTTP_404
+            resp.media = {"error": "Release not found"}
+            return
         product_id = release["product_id"]
+        user = getattr(req.context, "user", None) or {}
         db.delete_release(release_id)
-        raise falcon.HTTPFound(f"/products/{product_id}")
+        db.log_audit_event(
+            action="release.delete",
+            resource_type="release",
+            resource_id=release_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            ip_address=req.remote_addr,
+        )
+        resp.media = {"ok": True, "redirectUrl": f"/products/{product_id}"}

@@ -60,4 +60,12 @@ class ApiTokenRevokeResource:
         _check_can_manage_tokens(req)
         user = req.context.user
         db.revoke_api_token(token_id, user["sub"])
-        raise falcon.HTTPFound("/settings/tokens")
+        db.log_audit_event(
+            action="user.api_token_revoke",
+            resource_type="api_token",
+            resource_id=token_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            ip_address=req.remote_addr,
+        )
+        resp.media = {"ok": True}

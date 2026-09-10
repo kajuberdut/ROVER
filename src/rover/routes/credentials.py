@@ -57,5 +57,14 @@ class AdminCredentialDeleteResource:
         resp: falcon.asgi.Response,
         credential_id: str,
     ) -> None:
+        user = getattr(req.context, "user", None) or {}
         db.delete_credential(credential_id)
-        raise falcon.HTTPFound("/admin/credentials")
+        db.log_audit_event(
+            action="admin.credential_delete",
+            resource_type="credential",
+            resource_id=credential_id,
+            user_sub=user.get("sub"),
+            user_email=user.get("email"),
+            ip_address=req.remote_addr,
+        )
+        resp.media = {"ok": True}

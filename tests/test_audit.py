@@ -7,6 +7,7 @@ import pytest
 from falcon import testing
 from sqlalchemy import create_engine
 
+from rover import db
 from rover.db import connection, schema
 from rover.db.audit import get_audit_logs, log_audit_event
 from rover.routes import create_app
@@ -102,6 +103,31 @@ def test_admin_audit_logs_api_endpoint() -> None:
     assert data["count"] >= 1
     actions = [log["action"] for log in data["audit_logs"]]
     assert "release.delete" in actions
+
+
+def test_api_token_revoke_endpoint() -> None:
+    cleartext_token, token_id = db.create_api_token(
+        user_sub="admin-sub", name="Test Revoke Token", permission="read"
+    )
+    tokens_before = db.get_user_api_tokens("admin-sub")
+    assert any(t["id"] == token_id for t in tokens_before)
+
+    app = create_app()
+    client = testing.TestClient(app)
+
+    response = client.simulate_post(
+        f"/settings/tokens/{token_id}/revoke",
+        headers=get_auth_headers("system_admin"),
+    )
+    assert response.status_code == 200
+    assert response.json == {"ok": True}
+
+    tokens_after = db.get_user_api_tokens("admin-sub")
+    assert not any(t["id"] == token_id for t in tokens_after)
+
+    logs = db.get_audit_logs(action="user.api_token_revoke")
+    assert len(logs) == 1
+    assert logs[0]["resource_id"] == token_id
 
 
 def test_user_management_audit_events() -> None:
