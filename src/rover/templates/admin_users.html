@@ -258,7 +258,7 @@
         submitBtn.innerText = 'Generating Invitation...';
 
         try {
-            const res = await fetch('/admin/invites', {
+            const res = await fetch('/admin/invites/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ role, email, send_email: sendEmail })
