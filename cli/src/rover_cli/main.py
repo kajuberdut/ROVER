@@ -41,7 +41,7 @@ def _get_ssl_context(args) -> ssl.SSLContext | None:
 
 def handle_publish_metadata(args):
     """Handles the publish-metadata command."""
-    token = args.token or os.environ.get("ROVER_API_TOKEN")
+    token = getattr(args, "token", None) or os.environ.get("ROVER_API_TOKEN")
     if not token:
         print(
             "Error: ROVER_API_TOKEN environment variable or --token flag is required.",
@@ -49,12 +49,14 @@ def handle_publish_metadata(args):
         )
         sys.exit(1)
 
-    url = args.url or os.environ.get("ROVER_URL", "http://localhost:8000")
+    url = getattr(args, "url", None) or os.environ.get(
+        "ROVER_URL", "http://localhost:8000"
+    )
     endpoint = f"{url.rstrip('/')}/api/ci/image-metadata"
 
     # Parse metadata if provided
     metadata_dict = {}
-    if args.metadata:
+    if getattr(args, "metadata", None):
         try:
             metadata_dict = json.loads(args.metadata)
         except json.JSONDecodeError as e:
@@ -62,7 +64,8 @@ def handle_publish_metadata(args):
             sys.exit(1)
 
     # Parse tags
-    tags = [t.strip() for t in args.tags.split(",")] if args.tags else []
+    raw_tags = getattr(args, "tags", None)
+    tags = [t.strip() for t in raw_tags.split(",")] if raw_tags else []
 
     payload = {
         "image_hash": args.hash,
@@ -71,7 +74,7 @@ def handle_publish_metadata(args):
         "metadata": metadata_dict,
         "image_tags": tags,
     }
-    if args.job_url:
+    if getattr(args, "job_url", None):
         payload["ci_job_url"] = args.job_url
 
     data = json.dumps(payload).encode("utf-8")
@@ -105,7 +108,7 @@ def handle_publish_metadata(args):
 
 def handle_audit_logs(args):
     """Handles the audit-logs command."""
-    token = args.token or os.environ.get("ROVER_API_TOKEN")
+    token = getattr(args, "token", None) or os.environ.get("ROVER_API_TOKEN")
     if not token:
         print(
             "Error: ROVER_API_TOKEN environment variable or --token flag is required.",
@@ -113,21 +116,23 @@ def handle_audit_logs(args):
         )
         sys.exit(1)
 
-    url = args.url or os.environ.get("ROVER_URL", "http://localhost:8000")
+    url = getattr(args, "url", None) or os.environ.get(
+        "ROVER_URL", "http://localhost:8000"
+    )
     base_endpoint = f"{url.rstrip('/')}/api/admin/audit_logs"
 
     params = {}
-    if args.action:
+    if getattr(args, "action", None):
         params["action"] = args.action
-    if args.resource_type:
+    if getattr(args, "resource_type", None):
         params["resource_type"] = args.resource_type
-    if args.resource_id:
+    if getattr(args, "resource_id", None):
         params["resource_id"] = args.resource_id
-    if args.user_sub:
+    if getattr(args, "user_sub", None):
         params["user_sub"] = args.user_sub
-    if args.limit is not None:
+    if getattr(args, "limit", None) is not None:
         params["limit"] = str(args.limit)
-    if args.offset is not None:
+    if getattr(args, "offset", None) is not None:
         params["offset"] = str(args.offset)
 
     if params:
@@ -151,7 +156,7 @@ def handle_audit_logs(args):
         with urllib.request.urlopen(req, context=ssl_ctx) as response:
             resp_body = _read_response_body(response)
             data = json.loads(resp_body) if resp_body else {}
-            if args.json:
+            if getattr(args, "json", False):
                 print(json.dumps(data, indent=2))
             else:
                 logs = data.get("audit_logs", [])
@@ -203,20 +208,27 @@ def handle_audit_logs(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="ROVER Command Line Interface")
-    parser.add_argument(
+    common_parser = argparse.ArgumentParser(add_help=False)
+    common_parser.add_argument(
         "--url",
+        default=argparse.SUPPRESS,
         help="ROVER server URL (defaults to ROVER_URL env var or http://localhost:8000)",
     )
-    parser.add_argument(
+    common_parser.add_argument(
         "--token",
+        default=argparse.SUPPRESS,
         help="ROVER API Token (defaults to ROVER_API_TOKEN env var)",
     )
-    parser.add_argument(
+    common_parser.add_argument(
         "--insecure",
         "-k",
         action="store_true",
+        default=argparse.SUPPRESS,
         help="Allow insecure SSL connections (skip TLS certificate verification)",
+    )
+
+    parser = argparse.ArgumentParser(
+        description="ROVER Command Line Interface", parents=[common_parser]
     )
 
     subparsers = parser.add_subparsers(
@@ -225,7 +237,9 @@ def main():
 
     # publish-metadata command
     publish_parser = subparsers.add_parser(
-        "publish-metadata", help="Publish CI image metadata to ROVER"
+        "publish-metadata",
+        parents=[common_parser],
+        help="Publish CI image metadata to ROVER",
     )
     publish_parser.add_argument(
         "--hash", required=True, help="The image hash (e.g., sha256:...)"
@@ -246,6 +260,7 @@ def main():
     audit_parser = subparsers.add_parser(
         "audit-logs",
         aliases=["audit_logs", "audit"],
+        parents=[common_parser],
         help="Retrieve and filter historical audit logs (requires system_admin role)",
     )
     audit_parser.add_argument(
